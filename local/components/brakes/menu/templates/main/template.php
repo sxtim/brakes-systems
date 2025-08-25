@@ -3,12 +3,6 @@
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
-
-$GLOBALS['APPLICATION']->RestartBuffer();
-echo '<pre>';
-var_dump($arResult);
-echo '</pre>';
-exit;
 ?>
 <nav class="header__top-nav" id="header__top-nav">
     <ul class="header__top-list">
