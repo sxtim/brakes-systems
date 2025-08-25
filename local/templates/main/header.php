@@ -1,0 +1,1320 @@
+<?php
+
+use Bitrix\Main\Page\Asset;
+
+if ( ! defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
+    exit;
+}
+
+Asset::getInstance()->addJs(SITE_TEMPLATE_PATH.'/assets/js/app.min.js');
+Asset::getInstance()->addJs(SITE_TEMPLATE_PATH.'/assets/js/slider.min.js');
+Asset::getInstance()->addJs(SITE_TEMPLATE_PATH.'/assets/js/popup.min.js');
+Asset::getInstance()->addJs(SITE_TEMPLATE_PATH.'/assets/js/cataloge.min.js');
+
+Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/app.min.css');
+Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/slider.min.css');
+Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/index.min.css');
+Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/popup.min.css');
+
+Asset::getInstance()->addString('<meta charset="'.LANG_CHARSET.'">');
+Asset::getInstance()->addString(
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+);
+Asset::getInstance()->addString(
+    '<link rel="preload" href="'.SITE_TEMPLATE_PATH
+    .'/assets/fonts/Montserrat-SemiBold.woff2" as="font" type="font/woff2" crossorigin="anonymous">'
+);
+Asset::getInstance()->addString(
+    '<link rel="preload" href="'.SITE_TEMPLATE_PATH
+    .'/assets/fonts/Montserrat-Regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">'
+);
+Asset::getInstance()->addString(
+    '<link rel="preload" href="'.SITE_TEMPLATE_PATH
+    .'/assets/fonts/Montserrat-Medium.woff2" as="font" type="font/woff2" crossorigin="anonymous">'
+);
+Asset::getInstance()->addString(
+    '<link rel="preload" href="'.SITE_TEMPLATE_PATH
+    .'/assets/fonts/Montserrat-Bold.woff2" as="font" type="font/woff2" crossorigin="anonymous">'
+);
+Asset::getInstance()->addString(
+    '<link rel="shortcut icon" href="'.SITE_TEMPLATE_PATH
+    .'/assets/img/favicon.ico">'
+);
+?>
+<!doctype html>
+<html lang="ru">
+<head>
+    <?php $APPLICATION->ShowHead(); ?>
+    <title><?php $APPLICATION->ShowTitle(false); ?></title>
+</head>
+<body>
+<?php $APPLICATION->ShowPanel(); ?>
+<div class="wrapper">
+    <header data-fls-header="" class="header">
+        <div class="header__top">
+            <div class="header__container header__top-container">
+                <div class="burger" id="burger">
+                    <span></span>
+                </div>
+                <nav class="header__top-nav" id="header__top-nav">
+                    <ul class="header__top-list">
+                        <li>
+                            <a href="index.html" class="header__nav-link">ГЛАВНАЯ</a>
+                        </li>
+                        <li>
+                            <a href="#" class="header__nav-link">ДОСТАВКА И
+                                ОПЛАТА</a>
+                        </li>
+                        <li>
+                            <a href="other-page.html" class="header__nav-link">О
+                                НАС</a>
+                        </li>
+                        <li>
+                            <a href="contacts-page.html"
+                               class="header__nav-link">КОНТАКТЫ</a>
+                        </li>
+                    </ul>
+                    <div class="header__top-phone">
+                        <a href="tel:84955555555">8 495 555-55-55</a>
+                    </div>
+                    <div class="header__contacts">
+                        <p class="header__contacts-text">Присоединяйтесь к
+                            нам:</p>
+                        <ul class="header__contacts-list">
+                            <li class="header__contacts-li">
+                                <a class="header__contacts-link" href="#">
+                                    <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/header-contacts/1.svg"
+                                         alt="Image">
+                                </a>
+                            </li>
+                            <li class="header__contacts-li">
+                                <a class="header__contacts-link" href="#">
+                                    <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/header-contacts/2.svg"
+                                         alt="Image">
+                                </a>
+                            </li>
+                            <li class="header__contacts-li">
+                                <a class="header__contacts-link" href="#">
+                                    <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/header-contacts/3.svg"
+                                         alt="Image">
+                                </a>
+                            </li>
+                            <li class="header__contacts-li">
+                                <a class="header__contacts-link" href="#">
+                                    <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/header-contacts/4.svg"
+                                         alt="Image">
+                                </a>
+                            </li>
+                            <li class="header__contacts-li">
+                                <a class="header__contacts-link" href="#">
+                                    <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/header-contacts/5.svg"
+                                         alt="Image">
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </nav>
+                <div class="header__sign"
+                     data-fls-dynamic=".header__top-nav, 479.98, 0">
+                    <a href="login-page.html"
+                       class="header__sign-in header__sign-link">
+                        <img class="header__sign-icon"
+                             src="<?= SITE_TEMPLATE_PATH ?>/assets/img/sign-in.svg"
+                             alt="Image">
+                        Вход
+                    </a>
+                    <a href="login-page.html"
+                       class="header__sign-up header__sign-link">Регистрация</a>
+                </div>
+            </div>
+        </div>
+        <div class="header__bottom">
+            <div class="header__container header__bottom-container">
+                <a class="header__logo logo"
+                   data-fls-dynamic=".header__top-container, 767.98, 0, .header__top"
+                   href="index.html">
+                    <picture>
+                        <source media="(max-width: 600px)"
+                                srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/logo-600.webp"
+                                type="image/webp">
+                        <source media="(max-width: 1200px)"
+                                srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/logo-1200.webp"
+                                type="image/webp">
+                        <img class="header__logo-img logo-img" alt="Image"
+                             src="<?= SITE_TEMPLATE_PATH ?>/assets/img/logo.webp">
+                    </picture>
+                </a>
+                <div class="header__menu menu">
+                    <button type="button" data-fls-menu=""
+                            class="menu__icon icon-menu">
+                        <img class="menu__icon-img"
+                             src="<?= SITE_TEMPLATE_PATH ?>/assets/img/burger.svg"
+                             alt="Image">
+                        <p class="menu__name">Каталог</p>
+                        <span></span>
+                    </button>
+                    <nav class="menu__body">
+                        <div class="menu__container">
+                            <ul class="menu__list">
+                                <li class="menu__item">
+                                    <div data-fls-spollers="576,max"
+                                         class="spollers">
+                                        <details
+                                                class="menu-spollers__item spollers__item">
+                                            <summary
+                                                    class="menu-spollers__title spollers__title">
+                                                <div class="spollers__icon-box">
+                                                    <img class="spollers__title-icon"
+                                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/menu-icon/menu-icon1.svg"
+                                                         alt="Image">
+                                                </div>
+                                                <p class="spollers__title-text">
+                                                    Mercedes-Benz</p>
+                                            </summary>
+                                            <div class="menu-spollers__body spollers__body">
+                                                <!-- -------------------------------------------------- -->
+                                                <div data-fls-spollers="1920,max"
+                                                     class="spollers">
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                </div>
+                                            </div>
+                                        </details>
+                                    </div>
+                                </li>
+                                <li class="menu__item">
+                                    <div data-fls-spollers="576,max"
+                                         class="spollers">
+                                        <details
+                                                class="menu-spollers__item spollers__item">
+                                            <summary
+                                                    class="menu-spollers__title spollers__title">
+                                                <div class="spollers__icon-box">
+                                                    <img class="spollers__title-icon"
+                                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/menu-icon/menu-icon2.svg"
+                                                         alt="Image">
+                                                </div>
+                                                <p class="spollers__title-text">
+                                                    BMW</p>
+                                            </summary>
+                                            <div class="menu-spollers__body spollers__body">
+                                                <div data-fls-spollers="1920,max"
+                                                     class="spollers">
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                </div>
+                                            </div>
+                                        </details>
+                                    </div>
+                                </li>
+                                <li class="menu__item">
+                                    <div data-fls-spollers="576,max"
+                                         class="spollers">
+                                        <details
+                                                class="menu-spollers__item spollers__item">
+                                            <summary
+                                                    class="menu-spollers__title spollers__title">
+                                                <div class="spollers__icon-box">
+                                                    <img class="spollers__title-icon"
+                                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/menu-icon/menu-icon3.svg"
+                                                         alt="Image">
+                                                </div>
+                                                <p class="spollers__title-text">
+                                                    Audi</p>
+                                            </summary>
+                                            <div class="menu-spollers__body spollers__body">
+                                                <div data-fls-spollers="1920,max"
+                                                     class="spollers">
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                </div>
+                                            </div>
+                                        </details>
+                                    </div>
+                                </li>
+                                <li class="menu__item">
+                                    <div data-fls-spollers="576,max"
+                                         class="spollers">
+                                        <details
+                                                class="menu-spollers__item spollers__item">
+                                            <summary
+                                                    class="menu-spollers__title spollers__title">
+                                                <div class="spollers__icon-box">
+                                                    <img class="spollers__title-icon"
+                                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/menu-icon/menu-icon4.svg"
+                                                         alt="Image">
+                                                </div>
+                                                <p class="spollers__title-text">
+                                                    Porsche</p>
+                                            </summary>
+                                            <div class="menu-spollers__body spollers__body">
+                                                <div data-fls-spollers="1920,max"
+                                                     class="spollers">
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                </div>
+                                            </div>
+                                        </details>
+                                    </div>
+                                </li>
+                                <li class="menu__item">
+                                    <div data-fls-spollers="576,max"
+                                         class="spollers">
+                                        <details
+                                                class="menu-spollers__item spollers__item">
+                                            <summary
+                                                    class="menu-spollers__title spollers__title">
+                                                <div class="spollers__icon-box">
+                                                    <img class="spollers__title-icon"
+                                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/menu-icon/menu-icon5.svg"
+                                                         alt="Image">
+                                                </div>
+                                                <p class="spollers__title-text">
+                                                    Land Rover</p>
+                                            </summary>
+                                            <div class="menu-spollers__body spollers__body">
+                                                <div data-fls-spollers="1920,max"
+                                                     class="spollers">
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                </div>
+                                            </div>
+                                        </details>
+                                    </div>
+                                </li>
+                                <li class="menu__item">
+                                    <div data-fls-spollers="576,max"
+                                         class="spollers">
+                                        <details
+                                                class="menu-spollers__item spollers__item">
+                                            <summary
+                                                    class="menu-spollers__title spollers__title">
+                                                <div class="spollers__icon-box">
+                                                    <img class="spollers__title-icon"
+                                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/menu-icon/menu-icon6.svg"
+                                                         alt="Image">
+                                                </div>
+                                                <p class="spollers__title-text">
+                                                    Infiniti</p>
+                                            </summary>
+                                            <div class="menu-spollers__body spollers__body">
+                                                <div data-fls-spollers="1920,max"
+                                                     class="spollers">
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                </div>
+                                            </div>
+                                        </details>
+                                    </div>
+                                </li>
+                                <li class="menu__item">
+                                    <div data-fls-spollers="576,max"
+                                         class="spollers">
+                                        <details
+                                                class="menu-spollers__item spollers__item">
+                                            <summary
+                                                    class="menu-spollers__title spollers__title">
+                                                <div class="spollers__icon-box">
+                                                    <img class="spollers__title-icon"
+                                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/menu-icon/menu-icon7.svg"
+                                                         alt="Image">
+                                                </div>
+                                                <p class="spollers__title-text">
+                                                    Toyota</p>
+                                            </summary>
+                                            <div class="menu-spollers__body spollers__body">
+                                                <div data-fls-spollers="1920,max"
+                                                     class="spollers">
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовокподраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                </div>
+                                            </div>
+                                        </details>
+                                    </div>
+                                </li>
+                                <li class="menu__item">
+                                    <div data-fls-spollers="576,max"
+                                         class="spollers">
+                                        <details
+                                                class="menu-spollers__item spollers__item">
+                                            <summary
+                                                    class="menu-spollers__title spollers__title">
+                                                <div class="spollers__icon-box">
+                                                    <img class="spollers__title-icon"
+                                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/menu-icon/menu-icon8.svg"
+                                                         alt="Image">
+                                                </div>
+                                                <p class="spollers__title-text">
+                                                    LEXUS</p>
+                                            </summary>
+                                            <div class="menu-spollers__body spollers__body">
+                                                <div data-fls-spollers="1920,max"
+                                                     class="spollers">
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовокподраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                    <details
+                                                            class="submenu-spollers__item spollers__item">
+                                                        <summary
+                                                                class="submenu-spollers__title spollers__title">
+                                                            Заголовок подраздела
+                                                        </summary>
+                                                        <div class="submenu-spollers__body spollers__body">
+                                                            <ul class="submenu-spollers__list">
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                                <li class="submenu-spollers__li">
+                                                                    <a href="#"
+                                                                       class="">Заголовок
+                                                                        подраздела
+                                                                        2</a>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </details>
+                                                </div>
+                                            </div>
+                                        </details>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </nav>
+                </div>
+                <form class="header__search" action="#">
+                    <button class="header__search-mobile search-mobile"
+                            id="header__search-mobile">
+                        <img class="search-mobile__img"
+                             src="<?= SITE_TEMPLATE_PATH ?>/assets/img/search-mobile.svg"
+                             alt="Image">
+                        <p class="search-mobile__text">Поиск</p>
+                    </button>
+                    <div class="header__search-box"
+                         data-fls-dynamic=".header__bottom-container, 479.98, 0">
+                        <input class="header__search-input" type="text"
+                               placeholder="Поиск">
+                        <button class="header__search-btn">
+                            <svg class="header__search-icon">
+                                <use xlink:href="<?= SITE_TEMPLATE_PATH ?>/assets/img/spritemap.svg#sprite-search"></use>
+                            </svg>
+                        </button>
+                    </div>
+                </form>
+                <div class="header__controls">
+                    <div class="header__like header__controls-btn"
+                         data-fls-dynamic=".header__bottom-container, 479.98, 2">
+                        <svg class="header__like-icon header__controls-icon">
+                            <use xlink:href="<?= SITE_TEMPLATE_PATH ?>/assets/img/spritemap.svg#sprite-like"></use>
+                        </svg>
+                        <p class="header__like-text">Избранное</p>
+                        <span data-fls-like=""
+                              class="header__like-quantity cart__quantity">0</span>
+                    </div>
+                    <a class="header__cart header__controls-btn"
+                       href="basket-page.html">
+                        <svg class="header__cart-icon header__controls-icon">
+                            <use xlink:href="<?= SITE_TEMPLATE_PATH ?>/assets/img/spritemap.svg#sprite-cart"></use>
+                        </svg>
+                        <span class="header__cart-quantity cart__quantity"
+                              data-fls-addtocart="">0</span>
+                    </a>
+                </div>
+                <div class="header__info">
+                    <a class="header__tel" href="tel:84955555555">8 495
+                        555-55-55</a>
+                    <p class="header__time">Работаем пн-вс, с 9 до 21</p>
+                    <a class="header__tel--mobile"
+                       data-fls-dynamic=".header__top-container, 576, 1, .header__top"
+                       href="tel:84955555555">
+                        <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/mobile-tel.svg"
+                             alt="Image">
+                    </a>
+                </div>
+                <button class="header__profil">
+                    <img class="header__profil-img"
+                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/sign-in.svg"
+                         alt="Image">
+                    <p class="header__profil-text">Профиль</p>
+                </button>
+            </div>
+            <div class="header__favorit-box favorit-box">
+                <div class="favorit-box__container">
+                    <div class="favorit-box__top">
+                        <h2 class="favorit-box__title">Избранное</h2>
+                        <button class="favorit-box__close">
+                            <img class="favorit-box__close-icon"
+                                 src="<?= SITE_TEMPLATE_PATH ?>/assets/img/close.svg"
+                                 alt="Image">
+                        </button>
+                    </div>
+                    <div class="favorit-box__body">
+                        <a class="favorit-box__item" href="#">
+                            <div class="favorit-box__item-foto">
+                                <picture>
+                                    <source media="(max-width: 600px)"
+                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1-600.webp"
+                                            type="image/webp">
+                                    <source media="(max-width: 1200px)"
+                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1-1200.webp"
+                                            type="image/webp">
+                                    <img class="favorit-box__img" alt="Image"
+                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1.webp">
+                                </picture>
+                            </div>
+                            <div class="favorit-box__inner">
+                                <h3 class="favorit-box__item-title">Колодки
+                                    тормозные DICASE (комплект) для
+                                    тюнингованных тормозных систем</h3>
+                                <div class="favorit-box__item-bottom">
+                                    <div class="favorit-box__item-price">60 700
+                                        ₽
+                                    </div>
+                                    <button class="favorit-box__item-buy">
+                                        Купить
+                                        <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/buy-icon.svg"
+                                             alt="Image">
+                                    </button>
+                                </div>
+                            </div>
+                            <button class="favorit-box__delete">
+                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/trash.svg"
+                                     alt="Image">
+                            </button>
+                        </a>
+                        <a class="favorit-box__item" href="#">
+                            <div class="favorit-box__item-foto">
+                                <picture>
+                                    <source media="(max-width: 600px)"
+                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/2-600.webp"
+                                            type="image/webp">
+                                    <source media="(max-width: 1200px)"
+                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/2-1200.webp"
+                                            type="image/webp">
+                                    <img class="favorit-box__img" alt="Image"
+                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/2.webp">
+                                </picture>
+                            </div>
+                            <div class="favorit-box__inner">
+                                <h3 class="favorit-box__item-title">Колодки
+                                    тормозные DICASE (комплект) для
+                                    тюнингованных тормозных систем</h3>
+                                <div class="favorit-box__item-bottom">
+                                    <div class="favorit-box__item-price">118 700
+                                        ₽
+                                    </div>
+                                    <button class="favorit-box__item-buy">
+                                        Купить
+                                        <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/buy-icon.svg"
+                                             alt="Image">
+                                    </button>
+                                </div>
+                            </div>
+                            <button class="favorit-box__delete">
+                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/trash.svg"
+                                     alt="Image">
+                            </button>
+                        </a>
+                        <a class="favorit-box__item" href="#">
+                            <div class="favorit-box__item-foto">
+                                <picture>
+                                    <source media="(max-width: 600px)"
+                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1-600.webp"
+                                            type="image/webp">
+                                    <source media="(max-width: 1200px)"
+                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1-1200.webp"
+                                            type="image/webp">
+                                    <img class="favorit-box__img" alt="Image"
+                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1.webp">
+                                </picture>
+                            </div>
+                            <div class="favorit-box__inner">
+                                <h3 class="favorit-box__item-title">Колодки
+                                    тормозные DICASE (комплект) для
+                                    тюнингованных тормозных систем</h3>
+                                <div class="favorit-box__item-bottom">
+                                    <div class="favorit-box__item-price">60 700
+                                        ₽
+                                    </div>
+                                    <button class="favorit-box__item-buy">
+                                        Купить
+                                        <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/buy-icon.svg"
+                                             alt="Image">
+                                    </button>
+                                </div>
+                            </div>
+                            <button class="favorit-box__delete">
+                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/trash.svg"
+                                     alt="Image">
+                            </button>
+                        </a>
+                        <a class="favorit-box__item" href="#">
+                            <div class="favorit-box__item-foto">
+                                <picture>
+                                    <source media="(max-width: 600px)"
+                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/2-600.webp"
+                                            type="image/webp">
+                                    <source media="(max-width: 1200px)"
+                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/2-1200.webp"
+                                            type="image/webp">
+                                    <img class="favorit-box__img" alt="Image"
+                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/2.webp">
+                                </picture>
+                            </div>
+                            <div class="favorit-box__inner">
+                                <h3 class="favorit-box__item-title">Колодки
+                                    тормозные DICASE (комплект) для
+                                    тюнингованных тормозных систем</h3>
+                                <div class="favorit-box__item-bottom">
+                                    <div class="favorit-box__item-price">118 700
+                                        ₽
+                                    </div>
+                                    <button class="favorit-box__item-buy">
+                                        Купить
+                                        <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/buy-icon.svg"
+                                             alt="Image">
+                                    </button>
+                                </div>
+                            </div>
+                            <button class="favorit-box__delete">
+                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/trash.svg"
+                                     alt="Image">
+                            </button>
+                        </a>
+                        <a class="favorit-box__item" href="#">
+                            <div class="favorit-box__item-foto">
+                                <picture>
+                                    <source media="(max-width: 600px)"
+                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1-600.webp"
+                                            type="image/webp">
+                                    <source media="(max-width: 1200px)"
+                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1-1200.webp"
+                                            type="image/webp">
+                                    <img class="favorit-box__img" alt="Image"
+                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1.webp">
+                                </picture>
+                            </div>
+                            <div class="favorit-box__inner">
+                                <h3 class="favorit-box__item-title">Колодки
+                                    тормозные DICASE (комплект) для
+                                    тюнингованных тормозных систем</h3>
+                                <div class="favorit-box__item-bottom">
+                                    <div class="favorit-box__item-price">60 700
+                                        ₽
+                                    </div>
+                                    <button class="favorit-box__item-buy">
+                                        Купить
+                                        <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/buy-icon.svg"
+                                             alt="Image">
+                                    </button>
+                                </div>
+                            </div>
+                            <button class="favorit-box__delete">
+                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/trash.svg"
+                                     alt="Image">
+                            </button>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
