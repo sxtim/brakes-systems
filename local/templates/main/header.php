@@ -14,6 +14,7 @@ Asset::getInstance()->addJs(SITE_TEMPLATE_PATH.'/assets/js/cataloge.min.js');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/app.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/slider.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/index.min.css');
+Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/other-page.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/popup.min.css');
 
 Asset::getInstance()->addString('<meta charset="'.LANG_CHARSET.'">');
