@@ -10,7 +10,7 @@ if ( ! defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/app.min.js"></script>');
 
 // Asset::getInstance()->addJs(SITE_TEMPLATE_PATH.'/assets/js/slider.min.js');
-Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/slider.min.js');
+Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/slider.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/popup.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/cataloge.min.js"></script>');
 
