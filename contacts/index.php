@@ -14,50 +14,55 @@ $APPLICATION->SetTitle('Контакты');
 								<a class="main__breadcrumbs-item" href="#">Главная</a>
 								<a class="main__breadcrumbs-item active" href="#">Контакты</a>
 							</div>
-							<h1 class="contacts__main-title main__title">Контакты</h1>
+							<?$APPLICATION->IncludeComponent("bitrix:main.include","",Array(
+								"AREA_FILE_SHOW"=>"page",
+								"AREA_FILE_SUFFIX"=>"title",
+								"EDIT_TEMPLATE"=>""
+							),false);
+							?>
 							<div class="contacts__info">
-								<div class="contacts__info-item">
-									<div class="contacts__info-row">
-										<span class="contacts__info-text--bold">Адрес:</span>
-										<p class="contacts__info-text">г. Москва, 69 км МКАД, БП Гринвуд, корпус 35.</p>
-									</div>
-								</div>
-								<div class="contacts__info-item">
-									<div class="contacts__info-row">
-										<span class="contacts__info-text--bold">E-mail:</span>
-										<p class="contacts__info-text">sales@icooh.store</p>
-									</div>
-									<div class="contacts__info-row">
-										<span class="contacts__info-text--bold">Для рекламаций:</span>
-										<p class="contacts__info-text">for_clients@stancebazztards.ru</p>
-									</div>
-								</div>
-								<div class="contacts__info-item">
-									<div class="contacts__info-row">
-										<p class="contacts__info-text">Пн. - Чт. с 09:00 до 20:00</p>
-									</div>
-									<div class="contacts__info-row">
-										<p class="contacts__info-text">Пятница с 09:00 до 19:00</p>
-									</div>
-									<div class="contacts__info-row">
-										<p class="contacts__info-text">Сб. - Вс. с 10:00 до 19:00</p>
-									</div>
-								</div>
-								<div class="contacts__info-item">
-									<div class="contacts__info-row">
-										<span class="contacts__info-text--bold">Телефон:</span>
-										<p class="contacts__info-text">+7 (495) 132-31-49</p>
-									</div>
-								</div>
-								<div class="contacts__info-item">
-									<div class="contacts__info-row">
-										<span class="contacts__info-text--bold">Схема проезда в центральный офис:</span>
-									</div>
-								</div>
+								<?$APPLICATION->IncludeComponent("bitrix:main.include","",Array(
+									"AREA_FILE_SHOW"=>"page",
+									"AREA_FILE_SUFFIX"=>"info_address",
+									"EDIT_TEMPLATE"=>""
+								),false);
+								?>
+								<?$APPLICATION->IncludeComponent("bitrix:main.include","",Array(
+									"AREA_FILE_SHOW"=>"page",
+									"AREA_FILE_SUFFIX"=>"info_emails",
+									"EDIT_TEMPLATE"=>""
+								),false);
+								?>
+								<?$APPLICATION->IncludeComponent("bitrix:main.include","",Array(
+									"AREA_FILE_SHOW"=>"page",
+									"AREA_FILE_SUFFIX"=>"info_worktime",
+									"EDIT_TEMPLATE"=>""
+								),false);
+								?>
+								<?$APPLICATION->IncludeComponent("bitrix:main.include","",Array(
+									"AREA_FILE_SHOW"=>"page",
+									"AREA_FILE_SUFFIX"=>"info_phone",
+									"EDIT_TEMPLATE"=>""
+								),false);
+								?>
+								<?$APPLICATION->IncludeComponent("bitrix:main.include","",Array(
+									"AREA_FILE_SHOW"=>"page",
+									"AREA_FILE_SUFFIX"=>"info_route",
+									"EDIT_TEMPLATE"=>""
+								),false);
+								?>
 							</div>
 							<div class="contacts__controls">
-								<a class="contacts__controls-btn" href="#">На личном авто</a>
-								<a class="contacts__controls-btn" href="#">От метро</a>
+								<a class="contacts__controls-btn" href="#"><?$APPLICATION->IncludeComponent("bitrix:main.include","",Array(
+									"AREA_FILE_SHOW"=>"page",
+									"AREA_FILE_SUFFIX"=>"controls_auto",
+									"EDIT_TEMPLATE"=>""
+								),false);?></a>
+								<a class="contacts__controls-btn" href="#"><?$APPLICATION->IncludeComponent("bitrix:main.include","",Array(
+									"AREA_FILE_SHOW"=>"page",
+									"AREA_FILE_SUFFIX"=>"controls_metro",
+									"EDIT_TEMPLATE"=>""
+								),false);?></a>
 							</div>
 						</div>
 					</div>
