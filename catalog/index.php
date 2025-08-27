@@ -1,7 +1,11 @@
 <?
+use Bitrix\Main\Page\Asset;
 require($_SERVER['DOCUMENT_ROOT'].'/bitrix/header.php');
 $APPLICATION->SetTitle('Каталог');
+
+Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/cataloge.min.js"></script>');
 ?>
+
     <main class="page">
         <div class="page__container">
             <aside class="aside" data-fls-dynamic=".main__inner, 1199.98, 2">
