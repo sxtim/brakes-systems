@@ -6,10 +6,11 @@ if ( ! defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
 
-Asset::getInstance()->addJs(SITE_TEMPLATE_PATH.'/assets/js/app.min.js');
-Asset::getInstance()->addJs(SITE_TEMPLATE_PATH.'/assets/js/slider.min.js');
-Asset::getInstance()->addJs(SITE_TEMPLATE_PATH.'/assets/js/popup.min.js');
-Asset::getInstance()->addJs(SITE_TEMPLATE_PATH.'/assets/js/cataloge.min.js');
+// Asset::getInstance()->addJs(SITE_TEMPLATE_PATH.'/assets/js/slider.min.js');
+Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/app.min.js"></script>');
+Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/slider.min.js"></script>');
+Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/popup.min.js"></script>');
+// Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/cataloge.min.js"></script>');
 
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/app.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/slider.min.css');
@@ -42,6 +43,8 @@ Asset::getInstance()->addString(
     '<link rel="shortcut icon" href="'.SITE_TEMPLATE_PATH
     .'/assets/img/favicon.ico">'
 );
+
+
 ?>
 <!doctype html>
 <html lang="ru">
