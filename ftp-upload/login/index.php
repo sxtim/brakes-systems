@@ -39,16 +39,14 @@ $APPLICATION->SetTitle('Регистрация и вход');
                                                     <?$APPLICATION->IncludeComponent("bitrix:main.register",".default",Array(
                                                         "USER_PROPERTY_NAME" => "", 
                                                         "SEF_MODE" => "N", 
-                                                        "SHOW_FIELDS" => Array("LOGIN", "NAME", "PERSONAL_PHONE", "EMAIL", "PASSWORD", "CONFIRM_PASSWORD"), 
-                                                        "REQUIRED_FIELDS" => Array("LOGIN", "NAME", "EMAIL", "PASSWORD", "CONFIRM_PASSWORD"), 
+                                                        "SHOW_FIELDS" => Array("NAME", "PERSONAL_PHONE", "EMAIL", "LOGIN", "PASSWORD", "CONFIRM_PASSWORD"), 
+                                                        "REQUIRED_FIELDS" => Array("NAME", "EMAIL", "LOGIN", "PASSWORD", "CONFIRM_PASSWORD"), 
                                                         "AUTH" => "Y", 
                                                         "USE_BACKURL" => "Y", 
                                                         "SUCCESS_PAGE" => "/", 
                                                         "SET_TITLE" => "N", 
                                                         "USER_PROPERTY" => Array(),
-                                                        "USE_CAPTCHA" => "N",
-                                                        "EMAIL_TEMPLATE" => "USER_INFO",
-                                                        "USE_EMAIL_CONFIRMATION" => "N"
+                                                        "USE_CAPTCHA" => "N"
                                                     ));?>
                                                 </div>
                                             </div>

@@ -207,3 +207,62 @@
     padding-left: 3.75rem;
   }
 }
+
+/* Стили для отображения ошибок и сообщений регистрации */
+.login__errors {
+  margin-bottom: 1.5625rem;
+  padding: 1rem;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.375rem;
+}
+
+.login__error {
+  color: #dc2626;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.login__error:last-child {
+  margin-bottom: 0;
+}
+
+.login__success {
+  margin-bottom: 1.5625rem;
+  padding: 1rem;
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 0.375rem;
+  color: #16a34a;
+  font-size: 0.875rem;
+}
+
+.required {
+  color: #dc2626;
+  margin-left: 0.25rem;
+  font-weight: bold;
+}
+
+/* Стили для полей с ошибками */
+.login__input.error {
+  border-color: #dc2626;
+  background-color: #fef2f2;
+}
+
+.login__input.error:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+/* Стили для капчи */
+.login__captcha {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.login__captcha img {
+  align-self: flex-start;
+  border-radius: 0.25rem;
+  border: 1px solid #d1d5db;
+}
