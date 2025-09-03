@@ -3,6 +3,10 @@
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
+
+if ($arResult['NavPageCount'] == 1) {
+    return;
+}
 ?>
 <div class="breadcrumbs-nav">
     <?php

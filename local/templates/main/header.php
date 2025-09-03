@@ -85,7 +85,7 @@ Asset::getInstance()->addString(
             <div class="header__container header__bottom-container">
                 <a class="header__logo logo"
                    data-fls-dynamic=".header__top-container, 767.98, 0, .header__top"
-                   href="index.html">
+                   href="<?=SITE_DIR?>">
                     <picture>
                         <source media="(max-width: 600px)"
                                 srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/logo-600.webp"
@@ -128,7 +128,10 @@ Asset::getInstance()->addString(
                             "CACHE_TYPE" => "A",
                             "CACHE_TIME" => "36000000",
                             "CACHE_NOTES" => "",
-                            "CACHE_GROUPS" => "Y"
+                            "CACHE_GROUPS" => "Y",
+                            "SECTION_USER_FIELDS" => [
+                                "UF_SVG",
+                            ]
                         )
                     );?>
                 </div>
