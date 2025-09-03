@@ -4,7 +4,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
 
-$result = '<div class="main__breadcrumbs">';
+$result = '<div class="' . $arParams['CLASS'] . 'main__breadcrumbs">';
 
 $last = array_key_last($arResult);
 

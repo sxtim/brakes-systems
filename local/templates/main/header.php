@@ -18,6 +18,7 @@ Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/index.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/other-page.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/popup.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/contacts-page.min.css');
+Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/login-page.min.css');
 
 Asset::getInstance()->addString('<meta charset="'.LANG_CHARSET.'">');
 Asset::getInstance()->addString(
