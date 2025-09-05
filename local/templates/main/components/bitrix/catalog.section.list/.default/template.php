@@ -62,6 +62,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 
                     if ($arResult['SECTIONS'][$i + 1]['DEPTH_LEVEL'] < $item['DEPTH_LEVEL']) {
                     ?>
+                    </details>
                         </div>
                         </div>
                         </details>
@@ -91,8 +92,13 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                         </details>
                         <?php
 
-                        if ($arResult['SECTIONS'][$i + 1]['DEPTH_LEVEL'] == 1) {
+                        if (
+                            $arResult['SECTIONS'][$i + 1]['DEPTH_LEVEL'] == 1
+                            || !isset($arResult['SECTIONS'][$i + 1])
+                        ) {
                         ?>
+                            </div>
+                            </div>
                             </details>
                             </div>
                             </li>

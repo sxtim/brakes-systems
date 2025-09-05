@@ -1,5 +1,6 @@
 <?php
 
+use App\Brakes\Helper\Storage;
 use Bitrix\Main\Page\Asset;
 
 if ( ! defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
@@ -848,251 +849,52 @@ Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/product-page.min.cs
             </div>
         </div>
         <div class="slider__container">
-            <div class="products__block slider-block">
-                <h2 class="products__title">Рекомендуемые товары</h2>
-                <div class="products__body">
-                    <button class="products-slider__prev"></button>
-                    <div data-fls-slider="" class="products-slider__slider swiper">
-                        <div class="products-slider__wrapper swiper-wrapper">
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1.webp">
-                                        </picture>
+            <?php
+
+            $recommended = Storage::get('RECOMMENDED');
+
+            if (is_array($recommended)) {
+            ?>
+                <div class="products__block slider-block">
+                    <h2 class="products__title">Рекомендуемые товары</h2>
+                    <div class="products__body">
+                        <button class="products-slider__prev"></button>
+                        <div data-fls-slider="" class="products-slider__slider swiper">
+                            <div class="products-slider__wrapper swiper-wrapper">
+                                <?php
+
+                                foreach ($recommended as $item) {
+                                ?>
+                                    <div class="products-slider__slide swiper-slide">
+                                        <a class="products-slider__card" href="<?=$item['DETAIL_PAGE_URL']?>">
+                                            <div class="products-slider__picture">
+                                                <picture>
+                                                    <source media="(max-width: 600px)" srcset="<?=$item['IMG']?>" type="image/webp">
+                                                    <source media="(max-width: 1200px)" srcset="<?=$item['IMG']?>" type="image/webp">
+                                                    <img class="products-slider__img" alt="Img" src="<?=$item['IMG']?>">
+                                                </picture>
+                                            </div>
+                                            <div class="products-slider__descr">
+                                                <h3 class="products-slider__title"><?=$item['NAME']?></h3>
+                                            </div>
+                                        </a>
                                     </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Колодки тормозные DICASE для усиленных тормозных систем</h3>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2.webp">
-                                        </picture>
-                                    </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Усиленная тормозная система DICASE DR73</h3>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1.webp">
-                                        </picture>
-                                    </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Колодки тормозные DICASE для усиленных тормозных систем</h3>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2.webp">
-                                        </picture>
-                                    </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Усиленная тормозная система DICASE DR73</h3>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1.webp">
-                                        </picture>
-                                    </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Колодки тормозные DICASE для усиленных тормозных систем</h3>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2.webp">
-                                        </picture>
-                                    </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Усиленная тормозная система DICASE DR73</h3>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1.webp">
-                                        </picture>
-                                    </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Колодки тормозные DICASE для усиленных тормозных систем</h3>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2.webp">
-                                        </picture>
-                                    </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Усиленная тормозная система DICASE DR73</h3>
-                                    </div>
-                                </a>
+                                <?php
+
+                                }
+                                ?>
                             </div>
                         </div>
+                        <button class="products-slider__next"></button>
                     </div>
-                    <button class="products-slider__next"></button>
                 </div>
-            </div>
-            <div class="watched__block slider-block">
-                <h2 class="products__title">Вы смотрели</h2>
-                <div class="products__body">
-                    <button class="watched-slider__prev"></button>
-                    <div data-fls-slider="" class="watched-slider__slider swiper">
-                        <div class="products-slider__wrapper swiper-wrapper">
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1.webp">
-                                        </picture>
-                                    </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Колодки тормозные DICASE для усиленных тормозных систем</h3>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2.webp">
-                                        </picture>
-                                    </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Усиленная тормозная система DICASE DR73</h3>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1.webp">
-                                        </picture>
-                                    </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Колодки тормозные DICASE для усиленных тормозных систем</h3>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2.webp">
-                                        </picture>
-                                    </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Усиленная тормозная система DICASE DR73</h3>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1.webp">
-                                        </picture>
-                                    </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Колодки тормозные DICASE для усиленных тормозных систем</h3>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2.webp">
-                                        </picture>
-                                    </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Усиленная тормозная система DICASE DR73</h3>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/1.webp">
-                                        </picture>
-                                    </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Колодки тормозные DICASE для усиленных тормозных систем</h3>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="products-slider__slide swiper-slide">
-                                <a class="products-slider__card" href="#">
-                                    <div class="products-slider__picture">
-                                        <picture>
-                                            <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-600.webp" type="image/webp">
-                                            <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2-1200.webp" type="image/webp">
-                                            <img class="products-slider__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/products-slider/2.webp">
-                                        </picture>
-                                    </div>
-                                    <div class="products-slider__descr">
-                                        <h3 class="products-slider__title">Усиленная тормозная система DICASE DR73</h3>
-                                    </div>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                    <button class="watched-slider__next"></button>
-                </div>
-            </div>
+            <?php
+
+            }
+            ?>
+            <?php
+
+            $APPLICATION->includeComponent('brakes:catalog.viewed', '')
+            ?>
         </div>
     </main>

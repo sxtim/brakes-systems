@@ -1,7 +1,7 @@
 <?
 use Bitrix\Main\Page\Asset;
 require($_SERVER['DOCUMENT_ROOT'].'/bitrix/header.php');
-$APPLICATION->SetTitle('Каталог');
+$APPLICATION->SetTitle('Регистрация и вход');
 ?>
     <main class="page">
         <div class="login__container">
@@ -36,32 +36,20 @@ $APPLICATION->SetTitle('Каталог');
                                                 <h1 class="login__main-title main__title">Регистрация</h1>
                                                 <p class="login__message">Заполните информацию о себе</p>
                                                 <div class="login__body">
-                                                    <form class="login__form contacts-form" action="#">
-                                                        <div class="login__form-item contacts-form__item">
-                                                            <label class="login__label contacts-form__label" for="basketInput1">Имя</label>
-                                                            <div class="login__input-wrapper contacts-form__input-wrapper">
-                                                                <img class="login__input-icon contacts-form__input-icon" src="<?=SITE_TEMPLATE_PATH?>/assets/img/basket/user.svg" alt="Image">
-                                                                <input class="login__input contacts-form__input contacts-form__input--user" id="basketInput1" placeholder="" type="text">
-                                                            </div>
-                                                        </div>
-                                                        <div class="login__form-item contacts-form__item">
-                                                            <label class="login__label contacts-form__label" for="basketInput2">Номер телефона</label>
-                                                            <div class="login__input-wrapper contacts-form__input-wrapper">
-                                                                <img class="login__input-icon contacts-form__input-icon" src="<?=SITE_TEMPLATE_PATH?>/assets/img/basket/tel.svg" alt="Image">
-                                                                <input class="login__input contacts-form__input contacts-form__input--tel" id="basketInput2" placeholder="" type="number">
-                                                            </div>
-                                                        </div>
-                                                        <div class="login__form-item contacts-form__item">
-                                                            <label class="login__label contacts-form__label" for="basketInput3">Email</label>
-                                                            <div class="login__input-wrapper contacts-form__input-wrapper">
-                                                                <img class="login__input-icon contacts-form__input-icon" src="<?=SITE_TEMPLATE_PATH?>/assets/img/basket/mail.svg" alt="Image">
-                                                                <input class="login__input contacts-form__input contacts-form__input--mail" id="basketInput3" placeholder="" type="text">
-                                                            </div>
-                                                        </div>
-                                                        <button data-fls-popup-link="popup1" class="contacts-form-btn main-cataloge__shoping-btn">
-                                                            <span class="main-cataloge__shoping-text">Регистрация</span>
-                                                        </button>
-                                                    </form>
+                                                    <?$APPLICATION->IncludeComponent("bitrix:main.register",".default",Array(
+                                                        "USER_PROPERTY_NAME" => "", 
+                                                        "SEF_MODE" => "N", 
+                                                        "SHOW_FIELDS" => Array("LOGIN", "NAME", "PERSONAL_PHONE", "EMAIL", "PASSWORD", "CONFIRM_PASSWORD"), 
+                                                        "REQUIRED_FIELDS" => Array("LOGIN", "NAME", "EMAIL", "PASSWORD", "CONFIRM_PASSWORD"), 
+                                                        "AUTH" => "Y", 
+                                                        "USE_BACKURL" => "Y", 
+                                                        "SUCCESS_PAGE" => "/", 
+                                                        "SET_TITLE" => "N", 
+                                                        "USER_PROPERTY" => Array(),
+                                                        "USE_CAPTCHA" => "N",
+                                                        "EMAIL_TEMPLATE" => "USER_INFO",
+                                                        "USE_EMAIL_CONFIRMATION" => "N"
+                                                    ));?>
                                                 </div>
                                             </div>
                                         </div>

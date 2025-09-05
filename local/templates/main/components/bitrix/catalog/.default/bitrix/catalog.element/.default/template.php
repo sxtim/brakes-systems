@@ -7,83 +7,60 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 <div class="main__overlay">
     <div class="main__content">
         <div class="main__media">
-            <div data-fls-slider="" class="swiper main-swiper">
-                <div class="swiper-wrapper main-swiper__wrapper gallery" data-fls-gallery="">
-                    <div class="swiper-slide main-swiper__slide">
-                        <a class="main-swiper__gallery__image gallery__image" href="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1.webp">
-                            <picture>
-                                <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1-600.webp" type="image/webp">
-                                <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1-1200.webp" type="image/webp">
-                                <img class="main-swiper__img gallery__preview" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1.webp">
-                            </picture>
-                        </a>
-                    </div>
-                    <div class="swiper-slide main-swiper__slide">
-                        <a class="main-swiper__gallery__image gallery__image" href="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1.webp">
-                            <picture>
-                                <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1-600.webp" type="image/webp">
-                                <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1-1200.webp" type="image/webp">
-                                <img class="main-swiper__img gallery__preview" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1.webp">
-                            </picture>
-                        </a>
-                    </div>
-                    <div class="swiper-slide main-swiper__slide">
-                        <a class="main-swiper__gallery__image gallery__image" href="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1.webp">
-                            <picture>
-                                <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1-600.webp" type="image/webp">
-                                <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1-1200.webp" type="image/webp">
-                                <img class="main-swiper__img gallery__preview" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1.webp">
-                            </picture>
-                        </a>
-                    </div>
-                    <div class="swiper-slide main-swiper__slide">
-                        <a class="main-swiper__gallery__image gallery__image" href="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1.webp">
-                            <picture>
-                                <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1-600.webp" type="image/webp">
-                                <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1-1200.webp" type="image/webp">
-                                <img class="main-swiper__img gallery__preview" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1.webp">
-                            </picture>
-                        </a>
+            <?php
+
+            if ($arResult['GALLERY']) {
+            ?>
+                <div data-fls-slider="" class="swiper main-swiper">
+                    <div class="swiper-wrapper main-swiper__wrapper gallery" data-fls-gallery="">
+                        <?php
+
+                        foreach ($arResult['GALLERY'] as $val) {
+                        ?>
+                            <div class="swiper-slide main-swiper__slide">
+                                <a class="main-swiper__gallery__image gallery__image" href="<?=$val?>">
+                                    <picture>
+                                        <source media="(max-width: 600px)" srcset="<?=$val?>" type="image/webp">
+                                        <source media="(max-width: 1200px)" srcset="<?=$val?>" type="image/webp">
+                                        <img class="main-swiper__img gallery__preview" alt="Img" src="<?=$val?>">
+                                    </picture>
+                                </a>
+                            </div>
+                        <?php
+
+                        }
+                        ?>
                     </div>
                 </div>
-            </div>
-            <!-- Слайдер мініатюр -->
-            <div class="thumbs-swiper__overlay">
-                <button class="thumbs-swiper__prev"></button>
-                <div data-fls-slider="" class="swiper thumbs-swiper">
-                    <div class="thumbs-swiper__wrapper swiper-wrapper">
-                        <div class="thumbs-swiper__slide swiper-slide">
-                            <picture>
-                                <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1-600.webp" type="image/webp">
-                                <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1-1200.webp" type="image/webp">
-                                <img class="thumbs-swiper__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1.webp">
-                            </picture>
-                        </div>
-                        <div class="thumbs-swiper__slide swiper-slide">
-                            <picture>
-                                <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-2-600.webp" type="image/webp">
-                                <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-2-1200.webp" type="image/webp">
-                                <img class="thumbs-swiper__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-2.webp">
-                            </picture>
-                        </div>
-                        <div class="thumbs-swiper__slide swiper-slide">
-                            <picture>
-                                <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1-600.webp" type="image/webp">
-                                <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1-1200.webp" type="image/webp">
-                                <img class="thumbs-swiper__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-1.webp">
-                            </picture>
-                        </div>
-                        <div class="thumbs-swiper__slide swiper-slide">
-                            <picture>
-                                <source media="(max-width: 600px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-2-600.webp" type="image/webp">
-                                <source media="(max-width: 1200px)" srcset="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-2-1200.webp" type="image/webp">
-                                <img class="thumbs-swiper__img" alt="Img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/main-slider/slide-2.webp">
-                            </picture>
+
+                <!-- Слайдер мініатюр -->
+                <div class="thumbs-swiper__overlay">
+                    <button class="thumbs-swiper__prev"></button>
+                    <div data-fls-slider="" class="swiper thumbs-swiper">
+                        <div class="thumbs-swiper__wrapper swiper-wrapper">
+                            <?php
+
+                            foreach ($arResult['GALLERY'] as $val) {
+                            ?>
+                                <div class="thumbs-swiper__slide swiper-slide">
+                                    <picture>
+                                        <source media="(max-width: 600px)" srcset="<?=$val?>" type="image/webp">
+                                        <source media="(max-width: 1200px)" srcset="<?=$val?>" type="image/webp">
+                                        <img class="thumbs-swiper__img" alt="Img" src="<?=$val?>">
+                                    </picture>
+                                </div>
+                            <?php
+
+                            }
+                            ?>
                         </div>
                     </div>
+                    <button class="thumbs-swiper__next"></button>
                 </div>
-                <button class="thumbs-swiper__next"></button>
-            </div>
+            <?php
+
+            }
+            ?>
         </div>
         <div class="main__details main-details" data-fls-dynamic=".main__overlay, 1199.98">
             <div data-fls-dynamic=".main__media, 1199.98, 0" class="main-details__status">
@@ -101,11 +78,19 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 </div>
             </div>
             <div class="main-details__price">
-                <div class="main-details__price-top">
-                    <span class="main-details__price-action">-25%</span>
-                    <span class="main-details__price-old">170 000 ₽%</span>
-                </div>
-                <span class="main-details__price-new">150 000 ₽</span>
+<!--                <div class="main-details__price-top">-->
+<!--                    <span class="main-details__price-action">-25%</span>-->
+<!--                    <span class="main-details__price-old">170 000 ₽%</span>-->
+<!--                </div>-->
+                <?php
+
+                if (isset($arResult['ITEM_PRICES'][0]['PRICE'])) {
+                ?>
+                    <span class="main-details__price-new"><?=number_format($arResult['ITEM_PRICES'][0]['PRICE'], 0, '.', ' ')?> ₽</span>
+                <?php
+
+                }
+                ?>
             </div>
             <div class="main-details__feature">
                 <div class="main-cataloge__info">
@@ -229,174 +214,30 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     </p>
 </div>
 <div class="main__details details">
-    <div class="details-row">
-        <span class="details-label">Вид товара:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">Тормозная система</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Марка:</span>
-        <span class="details-dots"></span>
-        <span class="details-value"><?=$arResult['PROPERTIES']['MARK']['VALUE']?></span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Модель:</span>
-        <span class="details-dots"></span>
-        <span class="details-value"><?=$arResult['PROPERTIES']['MODEL']['VALUE']?></span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Поколение</span>
-        <span class="details-dots"></span>
-        <span class="details-value">II (F16) (2014-2019)</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Армированные шланги:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">1 пара</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Артикул:</span>
-        <span class="details-dots"></span>
-        <span class="details-value"><?=$arResult['PROPERTIES']['CML2_ARTICLE']['VALUE']?></span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Внутренние и внешние пыльники:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">В Комплекте</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Двусоставная конструкция диска:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">Да</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Длина поршня:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">до 41.3 мм</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Доставка до офиса:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">Бесплатно</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Кол-во поршней:</span>
-        <span class="details-dots"></span>
-        <span class="details-value"><?=$arResult['PROPERTIES']['NUMBER_PISTONS']['VALUE']?></span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Колодки:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">4 шт</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Материал суппорта:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">Авиационный алюминий Al6061</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Монтажный комплект:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">В Комплекте</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Площадь соприкосновения:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">49.56 кв см</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Применяемый диаметр колес:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">от 18</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Производитель:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">ICOOH</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Процесс изготовления суппорта:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">Авиационный алюминий Al6061</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Монтажный комплект:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">В Комплекте</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Площадь соприкосновения:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">49.56 кв см</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Применяемый диаметр колес:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">от 18</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Производитель:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">ICOOH</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Процесс изготовления суппорта:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">В Комплекте</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Разборные торм диски (роторы):</span>
-        <span class="details-dots"></span>
-        <span class="details-value">1 пара</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Размер ротора:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">до 400 мм</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Скобы:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">1 пара</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Страна производства:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">Китай</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Суппорта:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">1 пара</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Цвет:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">Желтый</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Вид техники:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">Легковые автомобили</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Ось установки:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">Задняя</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Разболтовка:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">Уточняйте</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Гарантия на суппорта:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">6 мес</span>
-    </div>
-    <div class="details-row">
-        <span class="details-label">Срок поставки на заказ:</span>
-        <span class="details-dots"></span>
-        <span class="details-value">30 раб дней</span>
-    </div>
+    <?php
+
+    foreach ($arResult['PROPERTIES'] as $prop) {
+        switch ($prop['CODE']) {
+            case 'VIDEO_LINK':
+            case 'LINK_PHOTO':
+            case 'CML2_TRAITS':
+            case 'COLOR':
+            case 'RECOMMENDED':
+            case 'CML2_BASE_UNIT':
+                continue(2);
+        }
+
+        if (!$prop['VALUE']) {
+            continue;
+        }
+    ?>
+        <div class="details-row">
+            <span class="details-label"><?=$prop['NAME']?>:</span>
+            <span class="details-dots"></span>
+            <span class="details-value"><?=$prop['VALUE']?></span>
+        </div>
+    <?php
+
+    }
+    ?>
 </div>

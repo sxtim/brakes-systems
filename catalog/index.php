@@ -81,7 +81,7 @@ Array(
     "POST_FIRST_MESSAGE" => "N",
     "USE_COMPARE" => "N",
     "PRICE_CODE" => array(
-        0 => "BASE",
+        0 => "РРЦ",
     ),
     "USE_PRICE_COUNT" => "N",
     "SHOW_PRICE_COUNT" => "1",
@@ -99,7 +99,7 @@ Array(
     "SECTION_TOP_DEPTH" => "1",
     "SECTIONS_VIEW_MODE" => "TEXT",
     "SECTIONS_SHOW_PARENT_NAME" => "Y",
-    "PAGE_ELEMENT_COUNT" => "1",
+    "PAGE_ELEMENT_COUNT" => "20",
     "LINE_ELEMENT_COUNT" => "3",
     "ELEMENT_SORT_FIELD" => "sort",
     "ELEMENT_SORT_ORDER" => "asc",

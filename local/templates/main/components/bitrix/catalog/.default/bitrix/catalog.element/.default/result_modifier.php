@@ -1,18 +1,34 @@
 <?php
 
-use Bitrix\Main\Application;
+use Bitrix\Iblock\Elements\ElementCatalogTable;
 
-if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
+if ( ! defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
 
-$session = Application::getInstance()->getSession();
-$data = $session->get('CATALOG_ITEM_VIEWED');
+if ($arResult['PROPERTIES']['LINK_PHOTO']['VALUE']) {
+    $valArr = explode(';', $arResult['PROPERTIES']['LINK_PHOTO']['VALUE']);
 
-if (!is_array($data)) {
-    $data = [];
+    $arResult['GALLERY'] = array_filter($valArr, fn($item) => ! empty($item));
 }
 
-$data[$arResult['ID']] = $arResult['ID'];
+if ($arResult['DISPLAY_PROPERTIES']['RECOMMENDED']['VALUE']) {
+    $rsData = ElementCatalogTable::getList([
+        'filter' => [
+            '=ID' => $arResult['DISPLAY_PROPERTIES']['RECOMMENDED']['VALUE'],
+        ],
+        'select' => [
+            'ID',
+            'LINK_PHOTO_VAL' => 'LINK_PHOTO.VALUE',
+        ],
+    ]);
 
-$session->set('CATALOG_ITEM_VIEWED', $data);
+    while ($data = $rsData->fetch()) {
+        $arResult['DISPLAY_PROPERTIES']['RECOMMENDED']['LINK_ELEMENT_VALUE'][$data['ID']]['IMG'] = getPreviewImgCatalog($data['LINK_PHOTO_VAL']);
+    }
+}
+
+$arResult['RECOMMENDED'] = $arResult['DISPLAY_PROPERTIES']['RECOMMENDED']['LINK_ELEMENT_VALUE'];
+
+$this->__component->setResultCacheKeys(['RECOMMENDED']);
+

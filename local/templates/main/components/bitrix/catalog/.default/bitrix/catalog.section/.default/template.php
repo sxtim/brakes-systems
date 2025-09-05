@@ -28,9 +28,9 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
             <div class="main-cataloge__item">
                 <a class="main-cataloge__picture" href="<?=$item['DETAIL_PAGE_URL']?>">
                     <picture>
-                        <source media="(max-width: 600px)" srcset="<?=$item['PREVIEW_PICTURE']['SRC']?>" type="image/webp">
-                        <source media="(max-width: 1200px)" srcset="<?=$item['PREVIEW_PICTURE']['SRC']?>" type="image/webp">
-                        <img class="main-cataloge__img" alt="Image" src="<?=$item['PREVIEW_PICTURE']['SRC']?>">
+                        <source media="(max-width: 600px)" srcset="<?=$item['IMG']?>" type="image/webp">
+                        <source media="(max-width: 1200px)" srcset="<?=$item['IMG']?>" type="image/webp">
+                        <img class="main-cataloge__img" alt="Image" src="<?=$item['IMG']?>">
                     </picture>
                 </a>
                 <div class="main-cataloge__item-content">
@@ -40,19 +40,19 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                     </div>
                     <div class="main-cataloge__details main__details details">
                         <div class="main-cataloge__details-row details-row">
-                            <span class="main-cataloge__details-label details-label">Применимость</span>
+                            <span class="main-cataloge__details-label details-label">Артикул</span>
                             <span class="main-cataloge__details-dots details-dots"></span>
-                            <span class="main-cataloge__details-value details-value">задняя ось</span>
+                            <span class="main-cataloge__details-value details-value"><?=$item['PROPERTIES']['CML2_ARTICLE']['VALUE']?></span>
                         </div>
                         <div class="main-cataloge__details-row details-row">
-                            <span class="main-cataloge__details-label details-label">Ротор:</span>
+                            <span class="main-cataloge__details-label details-label">Производитель:</span>
                             <span class="main-cataloge__details-dots details-dots"></span>
-                            <span class="main-cataloge__details-value details-value">4</span>
+                            <span class="main-cataloge__details-value details-value"><?=$item['PROPERTIES']['MANUFACTURER']['VALUE']?></span>
                         </div>
                         <div class="main-cataloge__details-row details-row">
                             <span class="main-cataloge__details-label details-label">Кол-во поршней:</span>
                             <span class="main-cataloge__details-dots details-dots"></span>
-                            <span class="main-cataloge__details-value details-value">до 330 мм</span>
+                            <span class="main-cataloge__details-value details-value"><?=$item['PROPERTIES']['NUMBER_PISTONS']['VALUE']?></span>
                         </div>
                         <div class="main-cataloge__details-row details-row">
                             <span class="main-cataloge__details-label details-label">Ось:</span>
@@ -60,16 +60,28 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                             <span class="main-cataloge__details-value details-value"><?=$item['PROPERTIES']['INSTALLATION_AXIS']['VALUE']?></span>
                         </div>
                     </div>
-                    <div class="main-cataloge__colors">
-                        <h4 class="main-cataloge__colors-title">Доступные цвета:</h4>
-                        <div class="main-cataloge__colors-box">
-                            <button class="main-cataloge__colors-item cataloge__color--red"></button>
-                            <button class="main-cataloge__colors-item cataloge__color--black"></button>
-                            <button class="main-cataloge__colors-item cataloge__color--yellow"></button>
-                            <button class="main-cataloge__colors-item cataloge__color--white"></button>
-                            <button class="main-cataloge__colors-item cataloge__color--blue"></button>
+                    <?php
+
+                    if ($item['DISPLAY_PROPERTIES']['COLOR']['VALUE']) {
+                    ?>
+                        <div class="main-cataloge__colors">
+                            <h4 class="main-cataloge__colors-title">Доступные цвета:</h4>
+                            <div class="main-cataloge__colors-box">
+                                <?php
+
+                                foreach ($item['DISPLAY_PROPERTIES']['COLOR']['VALUE'] as $i => $val) {
+                                ?>
+                                    <button class="main-cataloge__colors-item cataloge__color--<?=$item['DISPLAY_PROPERTIES']['COLOR']['VALUE_XML_ID'][$i]?>"></button>
+                                <?php
+
+                                }
+                                ?>
+                            </div>
                         </div>
-                    </div>
+                    <?php
+
+                    }
+                    ?>
                 </div>
                 <div class="main-cataloge__info">
                     <div data-fls-spollers="" data-fls-spollers-one="" class="main-cataloge__feature spollers">
@@ -103,7 +115,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                             </div>
                         </details>
                     </div>
-                    <div class="main-cataloge__price">118 700 ₽</div>
+                    <div class="main-cataloge__price"><?=number_format($item['ITEM_PRICES'][0]['PRICE'], 0, '.', ' ')?> ₽</div>
                     <div class="main-cataloge__bottom-controls">
                         <button data-fls-popup-link="speedBuy" class="main-cataloge__buy">Купить в один клик</button>
                         <button data-fls-addtocart-button="" class="main-cataloge__shoping-btn">
