@@ -11,7 +11,7 @@ $path = $request->getRequestedPageDirectory();
 $getData = $request->getQueryList()->toArray();
 ?>
 <aside class="aside" data-fls-dynamic=".main__inner, 1199.98, 2">
-    <form action="<?= $arResult["FORM_ACTION"] ?>" method="get"
+    <form action="<?= $arParams['CUSTOM_FOLDER'] ?: $arResult["FORM_ACTION"] ?>" method="get"
           data-fls-spollers="1199.98,max" class="aside-main__spoller spollers">
         <input type="hidden" name="set_filter" value="1">
         <details class="aside-main__spoller-item spollers__item">

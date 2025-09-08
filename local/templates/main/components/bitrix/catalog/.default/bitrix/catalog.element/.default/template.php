@@ -99,7 +99,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                             <summary class="main-details__feature-item main-cataloge__feature-item--big spollers__title">Двусоставная конструкция диска:</summary>
                             <div class="main-cataloge__sublist spollers__body">
                                 <div class="main-cataloge__sublist-item">Да</div>
-                                <div class="main-cataloge__sublist-item">Нкт</div>
+                                <div class="main-cataloge__sublist-item">Нет</div>
                             </div>
                         </details>
                         <details class="spollers__item">
@@ -120,9 +120,8 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                         <details class="spollers__item">
                             <summary class="main-details__feature-item spollers__title">Электроручник</summary>
                             <div class="main-cataloge__sublist spollers__body">
-                                <div class="main-cataloge__sublist-item">Пункт 1</div>
-                                <div class="main-cataloge__sublist-item">Пункт 2</div>
-                                <div class="main-cataloge__sublist-item">Пункт 3</div>
+                                <div class="main-cataloge__sublist-item">Да</div>
+                                <div class="main-cataloge__sublist-item">Нет</div>
                             </div>
                         </details>
                     </div>
@@ -139,10 +138,18 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     </div>
 </div>
 <div class="main__services">
-    <div class="main__services-item main__services-item--1">
-        <img class="main__services-icon" src="<?=SITE_TEMPLATE_PATH?>/assets/img/main-services/icon-1.svg" alt="Image">
-        <span class="main__services-text">Доставка Яндекс</span>
-    </div>
+    <?php
+
+    if ($arResult['DELIVERY']) {
+    ?>
+        <a href="<?=$arResult['DELIVERY']['UF_LINK']?>" target="_blank" class="main__services-item main__services-item--1">
+            <img class="main__services-icon" src="<?=$arResult['DELIVERY']['UF_FILE']?>" alt="Image">
+            <span class="main__services-text"><?=$arResult['DELIVERY']['UF_DESCRIPTION']?></span>
+        </a>
+    <?php
+
+    }
+    ?>
     <div class="main__services-item main__services-item--2">
         <img class="main__services-icon" src="<?=SITE_TEMPLATE_PATH?>/assets/img/main-services/icon-2.svg" alt="Image">
         <span class="main__services-text">Доставка CDEK</span>
@@ -161,57 +168,14 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     </div>
 </div>
 <div class="main__descr">
-    <p class="main__descr-text">
-        Высокоэффективная тормозная система
-        <b>DICASE DR73</b>
-        - основа безопасности для любого автомобиля. Тюнингованная тормозная система ICOOH BMW X6 II (F16) (2014-2019), X42 обеспечит безопасность водителя как в городском режиме, так и на гоночном треке. Наши тормозные системы разработаны с применением высококачественных материалов и технологий. Применение таких систем значительно повышает информативность тормозной педали, уменьшает усилие нажатия, убирает эффект пропавших тормозов при торможении с больших скоростей и в целом визуально автомобиль с большими тормозами выглядит очень эффектно.
-    </p>
-    <div class="main__descr-list">
-        <h3 class="main__descr-title">Преимущества:</h3>
-        <ul>
-            <li>
-                Эсклюзивный дистрибьютор на территории РФ (подтверждено заключенным договором с владельцем производства).
-            </li>
-            <li>
-                Тюнинг тормоза сертифицированы на территории нашей страны и соответствует всем необходимым требованиям.
-            </li>
-            <li>Международные сертификаты ISO, ECE, DOT (см фото)</li>
-            <li>
-                Продаются в США, Австралии, Филиппинах, что подтверждает высокое качество товара.
-            </li>
-            <li>Заводское качество, передовые технологии</li>
-            <li>Лучшие прочностные характеристики суппортов на рынке РФ</li>
-        </ul>
-    </div>
-    <div class="main__descr-list">
-        <h4 class="main__descr-subtitle">
-            В состав тормозной системы
-            <b>DICASE DR73</b>
-            входят::
-        </h4>
-        <ul>
-            <li>
-                Суппорта
-                <b>DICASE DR73</b>
-                4 поршня для BMW X6 II (F16) (2014-2019) - 2 шт
-            </li>
-            <li>Прочные переходные кронштейны (скобы) с гальваническим покрытием - 2 шт</li>
-            <li>Кованые болты крепления суппорта к скобе (класс прочности 12.9) - 4 шт</li>
-            <li>
-                Передние составные тормозные диски (роторы) перфорация/насечки с принудительной вентиляцией - 2 шт
-            </li>
-            <li>Центра тормозных роторов алюминиевые (ступичная часть) - 2 шт</li>
-            <li>Крепеж центра к ротору (плавающий или глухой) - 2 комплекта</li>
-            <li>Тормозные колодки (керамика) - 2 комплекта</li>
-            <li>Армированные тормозные шланги - 2 комплекта</li>
-            <li>Цвет суппортов - Желтый</li>
-        </ul>
-    </div>
-    <p class="main__descr-text">
-        Что Вы получите после установки тюнинг тормозной системы
-        <b>DICASE DR73</b>
-        : - Высокая эффективность торможения (увеличение тормозного усилия). Тормоза разработаны с увеличенным в несколько раз потенциалом по сравнению со штатной тормозной системой - Высокая стабильность системы благодаря повышенному теплоотводу, за счет направленной вентиляции, газоотводным каналам перфорации и насечек. - Быстрый монтаж. Особенно при установке в нашем сервисе - Уменьшение неподрессорных масс за счет сниженного веса каждого комплекта - Применимость под большинство размеров колесных дисков (до 22 дюймов)
-    </p>
+    <?php
+
+    if (!empty($arResult['DETAIL_TEXT'])) {
+        echo $arResult['DETAIL_TEXT'];
+    } elseif (!empty($arResult['PROPERTIES']['CUSTOM_DESCRIPTION']['~VALUE']['TEXT'])) {
+        echo $arResult['PROPERTIES']['CUSTOM_DESCRIPTION']['~VALUE']['TEXT'];
+    }
+    ?>
 </div>
 <div class="main__details details">
     <?php
@@ -240,4 +204,41 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 
     }
     ?>
+</div>
+<div data-fls-popup="speedBuy" aria-hidden="true" class="popup">
+    <div data-fls-popup-wrapper="" class="popup__wrapper">
+        <div data-fls-popup-body="" class="popup__body">
+            <button data-fls-popup-close="" type="button" class="popup__close">
+                <svg width="23" height="23" viewbox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path opacity="0.850056" d="M1.73333 1.48883L21.5469 21.0288" stroke="#979797" stroke-linecap="square"></path>
+                    <path opacity="0.850056" d="M21.2667 1.48883L1.45309 21.0288" stroke="#979797" stroke-linecap="square"></path>
+                </svg>
+            </button>
+            <div data-fls-popup-content="" class="popup__text">
+                <div class="popup__login-signin login__signin">
+                    <h1 class="main__title">Купить в один клик</h1>
+                    <form class="basket__form contacts-form" action="#">
+                        <div class="basket__form-item contacts-form__item">
+                            <label class="basket__label contacts-form__label" for="basketInput1">Имя</label>
+                            <div class="basket__input-wrapper contacts-form__input-wrapper">
+                                <img class="basket__input-icon contacts-form__input-icon" src="<?=SITE_TEMPLATE_PATH?>/assets/img/basket/user.svg" alt="Image">
+                                <input class="basket__input contacts-form__input contacts-form__input--user" id="basketInput1" placeholder="" type="text">
+                            </div>
+                        </div>
+                        <div class="basket__form-item contacts-form__item">
+                            <label class="basket__label contacts-form__label" for="basketInput2">Номер телефона</label>
+                            <div class="basket__input-wrapper contacts-form__input-wrapper">
+                                <img class="basket__input-icon contacts-form__input-icon" src="<?=SITE_TEMPLATE_PATH?>/assets/img/basket/tel.svg" alt="Image">
+                                <input class="basket__input contacts-form__input contacts-form__input--tel" id="basketInput2" placeholder="" type="number">
+                            </div>
+                        </div>
+                        <button class="contacts-form-btn main-cataloge__shoping-btn">
+                            <span class="main-cataloge__shoping-text">Заказать</span>
+                            <img class="main-cataloge__shoping-img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/shopping-icon.svg" alt="Img">
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

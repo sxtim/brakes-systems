@@ -1,5 +1,6 @@
 <?php
 
+use App\Brakes\Helper\Highload;
 use Bitrix\Iblock\Elements\ElementCatalogTable;
 
 if ( ! defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
@@ -25,6 +26,28 @@ if ($arResult['DISPLAY_PROPERTIES']['RECOMMENDED']['VALUE']) {
 
     while ($data = $rsData->fetch()) {
         $arResult['DISPLAY_PROPERTIES']['RECOMMENDED']['LINK_ELEMENT_VALUE'][$data['ID']]['IMG'] = getPreviewImgCatalog($data['LINK_PHOTO_VAL']);
+    }
+}
+
+if ($arResult['DISPLAY_PROPERTIES']['DELIVERY']['VALUE']) {
+    $rsData = Highload::getClassEntity('b_hlbd_delivery')::getList([
+        'order' => [
+            'UF_SORT' => 'asc',
+        ],
+        'filter' => [
+            'UF_XML_ID' => $arResult['DISPLAY_PROPERTIES']['DELIVERY']['VALUE'],
+        ],
+        'select' => [
+            'UF_NAME',
+            'UF_FILE',
+            'UF_LINK',
+            'UF_DESCRIPTION',
+        ],
+    ]);
+
+    while ($data = $rsData->fetch()) {
+        $data['UF_FILE'] = CFile::GetPath($data['UF_FILE']);
+        $arResult['DELIVERY'] = $data;
     }
 }
 
