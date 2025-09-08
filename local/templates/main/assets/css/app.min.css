@@ -780,7 +780,7 @@ body {
 .submenu-spollers__list {
 	display: flex;
 	flex-direction: column;
-	align-items: flex-end;
+	/* align-items: flex-end; */
 	gap: 0.5rem;
 	padding: 0.625rem 1.25rem 0.625rem 0.9375rem;
 }

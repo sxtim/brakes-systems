@@ -10,7 +10,8 @@ if ( ! defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/app.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/slider.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/popup.min.js"></script>');
-// Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/cataloge.min.js"></script>');
+Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/cataloge.min.js"></script>');
+Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/product-options.js"></script>');
 
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/app.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/slider.min.css');
@@ -70,15 +71,30 @@ Asset::getInstance()->addString(
 
                 <div class="header__sign"
                      data-fls-dynamic=".header__top-nav, 479.98, 0">
-                    <a href="login-page.html"
-                       class="header__sign-in header__sign-link">
-                        <img class="header__sign-icon"
-                             src="<?= SITE_TEMPLATE_PATH ?>/assets/img/sign-in.svg"
-                             alt="Image">
-                        Вход
-                    </a>
-                    <a href="login-page.html"
-                       class="header__sign-up header__sign-link">Регистрация</a>
+                    <?if($USER->IsAuthorized()):?>
+                        <!-- Отображение для авторизованного пользователя -->
+                        <a href="<?=$APPLICATION->GetCurPageParam("logout=yes", array("logout"))?>"
+                           class="header__sign-in header__sign-link"
+                           title="Выйти">
+                            <img class="header__sign-icon"
+                                 src="<?= SITE_TEMPLATE_PATH ?>/assets/img/sign-in.svg"
+                                 alt="Image">
+                            <?=$USER->GetLogin()?>
+                        </a>
+                        <a href="#"
+                           class="header__sign-up header__sign-link">Профиль</a>
+                    <?else:?>
+                        <!-- Отображение для неавторизованного пользователя -->
+                        <a href="/login/"
+                           class="header__sign-in header__sign-link">
+                            <img class="header__sign-icon"
+                                 src="<?= SITE_TEMPLATE_PATH ?>/assets/img/sign-in.svg"
+                                 alt="Image">
+                            Вход
+                        </a>
+                        <a href="/login/"
+                           class="header__sign-up header__sign-link">Регистрация</a>
+                    <?endif?>
                 </div>
             </div>
         </div>
@@ -185,12 +201,23 @@ Asset::getInstance()->addString(
                              alt="Image">
                     </a>
                 </div>
-                <button class="header__profil">
-                    <img class="header__profil-img"
-                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/sign-in.svg"
-                         alt="Image">
-                    <p class="header__profil-text">Профиль</p>
-                </button>
+                <?if($USER->IsAuthorized()):?>
+                    <!-- Кнопка профиля для авторизованного пользователя -->
+                    <button class="header__profil" title="Профиль пользователя">
+                        <img class="header__profil-img"
+                             src="<?= SITE_TEMPLATE_PATH ?>/assets/img/sign-in.svg"
+                             alt="Image">
+                        <p class="header__profil-text"><?=$USER->GetFirstName() ? $USER->GetFirstName() : $USER->GetLogin()?></p>
+                    </button>
+                <?else:?>
+                    <!-- Кнопка входа для неавторизованного пользователя -->
+                    <a href="/login/" class="header__profil" style="text-decoration: none; color: inherit;">
+                        <img class="header__profil-img"
+                             src="<?= SITE_TEMPLATE_PATH ?>/assets/img/sign-in.svg"
+                             alt="Image">
+                        <p class="header__profil-text">Вход</p>
+                    </a>
+                <?endif?>
             </div>
             <div class="header__favorit-box favorit-box">
                 <div class="favorit-box__container">

@@ -8,7 +8,7 @@ if ( ! defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
 
-Asset::getInstance()->addString('<script type="module" crossorigin="" src="' . SITE_TEMPLATE_PATH . '/js/product-page.min.js"></script>');
+Asset::getInstance()->addString('<script type="module" crossorigin="" src="' . SITE_TEMPLATE_PATH . '/assets/js/product-page.min.js"></script>');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/product-page.min.css');
 
 $request = Application::getInstance()->getContext()->getRequest();
