@@ -114,12 +114,13 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                             <summary class="main-details__feature-item main-cataloge__feature-item--big spollers__title">Двусоставная конструкция диска:</summary>
                             <div class="main-cataloge__sublist spollers__body">
                                 <div class="main-cataloge__sublist-item">Да</div>
-                                <div class="main-cataloge__sublist-item">Нкт</div>
+                                <div class="main-cataloge__sublist-item">Нет</div>
                             </div>
                         </details>
                         <details class="spollers__item">
                             <summary class="main-details__feature-item spollers__title">Рисунок ротора:</summary>
                             <div class="main-cataloge__sublist spollers__body">
+                                <div class="main-cataloge__sublist-item">НЕТ</div>
                                 <div class="main-cataloge__sublist-item">ПЕРФОРАЦИЯ</div>
                                 <div class="main-cataloge__sublist-item">НАСЕЧКИ</div>
                                 <div class="main-cataloge__sublist-item">ПЕРФОРАЦИЯ + НАСЕЧКИ</div>
@@ -135,9 +136,8 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                         <details class="spollers__item">
                             <summary class="main-details__feature-item spollers__title">Электроручник</summary>
                             <div class="main-cataloge__sublist spollers__body">
-                                <div class="main-cataloge__sublist-item">Пункт 1</div>
-                                <div class="main-cataloge__sublist-item">Пункт 2</div>
-                                <div class="main-cataloge__sublist-item">Пункт 3</div>
+                                <div class="main-cataloge__sublist-item">Да</div>
+                                <div class="main-cataloge__sublist-item">Нет</div>
                             </div>
                         </details>
                     </div>

@@ -525,7 +525,7 @@
 
 .main-cataloge__feature {
 	display: grid;
-	grid-template-columns: 1fr 1fr;
+	/* grid-template-columns: 1fr 1fr; */
 	grid-auto-rows: auto;
 	gap: 0.75rem;
 	margin-bottom: 0.75rem;
@@ -864,4 +864,14 @@
 	.choose-auto__spollers-title.spollers__title {
 		height: 2.875rem;
 	}
+}
+
+/* Product options interactive styles */
+.main-cataloge__sublist-item.selected {
+	background-color: #2D4F66 !important;
+	color: #fff !important;
+}
+
+.main-cataloge__sublist-item {
+	cursor: pointer;
 }
