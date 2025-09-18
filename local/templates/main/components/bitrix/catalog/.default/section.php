@@ -55,6 +55,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                     "",
                     [
                         "IBLOCK_ID" => 1,
+                        "SECTION" => $arResult["VARIABLES"]["SECTION_CODE"],
                     ]
                 ); ?>
 <?php

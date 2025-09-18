@@ -189,6 +189,8 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
             case 'COLOR':
             case 'RECOMMENDED':
             case 'CML2_BASE_UNIT':
+            case 'CUSTOM_DESCRIPTION':
+            case 'DELIVERY':
                 continue(2);
         }
 

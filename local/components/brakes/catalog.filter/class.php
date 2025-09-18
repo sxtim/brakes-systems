@@ -1,74 +1,199 @@
 <?php
 
 use App\Brakes\Helper\Storage;
+use Bitrix\Iblock\SectionTable;
 use Bitrix\Main\Application;
 use Bitrix\Iblock\Elements\ElementCatalogTable;
+use Bitrix\Iblock\Model\Section;
 
 class CatalogFilterComponent extends \CBitrixComponent
 {
     public function executeComponent(): void
     {
-        $request = Application::getInstance()->getContext()->getRequest();
-        $getData = $request->getQueryList()->toArray();
-
         $this->arResult['FILTER'] = [
-            'MARK' => [],
+            'MARK'  => [],
             'MODEL' => [],
-            'BODY' => [],
+            'BODY'  => [],
         ];
 
         $filter = [
-            'IBLOCK_ID' => $this->arParams['IBLOCK_ID'],
-            'ACTIVE' => 'Y',
+            'ACTIVE'      => 'Y',
+            'DEPTH_LEVEL' => 1,
         ];
 
-        $group = [
-            'PROPERTY_MARK',
+        $select = [
+            'IBLOCK_ID',
+            'ID',
+            'NAME',
+            'CODE',
+            'SECTION_PAGE_URL' => 'IBLOCK.SECTION_PAGE_URL',
+            'UF_SVG',
         ];
 
-        $this->arResult['SELECTED'] = $getData['brakes_filter'];
+        $entitySections = Section::compileEntityByIblock($this->arParams['IBLOCK_ID']);
 
-        if (!empty($getData['brakes_filter']['mark'])) {
-            $filter['PROPERTY_MARK'] = $getData['brakes_filter']['mark'];
-            $group[] = 'PROPERTY_MODEL';
+        $rsData = $entitySections::getList([
+            'filter'  => $filter,
+            'select'  => $select,
+        ]);
+
+        while ($arData = $rsData->fetch()) {
+            $arData['SECTION_PAGE_URL'] = CIBlock::ReplaceDetailUrl(
+                $arData['SECTION_PAGE_URL'],
+                $arData,
+                false,
+                'S'
+            );
+
+            $arData['UF_SVG'] = CFile::GetPath($arData['UF_SVG']);
+
+            $this->arResult['FIRST'][] = $arData;
         }
 
-        if (!empty($getData['brakes_filter']['model'])) {
-            $filter['PROPERTY_MODEL'] = $getData['brakes_filter']['model'];
-            $group[] = 'PROPERTY_BODY';
-        }
+        if ($this->arParams['SECTION']) {
+            $section = $entitySections::getRow([
+                'filter' => [
+                    '=CODE' => $this->arParams['SECTION'],
+                ],
+                'select' => [
+                    'ID',
+                    'DEPTH_LEVEL',
+                    'IBLOCK_SECTION_ID',
+                ],
+            ]);
 
-        $rsData = CIBlockElement::GetList(
-            arFilter: $filter,
-            arGroupBy: $group,
-        );
+            if ($section['DEPTH_LEVEL'] == 1) {
+                $rsData = $entitySections::getList([
+                    'filter'  => [
+                        'IBLOCK_ID'   => $this->arParams['IBLOCK_ID'],
+                        'ACTIVE'      => 'Y',
+                        'IBLOCK_SECTION_ID' => $section['ID'],
+                    ],
+                    'select'  => $select,
+                ]);
 
-        while ($arData = $rsData->Fetch()) {
-            if ($arData['PROPERTY_MARK_VALUE']
-                && ! in_array(
-                    $arData['PROPERTY_MARK_VALUE'],
-                    $this->arResult['FILTER']['MARK']
-                )
-            ) {
-                $this->arResult['FILTER']['MARK'][] = $arData['PROPERTY_MARK_VALUE'];
+                while ($arData = $rsData->fetch()) {
+                    $arData['SECTION_PAGE_URL'] = CIBlock::ReplaceDetailUrl(
+                        $arData['SECTION_PAGE_URL'],
+                        $arData,
+                        false,
+                        'S'
+                    );
+
+                    $arData['UF_SVG'] = CFile::GetPath($arData['UF_SVG']);
+
+                    $this->arResult['SECOND'][] = $arData;
+                }
             }
 
-            if ($arData['PROPERTY_MODEL_VALUE']
-                && ! in_array(
-                    $arData['PROPERTY_MODEL_VALUE'],
-                    $this->arResult['FILTER']['MODEL']
-                )
-            ) {
-                $this->arResult['FILTER']['MODEL'][] = $arData['PROPERTY_MODEL_VALUE'];
+            if ($section['DEPTH_LEVEL'] == 2) {
+                $this->arResult['FIRST_SELECT_ID'] = $section['IBLOCK_SECTION_ID'];
+                $this->arResult['SECOND_SELECT_ID'] = $section['ID'];
+
+                $rsData = $entitySections::getList([
+                    'filter'  => [
+                        'IBLOCK_ID'   => $this->arParams['IBLOCK_ID'],
+                        'ACTIVE'      => 'Y',
+                        'IBLOCK_SECTION_ID' => $section['IBLOCK_SECTION_ID'],
+                    ],
+                    'select'  => $select,
+                ]);
+
+                while ($arData = $rsData->fetch()) {
+                    $arData['SECTION_PAGE_URL'] = CIBlock::ReplaceDetailUrl(
+                        $arData['SECTION_PAGE_URL'],
+                        $arData,
+                        false,
+                        'S'
+                    );
+
+                    $arData['UF_SVG'] = CFile::GetPath($arData['UF_SVG']);
+
+                    $this->arResult['SECOND'][] = $arData;
+                }
+
+                $rsData = $entitySections::getList([
+                    'filter'  => [
+                        'IBLOCK_ID'   => $this->arParams['IBLOCK_ID'],
+                        'ACTIVE'      => 'Y',
+                        'IBLOCK_SECTION_ID' => $section['ID'],
+                    ],
+                    'select'  => $select,
+                ]);
+
+                while ($arData = $rsData->fetch()) {
+                    $arData['SECTION_PAGE_URL'] = CIBlock::ReplaceDetailUrl(
+                        $arData['SECTION_PAGE_URL'],
+                        $arData,
+                        false,
+                        'S'
+                    );
+
+                    $arData['UF_SVG'] = CFile::GetPath($arData['UF_SVG']);
+
+                    $this->arResult['THIRD'][] = $arData;
+                }
             }
 
-            if ($arData['PROPERTY_BODY_VALUE']
-                && ! in_array(
-                    $arData['PROPERTY_BODY_VALUE'],
-                    $this->arResult['FILTER']['BODY']
-                )
-            ) {
-                $this->arResult['FILTER']['BODY'][] = $arData['PROPERTY_BODY_VALUE'];
+            if ($section['DEPTH_LEVEL'] == 3) {
+                $lvl1Id = $entitySections::getRow([
+                    'filter'  => [
+                        'IBLOCK_ID'   => $this->arParams['IBLOCK_ID'],
+                        'ACTIVE'      => 'Y',
+                        'ID' => $section['IBLOCK_SECTION_ID'],
+                    ],
+                    'select' => [
+                        'IBLOCK_SECTION_ID',
+                    ],
+                ])['IBLOCK_SECTION_ID'];
+
+                $this->arResult['FIRST_SELECT_ID'] = $lvl1Id;
+                $this->arResult['SECOND_SELECT_ID'] = $section['IBLOCK_SECTION_ID'];
+                $this->arResult['THIRD_SELECT_ID'] = $section['ID'];
+
+                $rsData = $entitySections::getList([
+                    'filter'  => [
+                        'IBLOCK_ID'   => $this->arParams['IBLOCK_ID'],
+                        'ACTIVE'      => 'Y',
+                        'IBLOCK_SECTION_ID' => $lvl1Id,
+                    ],
+                    'select'  => $select,
+                ]);
+
+                while ($arData = $rsData->fetch()) {
+                    $arData['SECTION_PAGE_URL'] = CIBlock::ReplaceDetailUrl(
+                        $arData['SECTION_PAGE_URL'],
+                        $arData,
+                        false,
+                        'S'
+                    );
+
+                    $arData['UF_SVG'] = CFile::GetPath($arData['UF_SVG']);
+
+                    $this->arResult['SECOND'][] = $arData;
+                }
+
+                $rsData = $entitySections::getList([
+                    'filter'  => [
+                        'IBLOCK_ID'   => $this->arParams['IBLOCK_ID'],
+                        'ACTIVE'      => 'Y',
+                        'IBLOCK_SECTION_ID' => $section['IBLOCK_SECTION_ID'],
+                    ],
+                    'select'  => $select,
+                ]);
+
+                while ($arData = $rsData->fetch()) {
+                    $arData['SECTION_PAGE_URL'] = CIBlock::ReplaceDetailUrl(
+                        $arData['SECTION_PAGE_URL'],
+                        $arData,
+                        false,
+                        'S'
+                    );
+
+                    $arData['UF_SVG'] = CFile::GetPath($arData['UF_SVG']);
+
+                    $this->arResult['THIRD'][] = $arData;
+                }
             }
         }
 

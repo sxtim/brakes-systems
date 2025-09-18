@@ -1,6 +1,7 @@
 <?php
 
 require_once 'include/func.php';
+require_once 'include/events.php';
 
 Bitrix\Main\Loader::registerAutoLoadClasses(null, [
     'App\Brakes\Helper\Storage' => '/local/app/Brakes/Helper/Storage.php',

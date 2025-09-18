@@ -12,6 +12,7 @@ Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/popup.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/cataloge.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/product-options.js"></script>');
+Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/basket-page.min.js"></script>');
 
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/app.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/slider.min.css');
@@ -20,6 +21,7 @@ Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/other-page.min.css'
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/popup.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/contacts-page.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/login-page.min.css');
+Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/basket-page.min.css');
 
 Asset::getInstance()->addString('<meta charset="'.LANG_CHARSET.'">');
 Asset::getInstance()->addString(
@@ -182,7 +184,7 @@ Asset::getInstance()->addString(
                               class="header__like-quantity cart__quantity">0</span>
                     </div>
                     <a class="header__cart header__controls-btn"
-                       href="basket-page.html">
+                       href="/basket/">
                         <svg class="header__cart-icon header__controls-icon">
                             <use xlink:href="<?= SITE_TEMPLATE_PATH ?>/assets/img/spritemap.svg#sprite-cart"></use>
                         </svg>
