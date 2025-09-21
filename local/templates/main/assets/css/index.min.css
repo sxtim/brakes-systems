@@ -350,6 +350,8 @@
 .main-cataloge__item {
 	display: flex;
 	flex-direction: column;
+	max-width: 400px;
+	min-width: 0;
 }
 
 .main-cataloge__picture {
@@ -394,6 +396,7 @@
 	font-size: 1rem;
 	color: #000;
 	line-height: 130%;
+	white-space: normal;
 }
 
 .main-cataloge__like.main-details__shoping-like {
