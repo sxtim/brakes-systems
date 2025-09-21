@@ -134,7 +134,12 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 </button>
                 <button data-fls-like-image="" data-fls-like-button="" class="main-details__shoping-like"></button>
             </div>
-            <button data-fls-popup-link="speedBuy" class="main-details__buy" href="#">Купить в один клик</button>
+            <button data-fls-popup-link="speedBuy"
+                    class="main-details__buy"
+                    href="#"
+                    data-product-name="<?= $arResult['NAME'] ?>"
+                    data-product-url="<?= $arResult['DETAIL_PAGE_URL'] ?>"
+                    data-options='{}'>Купить в один клик</button>
         </div>
     </div>
 </div>

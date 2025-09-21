@@ -26,7 +26,83 @@ document.querySelectorAll(".spollers__item").forEach((spoller) => {
 
 document.addEventListener("DOMContentLoaded", () => {
   updateProductOptions(document.body);
+  handleOneClickBuyButtons();
 });
+
+// Функция для обработки кнопок "Купить в один клик"
+function handleOneClickBuyButtons() {
+  document.querySelectorAll('[data-fls-popup-link="speedBuy"]').forEach(button => {
+    button.addEventListener('click', function(e) {
+      const buyButton = e.currentTarget; // Используем currentTarget, так как слушатель на самой кнопке
+
+      const popup = document.querySelector('.popup[data-fls-popup="speedBuy"]');
+      if (!popup) {
+          return;
+      }
+
+      // Получаем все данные из data-атрибутов кнопки
+      const productName = buyButton.dataset.productName || '';
+      const productPrice = buyButton.dataset.productPrice || ''; // Цена теперь берется из DOM, но на всякий случай
+      const productUrl = buyButton.dataset.productUrl || '';
+      const options = buyButton.dataset.options || '';
+
+      // Находим элементы цены на странице (для детальной и каталога)
+      const itemContainer = buyButton.closest('.main-cataloge__item') || buyButton.closest('.main__details');
+      const priceElement = itemContainer ? itemContainer.querySelector('.main-details__price-new, .main-cataloge__price') : null;
+      const actualPrice = priceElement ? priceElement.textContent.trim() : productPrice; // Берем актуальную цену
+
+      // Формируем читаемую строку опций
+      let optionsString = '';
+      const keyMap = {
+          'two_piece_disc_construction': 'Двусоставная конструкция диска',
+          'rotor_pattern': 'Рисунок ротора',
+          'caliper_logo': 'Лого на суппорт',
+          'electric_handbrake': 'Электроручник'
+      };
+      const valueMap = {
+          'no': 'Нет',
+          'yes': 'Да',
+          'standard': 'Стандартный',
+          'special': 'Особый логотип',
+          'perforation': 'Перфорация',
+          'slots': 'Насечки',
+          'perforation_slots': 'Перфорация + насечки'
+      };
+
+      try {
+          if (options && options !== '{}') {
+              const optionsData = JSON.parse(options);
+              const optionsArray = [];
+              if (optionsData && typeof optionsData.options === 'object') {
+                   for (const key in optionsData.options) {
+                      const rawValue = optionsData.options[key].value;
+                      if (keyMap[key] && rawValue) {
+                          const translatedValue = valueMap[rawValue.toLowerCase()] || rawValue;
+                          optionsArray.push(`${keyMap[key]}: ${translatedValue}`);
+                      }
+                  }
+              }
+              optionsString = optionsArray.join(', ');
+          }
+      } catch (error) {
+          console.error('Error parsing options data:', error);
+          optionsString = options || 'Ошибка чтения опций';
+      }
+
+      // Находим все инпуты в попапе
+      const productNameInput = popup.querySelector('input[data-product-input="name"]');
+      const productPriceInput = popup.querySelector('input[data-product-input="price"]');
+      const productUrlInput = popup.querySelector('input[data-product-input="url"]');
+      const productOptionsInput = popup.querySelector('input[data-product-input="options"]');
+
+      // Заполняем инпуты
+      if (productNameInput) productNameInput.value = productName;
+      if (productPriceInput) productPriceInput.value = actualPrice;
+      if (productUrlInput) productUrlInput.value = productUrl;
+      if (productOptionsInput) productOptionsInput.value = optionsString;
+    });
+  });
+}
 
 function updateProductPrice(productCard) {
   let priceElement = productCard.querySelector(".main-cataloge__price");
@@ -146,7 +222,7 @@ function updateProductOptions(productContainer) {
   
   const buyButtons = productContainer === document.body
     ? document.querySelectorAll('[data-fls-addtocart-button], [data-fls-popup-link="speedBuy"], .main-details__buy, .main-cataloge__shoping-btn')
-    : productContainer.querySelectorAll('[data-fls-addtocart-button], .main-cataloge__shoping-btn');
+    : productContainer.querySelectorAll('[data-fls-addtocart-button], .main-cataloge__shoping-btn, .main-cataloge__buy');
     
   buyButtons.forEach(button => {
     button.setAttribute('data-options', JSON.stringify(optionsData));

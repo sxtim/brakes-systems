@@ -1,0 +1,9 @@
+.contacts-form__input.error {
+    border: 1px solid red;
+}
+
+.form-error-message {
+    color: red;
+    font-size: 12px;
+    margin-top: 5px;
+}
