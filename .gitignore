@@ -4,3 +4,4 @@
 /upload/
 /.htaccess
 .DS_Store
+sync_config.jsonc

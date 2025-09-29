@@ -6,13 +6,20 @@ if ( ! defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
 
+\Bitrix\Main\UI\Extension::load("ui.core");
+\Bitrix\Main\UI\Extension::load("ui.notification");
+\Bitrix\Main\UI\Extension::load("ajax");
+
 // Asset::getInstance()->addJs(SITE_TEMPLATE_PATH.'/assets/js/slider.min.js');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/app.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/slider.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/popup.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/cataloge.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/product-options.js"></script>');
-Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/basket-page.min.js"></script>');
+if ($APPLICATION->GetCurPage(false) === '/basket/') { // Подключаем скрипт только на странице корзины
+   Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/basket-page.min.js"></script>');
+}
+Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/auth.js?v='.time().'"></script>');
 
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/app.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/slider.min.css');
@@ -75,13 +82,20 @@ Asset::getInstance()->addString(
                      data-fls-dynamic=".header__top-nav, 479.98, 0">
                     <?if($USER->IsAuthorized()):?>
                         <!-- Отображение для авторизованного пользователя -->
-                        <a href="<?=$APPLICATION->GetCurPageParam("logout=yes", array("logout"))?>"
-                           class="header__sign-in header__sign-link"
+                        <div class="header__sign-user-info">
+                            <span class="header__sign-user"><?= $USER->GetFirstName() ?: $USER->GetLogin() ?></span>
+                        </div>
+                        <?
+                        // Обработка выхода пользователя
+                        if (isset($_GET['logout']) && $_GET['logout'] === 'yes') {
+                            $USER->Logout();
+                            LocalRedirect('/');
+                        }
+                        ?>
+                        <a href="?logout=yes"
+                           class="header__sign-out header__sign-link"
                            title="Выйти">
-                            <img class="header__sign-icon"
-                                 src="<?= SITE_TEMPLATE_PATH ?>/assets/img/sign-in.svg"
-                                 alt="Image">
-                            <?=$USER->GetLogin()?>
+                            Выйти
                         </a>
                         <a href="#"
                            class="header__sign-up header__sign-link">Профиль</a>
@@ -94,7 +108,7 @@ Asset::getInstance()->addString(
                                  alt="Image">
                             Вход
                         </a>
-                        <a href="/login/"
+                        <a href="/register/"
                            class="header__sign-up header__sign-link">Регистрация</a>
                     <?endif?>
                 </div>

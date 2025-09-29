@@ -847,11 +847,34 @@ body {
   color: #2E6AAC;
 }
 .header .header__sign-in {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding-right: 0.8125rem;
-  border-right: 0.125rem solid #404040;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding-right: 0.8125rem;
+    border-right: 0.125rem solid #404040;
+}
+
+.header .header__sign-user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding-right: 0.8125rem;
+    border-right: 0.125rem solid #404040;
+}
+
+.header .header__sign-user {
+    font-weight: 600;
+    color: #404040;
+}
+
+.header .header__sign-out {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding-right: 0.8125rem;
+    border-right: 0.125rem solid #404040;
+    color: #FF0000;
+    font-weight: 600;
 }
 .header .header__bottom {
   max-height: 6.25rem;
