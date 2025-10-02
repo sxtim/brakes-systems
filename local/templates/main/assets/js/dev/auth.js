@@ -1,4 +1,8 @@
-window.addEventListener("load", function () {
+﻿window.addEventListener("load", function () {
+    function redirectAfterAuth(url = "/") {
+        window.location.href = url;
+    }
+
     /**
      * Handles the AJAX response for code verification.
      * @param {object} response - The response from the server.
@@ -44,7 +48,7 @@ window.addEventListener("load", function () {
                             data: { userId: userId },
                         }).then(function(loginResponse) {
                             if (loginResponse.data.status === 'success') {
-                                window.location.href = '/';
+                                redirectAfterAuth('/');
                             } else {
                                 const errorDiv = document.createElement('div');
                                 errorDiv.className = 'form-error-message server-error-message';
@@ -53,10 +57,12 @@ window.addEventListener("load", function () {
                                 errorDiv.textContent = loginResponse.data.message || 'Ошибка входа.';
                                 loginBtn.after(errorDiv);
                             }
+                        }).catch(function(error) {
+                            console.error('Login after registration failed:', error);
                         });
                     });
                 } else {
-                    window.location.href = '/';
+                    redirectAfterAuth('/');
                 }
             } else {
                 // For a successful login, show success message before redirect.
@@ -77,11 +83,11 @@ window.addEventListener("load", function () {
                         </div>`;
                     popupContent.innerHTML = successHTML;
                     document.getElementById('loginSuccessOkBtn').addEventListener('click', () => {
-                        window.location.href = '/';
+                        redirectAfterAuth('/');
                     });
                 } else {
                     // Fallback if content area is not found
-                    window.location.href = '/';
+                    redirectAfterAuth('/');
                 }
             }
         } else {
@@ -122,7 +128,10 @@ window.addEventListener("load", function () {
                 BX.ajax.runComponentAction(component, 'verifyCode', {
                     mode: 'class',
                     data: { code: code, phone: phone },
-                }).then(response => handleVerifyResponse(response, component, popupId));
+                }).then(response => handleVerifyResponse(response, component, popupId))
+                .catch(function(error) {
+                    console.error('Verification code submission failed:', error);
+                });
             });
             verifyBtn.dataset.handlerAttached = 'true';
         }
@@ -265,7 +274,10 @@ window.addEventListener("load", function () {
                     BX.ajax.runComponentAction(component, 'sendCode', {
                         mode: 'class',
                         data: new FormData(form),
-                    }).then(response => handleSendCodeResponse(response, popupId, form));
+                    }).then(response => handleSendCodeResponse(response, popupId, form))
+                    .catch(function(error) {
+                        console.error('Send code failed:', error);
+                    });
                 }
             });
         }

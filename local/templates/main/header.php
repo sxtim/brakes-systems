@@ -1,11 +1,16 @@
 <?php
 
-use Bitrix\Main\Page\Asset;
+use \Bitrix\Main\Page\Asset;
+use \Bitrix\Main\Web\Json;
+use App\Brakes\Helper\FavoritesManager;
 
 if ( ! defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
 
+if (\Bitrix\Main\Loader::includeModule('pull')) {
+    \Bitrix\Main\UI\Extension::load("pull.client");
+}
 \Bitrix\Main\UI\Extension::load("ui.core");
 \Bitrix\Main\UI\Extension::load("ui.notification");
 \Bitrix\Main\UI\Extension::load("ajax");
@@ -20,6 +25,7 @@ if ($APPLICATION->GetCurPage(false) === '/basket/') { // Подключаем с
    Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/basket-page.min.js"></script>');
 }
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/auth.js?v='.time().'"></script>');
+Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/favorites.js?v='.time().'"></script>');
 
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/app.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/slider.min.css');
@@ -29,6 +35,49 @@ Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/popup.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/contacts-page.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/login-page.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/basket-page.min.css');
+
+$favoritesClientState = FavoritesManager::getClientState();
+Asset::getInstance()->addString('<script>window.__FAVORITES__ = ' . Json::encode($favoritesClientState) . '</script>', true);
+Asset::getInstance()->addString("<script>BX.message({'ERROR_FAVORITES_TOGGLE': 'Не удалось обновить избранное.'});</script>", true);
+
+$favoriteProductData = [];
+$favoritesIds = $favoritesClientState['items'] ?? [];
+
+if (!empty($favoritesIds) && \Bitrix\Main\Loader::includeModule('iblock')) {
+    $elements = [];
+    $result = \CIBlockElement::GetList([], ['ID' => $favoritesIds], false, false, ['ID', 'IBLOCK_ID', 'NAME', 'DETAIL_PAGE_URL', 'PREVIEW_PICTURE']);
+    while ($row = $result->GetNext()) {
+        $id = (int)$row['ID'];
+        $elements[$id] = [
+            'ID' => $id,
+            'NAME' => $row['~NAME'] ?? $row['NAME'],
+            'URL' => $row['DETAIL_PAGE_URL'],
+            'PICTURE' => $row['PREVIEW_PICTURE'] ? \CFile::GetPath($row['PREVIEW_PICTURE']) : null,
+            'PRICE' => null,
+        ];
+    }
+
+    if (!empty($elements) && \Bitrix\Main\Loader::includeModule('catalog') && \Bitrix\Main\Loader::includeModule('currency')) {
+        foreach ($elements as $elementId => &$element) {
+            $priceData = \CCatalogProduct::GetOptimalPrice($elementId);
+
+            if ($priceData && isset($priceData['RESULT_PRICE']['DISCOUNT_PRICE'])) {
+                $element['PRICE'] = \CCurrencyLang::CurrencyFormat(
+                    $priceData['RESULT_PRICE']['DISCOUNT_PRICE'],
+                    $priceData['RESULT_PRICE']['CURRENCY']
+                );
+            }
+        }
+        unset($element);
+    }
+
+    foreach ($favoritesIds as $favoriteId) {
+        $favoriteId = (int)$favoriteId;
+        if (isset($elements[$favoriteId])) {
+            $favoriteProductData[] = $elements[$favoriteId];
+        }
+    }
+}
 
 Asset::getInstance()->addString('<meta charset="'.LANG_CHARSET.'">');
 Asset::getInstance()->addString(
@@ -194,8 +243,7 @@ Asset::getInstance()->addString(
                             <use xlink:href="<?= SITE_TEMPLATE_PATH ?>/assets/img/spritemap.svg#sprite-like"></use>
                         </svg>
                         <p class="header__like-text">Избранное</p>
-                        <span data-fls-like=""
-                              class="header__like-quantity cart__quantity">0</span>
+                        <span data-fls-like="" class="header__like-quantity cart__quantity"><?= $favoritesClientState['count'] ?></span>
                     </div>
                     <a class="header__cart header__controls-btn"
                        href="/basket/">
@@ -223,7 +271,7 @@ Asset::getInstance()->addString(
                         <img class="header__profil-img"
                              src="<?= SITE_TEMPLATE_PATH ?>/assets/img/sign-in.svg"
                              alt="Image">
-                        <p class="header__profil-text"><?=$USER->GetFirstName() ? $USER->GetFirstName() : $USER->GetLogin()?></p>
+                        <p class="header__profil-text"><?= $USER->GetFirstName() ?: $USER->GetLogin() ?></p>
                     </button>
                 <?else:?>
                     <!-- Кнопка входа для неавторизованного пользователя -->
@@ -246,171 +294,32 @@ Asset::getInstance()->addString(
                         </button>
                     </div>
                     <div class="favorit-box__body">
-                        <a class="favorit-box__item" href="#">
-                            <div class="favorit-box__item-foto">
-                                <picture>
-                                    <source media="(max-width: 600px)"
-                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1-600.webp"
-                                            type="image/webp">
-                                    <source media="(max-width: 1200px)"
-                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1-1200.webp"
-                                            type="image/webp">
-                                    <img class="favorit-box__img" alt="Image"
-                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1.webp">
-                                </picture>
-                            </div>
-                            <div class="favorit-box__inner">
-                                <h3 class="favorit-box__item-title">Колодки
-                                    тормозные DICASE (комплект) для
-                                    тюнингованных тормозных систем</h3>
-                                <div class="favorit-box__item-bottom">
-                                    <div class="favorit-box__item-price">60 700
-                                        ₽
+                        <?php if (!empty($favoriteProductData)): ?>
+                            <?php foreach ($favoriteProductData as $favoriteProduct): ?>
+                                <a class="favorit-box__item" data-fls-like-product="<?= $favoriteProduct['ID'] ?>" href="<?= htmlspecialcharsbx($favoriteProduct['URL']) ?>">
+                                    <div class="favorit-box__item-foto">
+                                        <?php if ($favoriteProduct['PICTURE']): ?>
+                                            <img class="favorit-box__img" alt="<?= htmlspecialcharsbx($favoriteProduct['NAME']) ?>" src="<?= htmlspecialcharsbx($favoriteProduct['PICTURE']) ?>">
+                                        <?php else: ?>
+                                            <img class="favorit-box__img" alt="<?= htmlspecialcharsbx($favoriteProduct['NAME']) ?>" src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1.webp">
+                                        <?php endif; ?>
                                     </div>
-                                    <button class="favorit-box__item-buy">
-                                        Купить
-                                        <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/buy-icon.svg"
-                                             alt="Image">
-                                    </button>
-                                </div>
-                            </div>
-                            <button class="favorit-box__delete">
-                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/trash.svg"
-                                     alt="Image">
-                            </button>
-                        </a>
-                        <a class="favorit-box__item" href="#">
-                            <div class="favorit-box__item-foto">
-                                <picture>
-                                    <source media="(max-width: 600px)"
-                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/2-600.webp"
-                                            type="image/webp">
-                                    <source media="(max-width: 1200px)"
-                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/2-1200.webp"
-                                            type="image/webp">
-                                    <img class="favorit-box__img" alt="Image"
-                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/2.webp">
-                                </picture>
-                            </div>
-                            <div class="favorit-box__inner">
-                                <h3 class="favorit-box__item-title">Колодки
-                                    тормозные DICASE (комплект) для
-                                    тюнингованных тормозных систем</h3>
-                                <div class="favorit-box__item-bottom">
-                                    <div class="favorit-box__item-price">118 700
-                                        ₽
+                                    <div class="favorit-box__inner">
+                                        <h3 class="favorit-box__item-title"><?= htmlspecialcharsbx($favoriteProduct['NAME']) ?></h3>
+                                        <?php if ($favoriteProduct['PRICE']): ?>
+                                            <div class="favorit-box__item-bottom">
+                                                <div class="favorit-box__item-price"><?= $favoriteProduct['PRICE'] ?></div>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
-                                    <button class="favorit-box__item-buy">
-                                        Купить
-                                        <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/buy-icon.svg"
-                                             alt="Image">
+                                    <button class="favorit-box__delete" data-fls-like-button data-product-id="<?= $favoriteProduct['ID'] ?>" aria-label="Удалить из избранного">
+                                        <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/trash.svg" alt="Удалить">
                                     </button>
-                                </div>
-                            </div>
-                            <button class="favorit-box__delete">
-                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/trash.svg"
-                                     alt="Image">
-                            </button>
-                        </a>
-                        <a class="favorit-box__item" href="#">
-                            <div class="favorit-box__item-foto">
-                                <picture>
-                                    <source media="(max-width: 600px)"
-                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1-600.webp"
-                                            type="image/webp">
-                                    <source media="(max-width: 1200px)"
-                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1-1200.webp"
-                                            type="image/webp">
-                                    <img class="favorit-box__img" alt="Image"
-                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1.webp">
-                                </picture>
-                            </div>
-                            <div class="favorit-box__inner">
-                                <h3 class="favorit-box__item-title">Колодки
-                                    тормозные DICASE (комплект) для
-                                    тюнингованных тормозных систем</h3>
-                                <div class="favorit-box__item-bottom">
-                                    <div class="favorit-box__item-price">60 700
-                                        ₽
-                                    </div>
-                                    <button class="favorit-box__item-buy">
-                                        Купить
-                                        <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/buy-icon.svg"
-                                             alt="Image">
-                                    </button>
-                                </div>
-                            </div>
-                            <button class="favorit-box__delete">
-                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/trash.svg"
-                                     alt="Image">
-                            </button>
-                        </a>
-                        <a class="favorit-box__item" href="#">
-                            <div class="favorit-box__item-foto">
-                                <picture>
-                                    <source media="(max-width: 600px)"
-                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/2-600.webp"
-                                            type="image/webp">
-                                    <source media="(max-width: 1200px)"
-                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/2-1200.webp"
-                                            type="image/webp">
-                                    <img class="favorit-box__img" alt="Image"
-                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/2.webp">
-                                </picture>
-                            </div>
-                            <div class="favorit-box__inner">
-                                <h3 class="favorit-box__item-title">Колодки
-                                    тормозные DICASE (комплект) для
-                                    тюнингованных тормозных систем</h3>
-                                <div class="favorit-box__item-bottom">
-                                    <div class="favorit-box__item-price">118 700
-                                        ₽
-                                    </div>
-                                    <button class="favorit-box__item-buy">
-                                        Купить
-                                        <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/buy-icon.svg"
-                                             alt="Image">
-                                    </button>
-                                </div>
-                            </div>
-                            <button class="favorit-box__delete">
-                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/trash.svg"
-                                     alt="Image">
-                            </button>
-                        </a>
-                        <a class="favorit-box__item" href="#">
-                            <div class="favorit-box__item-foto">
-                                <picture>
-                                    <source media="(max-width: 600px)"
-                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1-600.webp"
-                                            type="image/webp">
-                                    <source media="(max-width: 1200px)"
-                                            srcset="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1-1200.webp"
-                                            type="image/webp">
-                                    <img class="favorit-box__img" alt="Image"
-                                         src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1.webp">
-                                </picture>
-                            </div>
-                            <div class="favorit-box__inner">
-                                <h3 class="favorit-box__item-title">Колодки
-                                    тормозные DICASE (комплект) для
-                                    тюнингованных тормозных систем</h3>
-                                <div class="favorit-box__item-bottom">
-                                    <div class="favorit-box__item-price">60 700
-                                        ₽
-                                    </div>
-                                    <button class="favorit-box__item-buy">
-                                        Купить
-                                        <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/buy-icon.svg"
-                                             alt="Image">
-                                    </button>
-                                </div>
-                            </div>
-                            <button class="favorit-box__delete">
-                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/trash.svg"
-                                     alt="Image">
-                            </button>
-                        </a>
+                                </a>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="favorit-box__empty">В избранном пока нет товаров.</div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
