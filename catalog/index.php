@@ -223,8 +223,8 @@ Array(
     "SIDEBAR_PATH" => "/examples/index_inc.php",
     "AJAX_OPTION_ADDITIONAL" => "",
     "SEF_URL_TEMPLATES" => array(
-        "section" => "#SECTION_CODE#/",
-        "element" => "#SECTION_CODE#/#ELEMENT_CODE#/",
+        "section" => "#SECTION_CODE_PATH#/",
+        "element" => "#SECTION_CODE_PATH#/#ELEMENT_CODE#/",
     )
 ),
 false
