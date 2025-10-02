@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
@@ -6,7 +6,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 
 $arComponentDescription = [
     'NAME' => 'Brakes Favorites Sync',
-    'DESCRIPTION' => 'Синхронизация локального избранного с профилем пользователя.',
+    'DESCRIPTION' => 'Синхронизация избранного между пользователем и гостем.',
     'PATH' => [
         'ID' => 'brakes',
         'NAME' => 'Brakes',

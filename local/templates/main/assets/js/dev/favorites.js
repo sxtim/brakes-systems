@@ -1,4 +1,4 @@
-﻿const FAVORITE_BUTTON_SELECTOR = "[data-fls-like-button]";
+const FAVORITE_BUTTON_SELECTOR = "[data-fls-like-button]";
 const FAVORITE_PRODUCT_SELECTOR = "[data-fls-like-product]";
 const FAVORITE_COUNTER_SELECTOR = "[data-fls-like]";
 const ACTIVE_CLASS = "liked";

@@ -25,7 +25,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 
         foreach ($arResult['ITEMS'] as $item) {
         ?>
-            <div class="main-cataloge__item">
+            <div class="main-cataloge__item" data-fls-like-product="<?=$item['ID']?>">
                 <a class="main-cataloge__picture" href="<?=$item['DETAIL_PAGE_URL']?>">
                     <picture>
                         <source media="(max-width: 600px)" srcset="<?=$item['IMG']?>" type="image/webp">
@@ -36,7 +36,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 <div class="main-cataloge__item-content">
                     <div class="main-cataloge__item-top">
                         <h3 class="main-cataloge__item-title"><a href="<?=$item['DETAIL_PAGE_URL']?>"><?=$item['NAME']?></a></h3>
-                        <button data-fls-like-image="" data-fls-like-button="" class="main-cataloge__like main-details__shoping-like"></button>
+                        <button data-fls-like-image="" data-fls-like-button="" data-product-id="<?=$item['ID']?>" class="main-cataloge__like main-details__shoping-like"></button>
                     </div>
                     <div class="main-cataloge__details main__details details">
                         <div class="main-cataloge__details-row details-row">

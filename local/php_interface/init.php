@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 if (!\Bitrix\Main\Loader::includeModule('pull'))
 {

@@ -1,4 +1,4 @@
-﻿window.addEventListener("load", function () {
+window.addEventListener("load", function () {
     function redirectAfterAuth(url = "/") {
         window.location.href = url;
     }
