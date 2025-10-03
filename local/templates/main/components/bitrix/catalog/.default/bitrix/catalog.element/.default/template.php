@@ -134,7 +134,12 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 </button>
                 <button data-fls-like-image="" data-fls-like-button="" class="main-details__shoping-like"></button>
             </div>
-            <button data-fls-popup-link="speedBuy" class="main-details__buy" href="#">Купить в один клик</button>
+            <button data-fls-popup-link="speedBuy"
+                    class="main-details__buy"
+                    href="#"
+                    data-product-name="<?= $arResult['NAME'] ?>"
+                    data-product-url="<?= $arResult['DETAIL_PAGE_URL'] ?>"
+                    data-options='{}'>Купить в один клик</button>
         </div>
     </div>
 </div>
@@ -218,29 +223,32 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 </svg>
             </button>
             <div data-fls-popup-content="" class="popup__text">
-                <div class="popup__login-signin login__signin">
-                    <h1 class="main__title">Купить в один клик</h1>
-                    <form class="basket__form contacts-form" action="#">
-                        <div class="basket__form-item contacts-form__item">
-                            <label class="basket__label contacts-form__label" for="basketInput1">Имя</label>
-                            <div class="basket__input-wrapper contacts-form__input-wrapper">
-                                <img class="basket__input-icon contacts-form__input-icon" src="<?=SITE_TEMPLATE_PATH?>/assets/img/basket/user.svg" alt="Image">
-                                <input class="basket__input contacts-form__input contacts-form__input--user" id="basketInput1" placeholder="" type="text">
-                            </div>
-                        </div>
-                        <div class="basket__form-item contacts-form__item">
-                            <label class="basket__label contacts-form__label" for="basketInput2">Номер телефона</label>
-                            <div class="basket__input-wrapper contacts-form__input-wrapper">
-                                <img class="basket__input-icon contacts-form__input-icon" src="<?=SITE_TEMPLATE_PATH?>/assets/img/basket/tel.svg" alt="Image">
-                                <input class="basket__input contacts-form__input contacts-form__input--tel" id="basketInput2" placeholder="" type="number">
-                            </div>
-                        </div>
-                        <button class="contacts-form-btn main-cataloge__shoping-btn">
-                            <span class="main-cataloge__shoping-text">Заказать</span>
-                            <img class="main-cataloge__shoping-img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/shopping-icon.svg" alt="Img">
-                        </button>
-                    </form>
-                </div>
+                <?$APPLICATION->IncludeComponent(
+                    "bitrix:form.result.new",
+                    "one_click",
+                    Array(
+                        "AJAX_MODE" => "Y",
+                        "AJAX_OPTION_ADDITIONAL" => "",
+                        "AJAX_OPTION_HISTORY" => "N",
+                        "AJAX_OPTION_JUMP" => "N",
+                        "AJAX_OPTION_STYLE" => "Y",
+                        "CACHE_TIME" => "3600",
+                        "CACHE_TYPE" => "A",
+                        "CHAIN_ITEM_LINK" => "",
+                        "CHAIN_ITEM_TEXT" => "",
+                        "EDIT_URL" => "",
+                        "IGNORE_CUSTOM_TEMPLATE" => "N",
+                        "LIST_URL" => "",
+                        "SEF_MODE" => "N",
+                        "SUCCESS_URL" => "",
+                        "USE_EXTENDED_ERRORS" => "N",
+                        "VARIABLE_ALIASES" => Array(
+                            "RESULT_ID" => "RESULT_ID",
+                            "WEB_FORM_ID" => "WEB_FORM_ID"
+                        ),
+                        "WEB_FORM_ID" => "QUICK_ORDER"
+                    )
+                );?>
             </div>
         </div>
     </div>

@@ -75,7 +75,7 @@
 }
 
 .thumbs-swiper {
-	min-width: 0;
+	min-width: 90%;
 }
 
 .thumbs-swiper .swiper-slide {
@@ -109,7 +109,7 @@
 	background-position: center;
 	background-repeat: no-repeat;
 	background-size: 1.25rem;
-	width: 1.5625rem;
+	width: 2.7625rem;
 }
 
 .thumbs-swiper__prev,

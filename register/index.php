@@ -1,12 +1,12 @@
 <?
-use Bitrix\Main\Page\Asset;
 require($_SERVER['DOCUMENT_ROOT'].'/bitrix/header.php');
 global $USER;
 if ($USER->IsAuthorized()) {
     LocalRedirect('/');
-    exit; // Важно добавить exit после редиректа, чтобы прекратить выполнение скрипта
+    exit;
 }
-$APPLICATION->SetTitle('Вход');
+$APPLICATION->SetTitle('Регистрация');
+$APPLICATION->AddChainItem($APPLICATION->GetTitle());
 ?>
     <main class="page">
         <div class="login__container">
@@ -28,14 +28,12 @@ $APPLICATION->SetTitle('Вход');
                                     "SITE_ID" => "s1"
                                 )
                             );?>
-                            <div class="login-tabs__body login-tabs__body--signup tabs__body">
-                                <?$APPLICATION->IncludeComponent(
-                                    "brakes:auth.login",
-                                    ".default",
-                                    array(),
-                                    false
-                                );?>
-                            </div>
+                            <?$APPLICATION->IncludeComponent(
+                                "brakes:auth.register",
+                                ".default",
+                                array(),
+                                false
+                            );?>
                         </div>
                     </div>
                 </div>

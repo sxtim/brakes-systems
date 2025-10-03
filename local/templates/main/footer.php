@@ -90,5 +90,146 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     </div>
 </footer>
 </div>
+
+		<div id="popup1" data-fls-popup="popup1" aria-hidden="true" class="popup">
+			<div data-fls-popup-wrapper="" class="popup__wrapper">
+				<div data-fls-popup-body="" class="popup__body">
+					<button data-fls-popup-close="" type="button" class="popup__close">
+						<svg width="23" height="23" viewbox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+							<path opacity="0.850056" d="M1.73333 1.48883L21.5469 21.0288" stroke="#979797" stroke-linecap="square"></path>
+							<path opacity="0.850056" d="M21.2667 1.48883L1.45309 21.0288" stroke="#979797" stroke-linecap="square"></path>
+						</svg>
+					</button>
+					<div data-fls-popup-content="" class="popup__text">
+						<div class="popup__login-signin login__signin">
+							<h1 class="main__title">Регистрация</h1>
+							<p class="popup__login-message login__message">Введите код из СМС сообщение</p>
+							<div class="login__body">
+								<form class="login__form contacts-form" action="#">
+									<div class="login__form-item contacts-form__item">
+										<label class="login__label contacts-form__label" for="code1">Код</label>
+										<div class="login__input-wrapper contacts-form__input-wrapper">
+											<input class="login__input contacts-form__input contacts-form__input--user" name="code" placeholder="" type="number">
+										                                  <input type="hidden" name="phone" value="">
+										</div>
+									</div>
+									<div class="popup__bottom-row">
+										<button type="button" class="popup__bottom-btn contacts-form-btn main-cataloge__shoping-btn js-verify-code-btn">
+											<span class="main-cataloge__shoping-text">Ввести</span>
+										</button>
+										<button class="popup__bottom-btn popup__bottom-btn--gray contacts-form-btn main-cataloge__shoping-btn">
+											<span class="main-cataloge__shoping-text">Отправить снова</span>
+										</button>
+									</div>
+								</form>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div id="popup2" data-fls-popup="popup2" aria-hidden="true" class="popup">
+			<div data-fls-popup-wrapper="" class="popup__wrapper">
+				<div data-fls-popup-body="" class="popup__body">
+					<button data-fls-popup-close="" type="button" class="popup__close">
+						<svg width="23" height="23" viewbox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+							<path opacity="0.850056" d="M1.73333 1.48883L21.5469 21.0288" stroke="#979797" stroke-linecap="square"></path>
+							<path opacity="0.850056" d="M21.2667 1.48883L1.45309 21.0288" stroke="#979797" stroke-linecap="square"></path>
+						</svg>
+					</button>
+					<div data-fls-popup-content="" class="popup__text">
+						<div class="popup__login-signin login__signin">
+							<h1 class="popup__main-title">Спасибо за регистрацию</h1>
+							<p class="popup__login-message">
+								Войдите с помощью вашего
+								<br>
+								номера телефона.
+							</p>
+							<div class="popup__login-success-actions">
+								<a href="/login/" class="popup__login-success-btn contacts-form-btn main-cataloge__shoping-btn">
+									<span class="main-cataloge__shoping-text">Войти</span>
+								</a>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div id="popup3" data-fls-popup="popup3" aria-hidden="true" class="popup">
+			<div data-fls-popup-wrapper="" class="popup__wrapper">
+				<div data-fls-popup-body="" class="popup__body">
+					<button data-fls-popup-close="" type="button" class="popup__close">
+						<svg width="23" height="23" viewbox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+							<path opacity="0.850056" d="M1.73333 1.48883L21.5469 21.0288" stroke="#979797" stroke-linecap="square"></path>
+							<path opacity="0.850056" d="M21.2667 1.48883L1.45309 21.0288" stroke="#979797" stroke-linecap="square"></path>
+						</svg>
+					</button>
+					<div data-fls-popup-content="" class="popup__text">
+						<div class="popup__login-signin login__signin">
+							<h1 class="main__title">Вход</h1>
+							<p class="popup__login-message login__message">Введите код из СМС сообщение</p>
+							<div class="login__body">
+								<form class="login__form contacts-form" action="#">
+									<div class="login__form-item contacts-form__item">
+										<label class="login__label contacts-form__label" for="code1">Код</label>
+										<div class="login__input-wrapper contacts-form__input-wrapper">
+											<input class="login__input contacts-form__input contacts-form__input--user" name="code" placeholder="" type="number">
+										                                  <input type="hidden" name="phone" value="">
+										</div>
+									</div>
+									<div class="popup__bottom-row">
+										<button type="button" class="popup__bottom-btn contacts-form-btn main-cataloge__shoping-btn js-verify-code-btn">
+											<span class="main-cataloge__shoping-text">Ввести</span>
+										</button>
+										<button class="popup__bottom-btn popup__bottom-btn--gray contacts-form-btn main-cataloge__shoping-btn">
+											<span class="main-cataloge__shoping-text">Отправить снова</span>
+										</button>
+									</div>
+								</form>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!-- speed buy ----------------------------------------- -->
+		<div data-fls-popup="speedBuy" aria-hidden="true" class="popup">
+			<div data-fls-popup-wrapper="" class="popup__wrapper">
+				<div data-fls-popup-body="" class="popup__body">
+					<button data-fls-popup-close="" type="button" class="popup__close">
+						<svg width="23" height="23" viewbox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+							<path opacity="0.850056" d="M1.73333 1.48883L21.5469 21.0288" stroke="#979797" stroke-linecap="square"></path>
+							<path opacity="0.850056" d="M21.2667 1.48883L1.45309 21.0288" stroke="#979797" stroke-linecap="square"></path>
+						</svg>
+					</button>
+					<div data-fls-popup-content="" class="popup__text">
+						<div class="popup__login-signin login__signin">
+							<h1 class="main__title">Купить в один клик</h1>
+							<form class="basket__form contacts-form" action="#">
+								<div class="basket__form-item contacts-form__item">
+									<label class="basket__label contacts-form__label" for="basketInput1">Имя</label>
+									<div class="basket__input-wrapper contacts-form__input-wrapper">
+										<img class="basket__input-icon contacts-form__input-icon" src="<?= SITE_TEMPLATE_PATH ?>/assets/img/basket/user.svg" alt="Image">
+										<input class="basket__input contacts-form__input contacts-form__input--user" id="basketInput1" placeholder="" type="text">
+									</div>
+								</div>
+								<div class="basket__form-item contacts-form__item">
+									<label class="basket__label contacts-form__label" for="basketInput2">Номер телефона</label>
+									<div class="basket__input-wrapper contacts-form__input-wrapper">
+										<img class="basket__input-icon contacts-form__input-icon" src="<?= SITE_TEMPLATE_PATH ?>/assets/img/basket/tel.svg" alt="Image">
+										<input class="basket__input contacts-form__input contacts-form__input--tel" id="basketInput2" placeholder="" type="number">
+									</div>
+								</div>
+								<button class="contacts-form-btn main-cataloge__shoping-btn">
+									<span class="main-cataloge__shoping-text">Заказать</span>
+									<img class="main-cataloge__shoping-img" src="<?= SITE_TEMPLATE_PATH ?>/assets/img/shopping-icon.svg" alt="Img">
+								</button>
+							</form>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
 </body>
 </html>

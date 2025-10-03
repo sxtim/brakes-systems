@@ -5,3 +5,4 @@
 /.htaccess
 .DS_Store
 .section.php
+sync_config.jsonc

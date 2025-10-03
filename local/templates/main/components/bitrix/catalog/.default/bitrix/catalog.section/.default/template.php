@@ -35,7 +35,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 </a>
                 <div class="main-cataloge__item-content">
                     <div class="main-cataloge__item-top">
-                        <h3 class="main-cataloge__item-title"><a href="<?=$item['DETAIL_PAGE_URL']?>"><?=$item['NAME']?></a></h3>
+                        <h3 class="main-cataloge__item-title"><a href="<?=$item['DETAIL_PAGE_URL']?>"><?=str_replace(["&nbsp;", "\xC2\xA0"], " ", $item['NAME'])?></a></h3>
                         <button data-fls-like-image="" data-fls-like-button="" class="main-cataloge__like main-details__shoping-like"></button>
                     </div>
                     <div class="main-cataloge__details main__details details">
@@ -117,7 +117,11 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                     </div>
                     <div class="main-cataloge__price"><?=number_format($item['ITEM_PRICES'][0]['PRICE'], 0, '.', ' ')?> ₽</div>
                     <div class="main-cataloge__bottom-controls">
-                        <button data-fls-popup-link="speedBuy" class="main-cataloge__buy">Купить в один клик</button>
+                        <button data-fls-popup-link="speedBuy"
+                                class="main-cataloge__buy"
+                                data-product-name="<?= $item['NAME'] ?>"
+                                data-product-url="<?= $item['DETAIL_PAGE_URL'] ?>"
+                                data-options='{}'>Купить в один клик</button>
                         <button data-fls-addtocart-button="" class="main-cataloge__shoping-btn">
                             <span class="main-cataloge__shoping-text">В корзину</span>
                             <img class="main-cataloge__shoping-img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/shopping-icon.svg" alt="Img">
@@ -134,3 +138,44 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 <?php
 
 echo $arResult['NAV_STRING'];
+?>
+<div data-fls-popup="speedBuy" aria-hidden="true" class="popup">
+    <div data-fls-popup-wrapper="" class="popup__wrapper">
+        <div data-fls-popup-body="" class="popup__body">
+            <button data-fls-popup-close="" type="button" class="popup__close">
+                <svg width="23" height="23" viewbox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path opacity="0.850056" d="M1.73333 1.48883L21.5469 21.0288" stroke="#979797" stroke-linecap="square"></path>
+                    <path opacity="0.850056" d="M21.2667 1.48883L1.45309 21.0288" stroke="#979797" stroke-linecap="square"></path>
+                </svg>
+            </button>
+            <div data-fls-popup-content="" class="popup__text">
+                <?$APPLICATION->IncludeComponent(
+                    "bitrix:form.result.new",
+                    "one_click",
+                    Array(
+                        "AJAX_MODE" => "Y",
+                        "AJAX_OPTION_ADDITIONAL" => "",
+                        "AJAX_OPTION_HISTORY" => "N",
+                        "AJAX_OPTION_JUMP" => "N",
+                        "AJAX_OPTION_STYLE" => "Y",
+                        "CACHE_TIME" => "3600",
+                        "CACHE_TYPE" => "A",
+                        "CHAIN_ITEM_LINK" => "",
+                        "CHAIN_ITEM_TEXT" => "",
+                        "EDIT_URL" => "",
+                        "IGNORE_CUSTOM_TEMPLATE" => "N",
+                        "LIST_URL" => "",
+                        "SEF_MODE" => "N",
+                        "SUCCESS_URL" => "",
+                        "USE_EXTENDED_ERRORS" => "N",
+                        "VARIABLE_ALIASES" => Array(
+                            "RESULT_ID" => "RESULT_ID",
+                            "WEB_FORM_ID" => "WEB_FORM_ID"
+                        ),
+                        "WEB_FORM_ID" => "QUICK_ORDER"
+                    )
+                );?>
+            </div>
+        </div>
+    </div>
+</div>
