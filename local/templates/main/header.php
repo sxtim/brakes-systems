@@ -40,44 +40,9 @@ $favoritesClientState = FavoritesManager::getClientState();
 Asset::getInstance()->addString('<script>window.__FAVORITES__ = ' . Json::encode($favoritesClientState) . '</script>', true);
 Asset::getInstance()->addString("<script>BX.message({'ERROR_FAVORITES_TOGGLE': 'Не удалось обновить избранное.'});</script>", true);
 
-$favoriteProductData = [];
 $favoritesIds = $favoritesClientState['items'] ?? [];
-
-if (!empty($favoritesIds) && \Bitrix\Main\Loader::includeModule('iblock')) {
-    $elements = [];
-    $result = \CIBlockElement::GetList([], ['ID' => $favoritesIds], false, false, ['ID', 'IBLOCK_ID', 'NAME', 'DETAIL_PAGE_URL', 'PREVIEW_PICTURE']);
-    while ($row = $result->GetNext()) {
-        $id = (int)$row['ID'];
-        $elements[$id] = [
-            'ID' => $id,
-            'NAME' => $row['~NAME'] ?? $row['NAME'],
-            'URL' => $row['DETAIL_PAGE_URL'],
-            'PICTURE' => $row['PREVIEW_PICTURE'] ? \CFile::GetPath($row['PREVIEW_PICTURE']) : null,
-            'PRICE' => null,
-        ];
-    }
-
-    if (!empty($elements) && \Bitrix\Main\Loader::includeModule('catalog') && \Bitrix\Main\Loader::includeModule('currency')) {
-        foreach ($elements as $elementId => &$element) {
-            $priceData = \CCatalogProduct::GetOptimalPrice($elementId);
-
-            if ($priceData && isset($priceData['RESULT_PRICE']['DISCOUNT_PRICE'])) {
-                $element['PRICE'] = \CCurrencyLang::CurrencyFormat(
-                    $priceData['RESULT_PRICE']['DISCOUNT_PRICE'],
-                    $priceData['RESULT_PRICE']['CURRENCY']
-                );
-            }
-        }
-        unset($element);
-    }
-
-    foreach ($favoritesIds as $favoriteId) {
-        $favoriteId = (int)$favoriteId;
-        if (isset($elements[$favoriteId])) {
-            $favoriteProductData[] = $elements[$favoriteId];
-        }
-    }
-}
+$favoriteProductData = FavoritesManager::getFavoritesProductsData($favoritesIds);
+$favoritesPopupHtml = FavoritesManager::buildFavoritesPopupHtml($favoriteProductData);
 
 Asset::getInstance()->addString('<meta charset="'.LANG_CHARSET.'">');
 Asset::getInstance()->addString(
@@ -294,32 +259,7 @@ Asset::getInstance()->addString(
                         </button>
                     </div>
                     <div class="favorit-box__body">
-                        <?php if (!empty($favoriteProductData)): ?>
-                            <?php foreach ($favoriteProductData as $favoriteProduct): ?>
-                                <a class="favorit-box__item" data-fls-like-product="<?= $favoriteProduct['ID'] ?>" href="<?= htmlspecialcharsbx($favoriteProduct['URL']) ?>">
-                                    <div class="favorit-box__item-foto">
-                                        <?php if ($favoriteProduct['PICTURE']): ?>
-                                            <img class="favorit-box__img" alt="<?= htmlspecialcharsbx($favoriteProduct['NAME']) ?>" src="<?= htmlspecialcharsbx($favoriteProduct['PICTURE']) ?>">
-                                        <?php else: ?>
-                                            <img class="favorit-box__img" alt="<?= htmlspecialcharsbx($favoriteProduct['NAME']) ?>" src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/1.webp">
-                                        <?php endif; ?>
-                                    </div>
-                                    <div class="favorit-box__inner">
-                                        <h3 class="favorit-box__item-title"><?= htmlspecialcharsbx($favoriteProduct['NAME']) ?></h3>
-                                        <?php if ($favoriteProduct['PRICE']): ?>
-                                            <div class="favorit-box__item-bottom">
-                                                <div class="favorit-box__item-price"><?= $favoriteProduct['PRICE'] ?></div>
-                                            </div>
-                                        <?php endif; ?>
-                                    </div>
-                                    <button class="favorit-box__delete" data-fls-like-button data-product-id="<?= $favoriteProduct['ID'] ?>" aria-label="Удалить из избранного">
-                                        <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/favorite/trash.svg" alt="Удалить">
-                                    </button>
-                                </a>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <div class="favorit-box__empty">В избранном пока нет товаров.</div>
-                        <?php endif; ?>
+                        <?= $favoritesPopupHtml ?>
                     </div>
                 </div>
             </div>

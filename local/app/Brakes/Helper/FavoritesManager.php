@@ -3,6 +3,7 @@ namespace App\Brakes\Helper;
 
 use Bitrix\Main\Application;
 use Bitrix\Main\Context;
+use Bitrix\Main\Loader;
 use Bitrix\Main\SystemException;
 use Bitrix\Main\Web\Cookie;
 
@@ -110,6 +111,99 @@ class FavoritesManager
         sort(self::$currentItems);
 
         return array_values(self::$currentItems);
+    }
+
+    public static function getFavoritesProductsData(array $productIds): array
+    {
+        $ids = Favorites::normalizeProductIds($productIds);
+
+        if ($ids === []) {
+            return [];
+        }
+
+        if (!Loader::includeModule('iblock')) {
+            return [];
+        }
+
+        $elements = [];
+        $result = \CIBlockElement::GetList([], ['ID' => $ids], false, false, ['ID', 'IBLOCK_ID', 'NAME', 'DETAIL_PAGE_URL', 'PREVIEW_PICTURE']);
+
+        while ($row = $result->GetNext()) {
+            $id = (int)$row['ID'];
+            $elements[$id] = [
+                'ID' => $id,
+                'NAME' => $row['~NAME'] ?? $row['NAME'],
+                'URL' => $row['DETAIL_PAGE_URL'],
+                'PICTURE' => $row['PREVIEW_PICTURE'] ? \CFile::GetPath($row['PREVIEW_PICTURE']) : null,
+                'PRICE' => null,
+            ];
+        }
+
+        if ($elements !== [] && Loader::includeModule('catalog') && Loader::includeModule('currency')) {
+            foreach ($elements as $elementId => &$element) {
+                $priceData = \CCatalogProduct::GetOptimalPrice($elementId);
+
+                if ($priceData && isset($priceData['RESULT_PRICE']['DISCOUNT_PRICE'])) {
+                    $element['PRICE'] = \CCurrencyLang::CurrencyFormat(
+                        $priceData['RESULT_PRICE']['DISCOUNT_PRICE'],
+                        $priceData['RESULT_PRICE']['CURRENCY']
+                    );
+                }
+            }
+            unset($element);
+        }
+
+        $ordered = [];
+        foreach ($ids as $id) {
+            if (isset($elements[$id])) {
+                $ordered[] = $elements[$id];
+            }
+        }
+
+        return $ordered;
+    }
+
+    public static function buildFavoritesPopupHtml(array $items): string
+    {
+        if ($items === []) {
+            return '<div class="favorit-box__empty">В избранном пока нет товаров.</div>';
+        }
+
+        $templatePath = defined('SITE_TEMPLATE_PATH') ? SITE_TEMPLATE_PATH : '/local/templates/main';
+
+        ob_start();
+
+        foreach ($items as $item) {
+            $id = (int)($item['ID'] ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+
+            $name = htmlspecialcharsbx($item['NAME'] ?? '');
+            $url = htmlspecialcharsbx($item['URL'] ?? '#');
+            $picture = $item['PICTURE'] ? htmlspecialcharsbx($item['PICTURE']) : $templatePath . '/assets/img/favorite/1.webp';
+            $price = $item['PRICE'] ?? null;
+            ?>
+            <a class="favorit-box__item" data-fls-like-product="<?= $id ?>" href="<?= $url ?>">
+                <div class="favorit-box__item-foto">
+                    <img class="favorit-box__img" alt="<?= $name ?>" src="<?= $picture ?>">
+                </div>
+                <div class="favorit-box__inner">
+                    <h3 class="favorit-box__item-title"><?= $name ?></h3>
+                    <?php if ($price): ?>
+                        <div class="favorit-box__item-bottom">
+                            <div class="favorit-box__item-price"><?= $price ?></div>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <button class="favorit-box__delete" data-fls-like-button data-product-id="<?= $id ?>" aria-label="Удалить из избранного">
+                    <img src="<?= $templatePath ?>/assets/img/favorite/trash.svg" alt="Удалить">
+                </button>
+            </a>
+            <?php
+        }
+
+        return trim((string)ob_get_clean());
     }
 
     public static function refreshCurrentFavorites(): void

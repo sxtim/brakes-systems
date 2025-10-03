@@ -2,6 +2,7 @@ const FAVORITE_BUTTON_SELECTOR = "[data-fls-like-button]";
 const FAVORITE_PRODUCT_SELECTOR = "[data-fls-like-product]";
 const FAVORITE_COUNTER_SELECTOR = "[data-fls-like]";
 const ACTIVE_CLASS = "liked";
+const FAVORITE_POPUP_BODY_SELECTOR = ".favorit-box__body";
 
 const initialState = window.__FAVORITES__ || { items: [], count: 0, isAuthorized: false };
 const state = {
@@ -65,10 +66,25 @@ function updateButtons() {
     });
 }
 
-function applyState(items) {
+function updatePopupHtml(markup) {
+    if (typeof markup !== "string") {
+        return;
+    }
+
+    const container = document.querySelector(FAVORITE_POPUP_BODY_SELECTOR);
+    if (container) {
+        container.innerHTML = markup;
+    }
+}
+
+function applyState(items, popupHtml = null) {
     state.items = normalizeIds(items);
     updateCounter();
     updateButtons();
+
+    if (typeof popupHtml === "string") {
+        updatePopupHtml(popupHtml);
+    }
 
     document.dispatchEvent(new CustomEvent("favorites:changed", {
         detail: {
@@ -113,7 +129,7 @@ function toggleFavorite(productId, button) {
             throw new Error("Unexpected response format");
         }
 
-        applyState(data.items);
+        applyState(data.items, data.popupHtml);
         button?.classList.remove("is-processing");
     }).catch((error) => {
         console.error("Favorites: toggle failed", error);
@@ -141,7 +157,7 @@ function refreshFromServer() {
             throw new Error("Unexpected response format");
         }
 
-        applyState(data.items);
+        applyState(data.items, data.popupHtml);
         return state.items;
     }).catch((error) => {
         console.error("Favorites: refresh failed", error);

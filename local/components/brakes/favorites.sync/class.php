@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use App\Brakes\Helper\Favorites;
 use App\Brakes\Helper\FavoritesManager;
@@ -77,11 +77,14 @@ class FavoritesSyncComponent extends CBitrixComponent implements Controllerable
     private function buildSuccessResponse(array $items): array
     {
         $normalized = Favorites::normalizeProductIds($items);
+        $products = FavoritesManager::getFavoritesProductsData($normalized);
+        $popupHtml = FavoritesManager::buildFavoritesPopupHtml($products);
 
         return [
             'status' => 'success',
             'items' => $normalized,
             'count' => count($normalized),
+            'popupHtml' => $popupHtml,
         ];
     }
 
