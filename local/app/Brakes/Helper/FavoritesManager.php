@@ -131,7 +131,13 @@ class FavoritesManager
         }
 
         $elements = [];
-        $result = \CIBlockElement::GetList([], ['ID' => $ids], false, false, ['ID', 'IBLOCK_ID', 'NAME', 'DETAIL_PAGE_URL', 'PREVIEW_PICTURE']);
+        $result = \CIBlockElement::GetList(
+            [],
+            ['ID' => $ids],
+            false,
+            false,
+            ['ID', 'IBLOCK_ID', 'NAME', 'DETAIL_PAGE_URL', 'PROPERTY_LINK_PHOTO']
+        );
 
         while ($row = $result->GetNext()) {
             $id = (int)$row['ID'];
@@ -139,7 +145,7 @@ class FavoritesManager
                 'ID' => $id,
                 'NAME' => $row['~NAME'] ?? $row['NAME'],
                 'URL' => $row['DETAIL_PAGE_URL'],
-                'PICTURE' => $row['PREVIEW_PICTURE'] ? \CFile::GetPath($row['PREVIEW_PICTURE']) : null,
+                'PICTURE' => getPreviewImgCatalog($row['PROPERTY_LINK_PHOTO_VALUE']),
                 'PRICE' => null,
                 'PRICE_HTML' => null,
             ];
@@ -193,12 +199,12 @@ class FavoritesManager
 
             $name = htmlspecialcharsbx($item['NAME'] ?? '');
             $url = htmlspecialcharsbx($item['URL'] ?? '#');
-            $picture = $item['PICTURE'] ? htmlspecialcharsbx($item['PICTURE']) : $templatePath . '/assets/img/favorite/1.webp';
+            $pictureUrl = !empty($item['PICTURE']) ? htmlspecialcharsbx($item['PICTURE']) : '';
             $price = $item['PRICE'] ?? null;
             ?>
             <a class="favorit-box__item" data-fls-like-product="<?= $id ?>" href="<?= $url ?>">
                 <div class="favorit-box__item-foto">
-                    <img class="favorit-box__img" alt="<?= $name ?>" src="<?= $picture ?>">
+                    <img class="favorit-box__img" alt="<?= $name ?>" src="<?= $pictureUrl ?>">
                 </div>
                 <div class="favorit-box__inner">
                     <h3 class="favorit-box__item-title"><?= $name ?></h3>
