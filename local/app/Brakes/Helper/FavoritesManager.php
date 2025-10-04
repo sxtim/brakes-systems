@@ -6,6 +6,8 @@ use Bitrix\Main\Context;
 use Bitrix\Main\Loader;
 use Bitrix\Main\SystemException;
 use Bitrix\Main\Web\Cookie;
+use CCatalogGroup;
+use CPrice;
 
 class FavoritesManager
 {
@@ -31,8 +33,11 @@ class FavoritesManager
                     try {
                         Favorites::mergeFavorites((int)$USER->GetID(), $cookieItems);
                     } catch (SystemException $exception) {
-                        // ignore sync error to avoid blocking page rendering
+                       
                     }
+
+                    
+                    self::resetCache();
 
                     self::setCookieFavorites([]);
                 }
@@ -136,21 +141,28 @@ class FavoritesManager
                 'URL' => $row['DETAIL_PAGE_URL'],
                 'PICTURE' => $row['PREVIEW_PICTURE'] ? \CFile::GetPath($row['PREVIEW_PICTURE']) : null,
                 'PRICE' => null,
+                'PRICE_HTML' => null,
             ];
         }
 
-        if ($elements !== [] && Loader::includeModule('catalog') && Loader::includeModule('currency')) {
-            foreach ($elements as $elementId => &$element) {
-                $priceData = \CCatalogProduct::GetOptimalPrice($elementId);
-
-                if ($priceData && isset($priceData['RESULT_PRICE']['DISCOUNT_PRICE'])) {
-                    $element['PRICE'] = \CCurrencyLang::CurrencyFormat(
-                        $priceData['RESULT_PRICE']['DISCOUNT_PRICE'],
-                        $priceData['RESULT_PRICE']['CURRENCY']
-                    );
+        $basePrice = \CCatalogGroup::GetBaseGroup();
+        if (is_array($basePrice) && isset($basePrice['ID'])) {
+            $priceRes = \CPrice::GetList([], ['@PRODUCT_ID' => $ids, 'CATALOG_GROUP_ID' => (int)$basePrice['ID']]);
+            while ($priceRow = $priceRes->Fetch()) {
+                $productId = (int)$priceRow['PRODUCT_ID'];
+                if (!isset($elements[$productId])) {
+                    continue;
                 }
+
+                $value = isset($priceRow['PRICE']) ? (float)$priceRow['PRICE'] : null;
+                if ($value === null) {
+                    continue;
+                }
+
+                $formatted = number_format($value, 0, '.', ' ') . ' руб.';
+                $elements[$productId]['PRICE'] = $formatted;
+                $elements[$productId]['PRICE_HTML'] = $formatted;
             }
-            unset($element);
         }
 
         $ordered = [];
@@ -190,11 +202,9 @@ class FavoritesManager
                 </div>
                 <div class="favorit-box__inner">
                     <h3 class="favorit-box__item-title"><?= $name ?></h3>
-                    <?php if ($price): ?>
-                        <div class="favorit-box__item-bottom">
-                            <div class="favorit-box__item-price"><?= $price ?></div>
-                        </div>
-                    <?php endif; ?>
+                    <div class="favorit-box__item-bottom">
+                        <div class="favorit-box__item-price"><?= htmlspecialcharsbx($price ?? '') ?></div>
+                    </div>
                 </div>
                 <button class="favorit-box__delete" data-fls-like-button data-product-id="<?= $id ?>" aria-label="Удалить из избранного">
                     <img src="<?= $templatePath ?>/assets/img/favorite/trash.svg" alt="Удалить">

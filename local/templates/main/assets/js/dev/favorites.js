@@ -3,12 +3,34 @@ const FAVORITE_PRODUCT_SELECTOR = "[data-fls-like-product]";
 const FAVORITE_COUNTER_SELECTOR = "[data-fls-like]";
 const ACTIVE_CLASS = "liked";
 const FAVORITE_POPUP_BODY_SELECTOR = ".favorit-box__body";
+const PRICE_SELECTORS = [".main-details__price-new", ".main-cataloge__price"];
 
 const initialState = window.__FAVORITES__ || { items: [], count: 0, isAuthorized: false };
 const state = {
     items: normalizeIds(initialState.items || []),
     isAuthorized: Boolean(initialState.isAuthorized),
 };
+
+const priceObservers = new WeakMap();
+const lastPriceHtml = new WeakMap();
+
+function applyPriceToPopup(id, priceHtml, priceText) {
+    const itemNode = document.querySelector(`[data-fls-like-product="${id}"]`);
+    if (!itemNode) {
+        return;
+    }
+
+    const priceNode = itemNode.querySelector('.favorit-box__item-price');
+    if (!priceNode) {
+        return;
+    }
+
+    if (typeof priceHtml === 'string' && priceHtml !== '') {
+        priceNode.innerHTML = priceHtml;
+    } else if (typeof priceText === 'string') {
+        priceNode.textContent = priceText;
+    }
+}
 
 function normalizeIds(ids) {
     const map = {};
@@ -67,22 +89,141 @@ function updateButtons() {
 }
 
 function updatePopupHtml(markup) {
-    if (typeof markup !== "string") {
+    if (typeof markup === "string") {
+        const container = document.querySelector(FAVORITE_POPUP_BODY_SELECTOR);
+        if (container) {
+            container.innerHTML = markup;
+            initPriceObservers(container);
+        }
         return;
     }
 
-    const container = document.querySelector(FAVORITE_POPUP_BODY_SELECTOR);
-    if (container) {
-        container.innerHTML = markup;
+    if (!markup || typeof markup !== "object") {
+        return;
     }
+
+    const items = Array.isArray(markup.items) ? markup.items : [];
+    items.forEach((item) => {
+        const id = parseInt(item.id, 10);
+        if (!id) {
+            return;
+        }
+
+        applyPriceToPopup(id, item.priceHtml ?? null, item.price ?? null);
+    });
 }
+
+function getContainerProductId(container) {
+    if (!container) {
+        return 0;
+    }
+
+    if (container.dataset.productId) {
+        return parseInt(container.dataset.productId, 10) || 0;
+    }
+
+    if (container.dataset.flsLikeProduct) {
+        return parseInt(container.dataset.flsLikeProduct, 10) || 0;
+    }
+
+    return 0;
+}
+
+function getPriceElement(container) {
+    if (!container) {
+        return null;
+    }
+
+    const roots = [container, container.closest('.main-cataloge__item'), container.closest('.main-details')];
+    for (const root of roots) {
+        if (!root) {
+            continue;
+        }
+
+        for (const selector of PRICE_SELECTORS) {
+            const node = root.querySelector(selector);
+            if (node) {
+                return node;
+            }
+        }
+    }
+
+    return null;
+}
+
+function emitPriceUpdate(id, priceElement) {
+    if (!priceElement) {
+        return;
+    }
+
+    const priceHtml = priceElement.innerHTML;
+    if (lastPriceHtml.get(priceElement) === priceHtml) {
+        return;
+    }
+
+    lastPriceHtml.set(priceElement, priceHtml);
+
+    const priceText = priceElement.textContent.trim();
+    applyPriceToPopup(id, priceHtml, priceText);
+}
+
+function observeProductPrice(container) {
+    if (!container || priceObservers.has(container)) {
+        return;
+    }
+
+    const id = getContainerProductId(container);
+    if (!id) {
+        return;
+    }
+
+    const priceElement = getPriceElement(container);
+    if (!priceElement) {
+        return;
+    }
+
+    const observer = new MutationObserver(() => {
+        emitPriceUpdate(id, priceElement);
+    });
+
+    observer.observe(priceElement, { characterData: true, childList: true, subtree: true });
+    priceObservers.set(container, observer);
+
+    emitPriceUpdate(id, priceElement);
+}
+
+function initPriceObservers(root = document) {
+    root.querySelectorAll(FAVORITE_PRODUCT_SELECTOR).forEach(observeProductPrice);
+}
+
+const productMutationObserver = typeof MutationObserver === "undefined" ? null : new MutationObserver((mutations) => {
+    if (!Array.isArray(mutations)) {
+        return;
+    }
+
+    mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+            if (!(node instanceof Element)) {
+                return;
+            }
+
+            if (node.matches && node.matches(FAVORITE_PRODUCT_SELECTOR)) {
+                observeProductPrice(node);
+            }
+
+            if (node.querySelectorAll) {
+                node.querySelectorAll(FAVORITE_PRODUCT_SELECTOR).forEach(observeProductPrice);
+            }
+        });
+    });
+});
 
 function applyState(items, popupHtml = null) {
     state.items = normalizeIds(items);
     updateCounter();
     updateButtons();
 
-    if (typeof popupHtml === "string") {
+    if (popupHtml !== null && popupHtml !== undefined) {
         updatePopupHtml(popupHtml);
     }
 
@@ -109,10 +250,24 @@ function handleButtonClick(event) {
     event.preventDefault();
     event.stopPropagation();
 
-    toggleFavorite(productId, target);
+    const priceSnapshot = captureCurrentPrice(target.closest(FAVORITE_PRODUCT_SELECTOR));
+
+    toggleFavorite(productId, target, priceSnapshot);
 }
 
-function toggleFavorite(productId, button) {
+function captureCurrentPrice(container) {
+    const priceElement = getPriceElement(container);
+    if (!priceElement) {
+        return null;
+    }
+
+    return {
+        priceHtml: priceElement.innerHTML,
+        priceText: priceElement.textContent.trim(),
+    };
+}
+
+function toggleFavorite(productId, button, priceSnapshot) {
     if (typeof BX === "undefined" || !BX.ajax || typeof BX.ajax.runComponentAction !== "function") {
         console.error("Favorites: Bitrix ajax is not available.");
         return;
@@ -130,6 +285,7 @@ function toggleFavorite(productId, button) {
         }
 
         applyState(data.items, data.popupHtml);
+
         button?.classList.remove("is-processing");
     }).catch((error) => {
         console.error("Favorites: toggle failed", error);
@@ -158,6 +314,7 @@ function refreshFromServer() {
         }
 
         applyState(data.items, data.popupHtml);
+
         return state.items;
     }).catch((error) => {
         console.error("Favorites: refresh failed", error);
@@ -167,6 +324,12 @@ function refreshFromServer() {
 
 function initFavorites() {
     applyState(state.items);
+    initPriceObservers();
+
+    if (productMutationObserver) {
+        productMutationObserver.observe(document.body, { childList: true, subtree: true });
+    }
+
     document.addEventListener("click", handleButtonClick, true);
 }
 
