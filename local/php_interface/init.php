@@ -1,12 +1,13 @@
 <?php
+require_once $_SERVER['DOCUMENT_ROOT'] . '/local/app/Brakes/Helper/FavoritesManager.php';
 
 if (!\Bitrix\Main\Loader::includeModule('pull'))
 {
     \Bitrix\Main\Config\Option::set('main', 'use_pull', 'N');
 }
 
-require_once 'include/func.php';
-require_once 'include/events.php';
+require_once __DIR__ . '/include/func.php';
+require_once __DIR__ . '/include/events.php';
 
 \Bitrix\Main\Loader::registerAutoLoadClasses(null, [
     'App\Brakes\Helper\Storage' => '/local/app/Brakes/Helper/Storage.php',
