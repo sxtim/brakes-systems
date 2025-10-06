@@ -1,5 +1,7 @@
 <?php
 
+use App\Brakes\Helper\FavoritesManager;
+
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
@@ -128,11 +130,11 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                     </div>
                 </div>
             </div>
-            <div class="main-details__shoping">
+            <div class="main-details__shoping" data-fls-like-product="<?=$arResult['ID']?>">
                 <button data-fls-addtocart-button="" class="main-details__shoping-btn">
                     <span class="main-details__shoping-text">В корзину</span>
                 </button>
-                <button data-fls-like-image="" data-fls-like-button="" class="main-details__shoping-like"></button>
+                <button data-fls-like-image="" data-fls-like-button="" data-product-id="<?=$arResult['ID']?>" class="main-details__shoping-like"></button>
             </div>
             <button data-fls-popup-link="speedBuy"
                     class="main-details__buy"

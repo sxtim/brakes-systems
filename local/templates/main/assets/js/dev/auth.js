@@ -1,4 +1,464 @@
 window.addEventListener("load", function () {
+    const RESEND_DELAY_MS = 60000;
+
+    const resendIntervals = new Map();
+
+    const popupComponentMap = new Map();
+
+
+
+    function getResendButton(popupElement) {
+
+        return popupElement ? popupElement.querySelector('.js-resend-code-btn') : null;
+
+    }
+
+
+
+    function getResendButtonTextElement(button) {
+
+        if (!button) {
+
+            return null;
+
+        }
+
+        return button.querySelector('.main-cataloge__shoping-text') || button;
+
+    }
+
+
+
+    function ensureResendDefaultText(button) {
+
+        if (!button) {
+
+            return null;
+
+        }
+
+
+
+        const textElement = getResendButtonTextElement(button);
+
+        if (textElement && !button.dataset.defaultText) {
+
+            button.dataset.defaultText = textElement.textContent.trim();
+
+        }
+
+        return textElement;
+
+    }
+
+
+
+    function updateResendButtonText(button, remainingMs) {
+
+        const textElement = ensureResendDefaultText(button);
+
+        if (!textElement) {
+
+            return;
+
+        }
+
+
+
+        const baseText = button.dataset.defaultText || textElement.textContent.trim();
+
+        const seconds = Math.max(0, Math.ceil(remainingMs / 1000));
+
+        textElement.textContent = seconds > 0 ? `${baseText} (${seconds})` : baseText;
+
+    }
+
+
+
+    function stopResendCountdown(popupElement, restore = false) {
+
+        if (!popupElement) {
+
+            return;
+
+        }
+
+
+
+        const popupId = popupElement.id;
+
+        const intervalId = resendIntervals.get(popupId);
+
+
+
+        if (intervalId) {
+
+            clearInterval(intervalId);
+
+            resendIntervals.delete(popupId);
+
+        }
+
+
+
+        if (restore) {
+
+            const button = getResendButton(popupElement);
+
+            const textElement = ensureResendDefaultText(button);
+
+
+
+            if (button) {
+
+                button.disabled = false;
+
+                button.classList.remove('is-loading');
+
+            }
+
+
+
+            if (button && textElement && button.dataset.defaultText) {
+
+                textElement.textContent = button.dataset.defaultText;
+
+            }
+
+
+
+            delete popupElement.dataset.resendAvailableAt;
+
+        } else if (popupElement.dataset.resendAvailableAt) {
+
+            delete popupElement.dataset.resendAvailableAt;
+
+        }
+
+    }
+
+
+
+    function setResendCooldown(popupElement, availableAt) {
+
+        if (!popupElement) {
+
+            return;
+
+        }
+
+
+
+        const button = getResendButton(popupElement);
+
+
+
+        stopResendCountdown(popupElement);
+
+        popupElement.dataset.resendAvailableAt = String(availableAt);
+
+
+
+        if (!button) {
+
+            return;
+
+        }
+
+
+
+        ensureResendDefaultText(button);
+
+        button.disabled = true;
+
+        button.classList.remove('is-loading');
+
+
+
+        const update = () => {
+
+            const remaining = availableAt - Date.now();
+
+            if (remaining <= 0) {
+
+                stopResendCountdown(popupElement, true);
+
+                return;
+
+            }
+
+
+
+            updateResendButtonText(button, remaining);
+
+        };
+
+
+
+        update();
+
+        const intervalId = window.setInterval(update, 1000);
+
+        resendIntervals.set(popupElement.id, intervalId);
+
+    }
+
+
+
+    function isResendOnCooldown(popupElement) {
+
+        if (!popupElement || !popupElement.dataset.resendAvailableAt) {
+
+            return false;
+
+        }
+
+
+
+        const availableAt = Number(popupElement.dataset.resendAvailableAt);
+
+        return Number.isFinite(availableAt) && availableAt > Date.now();
+
+    }
+
+
+
+    function restoreResendState(popupElement) {
+
+        if (!popupElement) {
+
+            return;
+
+        }
+
+
+
+        const availableAt = Number(popupElement.dataset.resendAvailableAt);
+
+        if (Number.isFinite(availableAt) && availableAt > Date.now()) {
+
+            setResendCooldown(popupElement, availableAt);
+
+        } else {
+
+            stopResendCountdown(popupElement, true);
+
+        }
+
+    }
+
+
+
+    function toggleResendButtonLoading(button, isLoading, popupElement) {
+
+        if (!button) {
+
+            return;
+
+        }
+
+
+
+        const textElement = ensureResendDefaultText(button);
+
+
+
+        if (isLoading) {
+
+            button.disabled = true;
+
+            button.classList.add('is-loading');
+
+            if (textElement) {
+
+                textElement.textContent = 'Отправка...';
+
+            }
+
+        } else {
+
+            button.classList.remove('is-loading');
+
+            if (!isResendOnCooldown(popupElement || button.closest('.popup'))) {
+
+                button.disabled = false;
+
+            }
+
+            if (textElement && button.dataset.defaultText) {
+
+                textElement.textContent = button.dataset.defaultText;
+
+            }
+
+        }
+
+    }
+
+
+
+    function extractPayloadFromForm(form) {
+
+        if (!form) {
+
+            return {};
+
+        }
+
+
+
+        const payload = {};
+
+        const formData = new FormData(form);
+
+        formData.forEach((value, key) => {
+
+            payload[key] = value;
+
+        });
+
+        return payload;
+
+    }
+
+
+
+    function storeResendPayload(popupElement, payload) {
+
+        if (!popupElement) {
+
+            return;
+
+        }
+
+
+
+        if (payload && Object.keys(payload).length > 0) {
+
+            popupElement.dataset.resendPayload = JSON.stringify(payload);
+
+        } else if (popupElement.dataset.resendPayload) {
+
+            delete popupElement.dataset.resendPayload;
+
+        }
+
+    }
+
+
+
+    function getResendPayload(popupElement) {
+
+        if (!popupElement) {
+
+            return null;
+
+        }
+
+
+
+        const raw = popupElement.dataset.resendPayload;
+
+        if (!raw) {
+
+            return null;
+
+        }
+
+
+
+        try {
+
+            const parsed = JSON.parse(raw);
+
+            return parsed && typeof parsed === 'object' ? parsed : null;
+
+        } catch (error) {
+
+            console.error('Failed to parse resend payload', error);
+
+            return null;
+
+        }
+
+    }
+
+
+
+    function updatePopupPhone(popupElement, phone) {
+
+        if (!popupElement) {
+
+            return;
+
+        }
+
+
+
+        popupElement.dataset.phone = phone || '';
+
+        const hiddenPhoneInput = popupElement.querySelector('input[name="phone"]');
+
+        if (hiddenPhoneInput) {
+
+            hiddenPhoneInput.value = phone || '';
+
+        }
+
+    }
+
+
+
+    function resolvePopupComponent(popupElement) {
+
+        if (!popupElement) {
+
+            return null;
+
+        }
+
+
+
+        if (popupComponentMap.has(popupElement.id)) {
+
+            return popupComponentMap.get(popupElement.id);
+
+        }
+
+
+
+        if (popupElement.dataset.componentName) {
+
+            return popupElement.dataset.componentName;
+
+        }
+
+
+
+        if (popupElement.id === 'popup1') {
+
+            return 'brakes:auth.register';
+
+        }
+
+
+
+        if (popupElement.id === 'popup3') {
+
+            return 'brakes:auth.login';
+
+        }
+
+
+
+        return null;
+
+    }
+
+    function redirectAfterAuth(url = "/") {
+        window.location.href = url;
+    }
+
     /**
      * Handles the AJAX response for code verification.
      * @param {object} response - The response from the server.
@@ -44,7 +504,7 @@ window.addEventListener("load", function () {
                             data: { userId: userId },
                         }).then(function(loginResponse) {
                             if (loginResponse.data.status === 'success') {
-                                window.location.href = '/';
+                                redirectAfterAuth('/');
                             } else {
                                 const errorDiv = document.createElement('div');
                                 errorDiv.className = 'form-error-message server-error-message';
@@ -53,10 +513,12 @@ window.addEventListener("load", function () {
                                 errorDiv.textContent = loginResponse.data.message || 'Ошибка входа.';
                                 loginBtn.after(errorDiv);
                             }
+                        }).catch(function(error) {
+                            console.error('Login after registration failed:', error);
                         });
                     });
                 } else {
-                    window.location.href = '/';
+                    redirectAfterAuth('/');
                 }
             } else {
                 // For a successful login, show success message before redirect.
@@ -77,11 +539,11 @@ window.addEventListener("load", function () {
                         </div>`;
                     popupContent.innerHTML = successHTML;
                     document.getElementById('loginSuccessOkBtn').addEventListener('click', () => {
-                        window.location.href = '/';
+                        redirectAfterAuth('/');
                     });
                 } else {
                     // Fallback if content area is not found
-                    window.location.href = '/';
+                    redirectAfterAuth('/');
                 }
             }
         } else {
@@ -100,32 +562,223 @@ window.addEventListener("load", function () {
      * @param {HTMLElement} popupElement - The popup element.
      */
     function attachVerifyHandler(popupElement) {
-        if (!popupElement) return;
+
+        if (!popupElement) {
+
+            return;
+
+        }
+
+
+
+        const popupId = popupElement.id;
+
+        const resolvedComponent = resolvePopupComponent(popupElement);
+
+
+
+        if (resolvedComponent) {
+
+            popupElement.dataset.componentName = resolvedComponent;
+
+        }
+
+
 
         const verifyBtn = popupElement.querySelector('.js-verify-code-btn');
+
+
+
         if (verifyBtn && !verifyBtn.dataset.handlerAttached) {
+
             verifyBtn.addEventListener('click', function (e) {
+
                 e.preventDefault();
 
+
+
                 const codeInput = popupElement.querySelector('input[name="code"]');
-                const phone = popupElement.dataset.phone; // Get phone from dataset for reliability
+
+                const phone = popupElement.dataset.phone;
+
                 const code = codeInput ? codeInput.value : '';
-                const component = popupElement.id === 'popup1' ? 'brakes:auth.register' : 'brakes:auth.login';
-                const popupId = popupElement.id;
+
+
 
                 if (!code || !phone) {
+
                     const input = popupElement.querySelector('input[name="code"]');
+
                     showError(input, 'Введите код подтверждения');
+
                     return;
+
                 }
 
-                BX.ajax.runComponentAction(component, 'verifyCode', {
+
+
+                const componentName = popupElement.dataset.componentName || resolvePopupComponent(popupElement);
+
+
+
+                if (!componentName) {
+
+                    console.warn('Component name is not defined for popup', popupId);
+
+                    return;
+
+                }
+
+
+
+                BX.ajax.runComponentAction(componentName, 'verifyCode', {
+
                     mode: 'class',
+
                     data: { code: code, phone: phone },
-                }).then(response => handleVerifyResponse(response, component, popupId));
+
+                }).then(response => handleVerifyResponse(response, componentName, popupId))
+
+                .catch(function(error) {
+
+                    console.error('Verification code submission failed:', error);
+
+                });
+
             });
+
+
+
             verifyBtn.dataset.handlerAttached = 'true';
+
         }
+
+
+
+        const resendBtn = popupElement.querySelector('.js-resend-code-btn');
+
+
+
+        if (resendBtn && !resendBtn.dataset.handlerAttached) {
+
+            ensureResendDefaultText(resendBtn);
+
+
+
+            resendBtn.addEventListener('click', function (e) {
+
+                e.preventDefault();
+
+
+
+                const componentName = popupElement.dataset.componentName || resolvePopupComponent(popupElement);
+
+
+
+                if (!componentName) {
+
+                    console.warn('Component name is not defined for resend operation.');
+
+                    return;
+
+                }
+
+
+
+                if (isResendOnCooldown(popupElement)) {
+
+                    return;
+
+                }
+
+
+
+                const payload = getResendPayload(popupElement);
+
+
+
+                if (!payload) {
+
+                    console.warn('Resend payload is missing for popup', popupId);
+
+                    alert('Не удалось повторно отправить код. Попробуйте запросить код заново.');
+
+                    return;
+
+                }
+
+
+
+                toggleResendButtonLoading(resendBtn, true, popupElement);
+
+
+
+                BX.ajax.runComponentAction(componentName, 'sendCode', {
+
+                    mode: 'class',
+
+                    data: payload,
+
+                }).then(response => {
+
+                    if (response?.data?.status === 'success') {
+
+                        if (payload.phone) {
+
+                            updatePopupPhone(popupElement, payload.phone);
+
+                        }
+
+
+
+                        const nextAvailableAt = Date.now() + RESEND_DELAY_MS;
+
+                        setResendCooldown(popupElement, nextAvailableAt);
+
+                    } else {
+
+                        const message = response?.data?.message || 'Не удалось отправить код повторно.';
+
+                        const codeInput = popupElement.querySelector('input[name="code"]');
+
+
+
+                        if (codeInput) {
+
+                            showError(codeInput, message, 'server-error-message');
+
+                        } else {
+
+                            alert(message);
+
+                        }
+
+
+
+                        toggleResendButtonLoading(resendBtn, false, popupElement);
+
+                    }
+
+                }).catch(function(error) {
+
+                    console.error('Send code failed:', error);
+
+                    toggleResendButtonLoading(resendBtn, false, popupElement);
+
+                });
+
+            });
+
+
+
+            resendBtn.dataset.handlerAttached = 'true';
+
+        }
+
+
+
+        restoreResendState(popupElement);
+
     }
 
     /**
@@ -135,42 +788,115 @@ window.addEventListener("load", function () {
      * @param {HTMLFormElement} form - The form that was submitted.
      */
     function handleSendCodeResponse(response, popupId, form) {
-        if (!form) return;
 
-        // Remove any existing server error message
-        const existingError = form.querySelector('.server-error-message');
-        if (existingError) {
-            existingError.remove();
+        if (!form) {
+
+            return;
+
         }
+
+
+
+        const existingError = form.querySelector('.server-error-message');
+
+        if (existingError) {
+
+            existingError.remove();
+
+        }
+
+
 
         if (response.data.status === 'success') {
-            if (window.flsPopup) {
-                window.flsPopup.open(popupId);
-                const popup = document.getElementById(popupId);
-                if (popup) {
-                    const formPhone = form.querySelector('input[name="phone"]').value;
-                    popup.dataset.phone = formPhone;
-                }
-            } else {
+
+            const payload = extractPayloadFromForm(form);
+
+
+
+            if (!window.flsPopup) {
+
                 console.error('auth.js: Popup manager (window.flsPopup) is not defined!');
-                alert('Код подтверждения отправлен на ваш номер.');
+
+                alert('Не удалось открыть окно подтверждения. Попробуйте позже.');
+
+                return;
+
             }
-        } else {
-            // Create and display a new server error message
-            const submitButton = form.querySelector('button[type="submit"]');
-            if (submitButton) {
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'form-error-message server-error-message';
-                errorDiv.style.fontWeight = 'bold';
-                errorDiv.style.color = 'red';
-                errorDiv.style.marginBottom = '15px';
-                errorDiv.textContent = response.data.message || 'Произошла ошибка.';
-                submitButton.before(errorDiv);
+
+
+
+            window.flsPopup.open(popupId);
+
+
+
+            const popup = document.getElementById(popupId);
+
+
+
+            if (popup) {
+
+                const componentName = popupComponentMap.get(popupId);
+
+
+
+                if (componentName) {
+
+                    popup.dataset.componentName = componentName;
+
+                }
+
+
+
+                updatePopupPhone(popup, payload.phone || '');
+
+                storeResendPayload(popup, payload);
+
+
+
+                const nextAvailableAt = Date.now() + RESEND_DELAY_MS;
+
+                setResendCooldown(popup, nextAvailableAt);
+
             } else {
-                // Fallback if the submit button isn't found for some reason
-                alert(response.data.message || 'Произошла ошибка.');
+
+                console.warn(`Popup with ID #${popupId} not found after opening.`);
+
             }
+
+        } else {
+
+            const submitButton = form.querySelector('button[type="submit"]');
+
+
+
+            if (submitButton) {
+
+                const errorDiv = document.createElement('div');
+
+
+
+                errorDiv.className = 'form-error-message server-error-message';
+
+                errorDiv.style.fontWeight = 'bold';
+
+                errorDiv.style.color = 'red';
+
+                errorDiv.style.marginBottom = '15px';
+
+                errorDiv.textContent = response.data.message || 'Не удалось отправить код.';
+
+
+
+                submitButton.before(errorDiv);
+
+            } else {
+
+                alert(response.data.message || 'Не удалось отправить код.');
+
+            }
+
         }
+
     }
 
     /**
@@ -250,27 +976,58 @@ window.addEventListener("load", function () {
      * @param {string} popupId - The ID of the popup to open on success.
      */
     function initForm(formId, component, popupId) {
+
         const form = document.getElementById(formId);
+
         if (form) {
+
+            popupComponentMap.set(popupId, component);
+
+
+
             const submitButton = form.querySelector('button[type="submit"]');
+
             if (submitButton) {
+
                 submitButton.disabled = true;
+
             }
 
-            form.addEventListener('input', () => validateForm(form));
-            
-            form.addEventListener('submit', function (e) {
-                e.preventDefault();
-                if (validateForm(form)) {
-                    BX.ajax.runComponentAction(component, 'sendCode', {
-                        mode: 'class',
-                        data: new FormData(form),
-                    }).then(response => handleSendCodeResponse(response, popupId, form));
-                }
-            });
-        }
-    }
 
+
+            form.addEventListener('input', () => validateForm(form));
+
+            form.addEventListener('submit', function (e) {
+
+                e.preventDefault();
+
+                if (validateForm(form)) {
+
+                    BX.ajax.runComponentAction(component, 'sendCode', {
+
+                        mode: 'class',
+
+                        data: new FormData(form),
+
+                    }).then(response => handleSendCodeResponse(response, popupId, form))
+
+                    .catch(function(error) {
+
+                        console.error('Send code failed:', error);
+
+                    });
+
+                }
+
+            });
+
+        } else {
+
+            popupComponentMap.delete(popupId);
+
+        }
+
+    }
 
     // --- Main Execution ---
 

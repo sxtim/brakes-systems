@@ -1,3 +1,4 @@
+
 <?php
 
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
@@ -25,7 +26,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 
         foreach ($arResult['ITEMS'] as $item) {
         ?>
-            <div class="main-cataloge__item">
+            <div class="main-cataloge__item" data-fls-like-product="<?=$item['ID']?>">
                 <a class="main-cataloge__picture" href="<?=$item['DETAIL_PAGE_URL']?>">
                     <picture>
                         <source media="(max-width: 600px)" srcset="<?=$item['IMG']?>" type="image/webp">
@@ -35,8 +36,8 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 </a>
                 <div class="main-cataloge__item-content">
                     <div class="main-cataloge__item-top">
-                        <h3 class="main-cataloge__item-title"><a href="<?=$item['DETAIL_PAGE_URL']?>"><?=str_replace(["&nbsp;", "\xC2\xA0"], " ", $item['NAME'])?></a></h3>
-                        <button data-fls-like-image="" data-fls-like-button="" class="main-cataloge__like main-details__shoping-like"></button>
+                        <h3 class="main-cataloge__item-title"><a href="<?=$item['DETAIL_PAGE_URL']?>"><?=$item['NAME']?></a></h3>
+                        <button data-fls-like-image="" data-fls-like-button="" data-product-id="<?=$item['ID']?>" class="main-cataloge__like main-details__shoping-like"></button>
                     </div>
                     <div class="main-cataloge__details main__details details">
                         <div class="main-cataloge__details-row details-row">
@@ -122,7 +123,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                                 data-product-name="<?= $item['NAME'] ?>"
                                 data-product-url="<?= $item['DETAIL_PAGE_URL'] ?>"
                                 data-options='{}'>Купить в один клик</button>
-                        <button data-fls-addtocart-button="" class="main-cataloge__shoping-btn">
+                        <button data-fls-addtocart-button="" class="main-cataloge__shoping-btn" data-add-basket>
                             <span class="main-cataloge__shoping-text">В корзину</span>
                             <img class="main-cataloge__shoping-img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/shopping-icon.svg" alt="Img">
                         </button>
@@ -144,7 +145,7 @@ echo $arResult['NAV_STRING'];
         <div data-fls-popup-body="" class="popup__body">
             <button data-fls-popup-close="" type="button" class="popup__close">
                 <svg width="23" height="23" viewbox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path opacity="0.850056" d="M1.73333 1.48883L21.5469 21.0288" stroke="#979797" stroke-linecap="square"></path>
+                    <path opacity="0.850056" d="M1.7333 1.48883L21.5469 21.0288" stroke="#979797" stroke-linecap="square"></path>
                     <path opacity="0.850056" d="M21.2667 1.48883L1.45309 21.0288" stroke="#979797" stroke-linecap="square"></path>
                 </svg>
             </button>
