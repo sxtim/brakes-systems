@@ -117,7 +117,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 										<button type="button" class="popup__bottom-btn contacts-form-btn main-cataloge__shoping-btn js-verify-code-btn">
 											<span class="main-cataloge__shoping-text">Ввести</span>
 										</button>
-										<button class="popup__bottom-btn popup__bottom-btn--gray contacts-form-btn main-cataloge__shoping-btn">
+										<button type="button" class="popup__bottom-btn popup__bottom-btn--gray contacts-form-btn main-cataloge__shoping-btn js-resend-code-btn">
 											<span class="main-cataloge__shoping-text">Отправить снова</span>
 										</button>
 									</div>
@@ -181,7 +181,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 										<button type="button" class="popup__bottom-btn contacts-form-btn main-cataloge__shoping-btn js-verify-code-btn">
 											<span class="main-cataloge__shoping-text">Ввести</span>
 										</button>
-										<button class="popup__bottom-btn popup__bottom-btn--gray contacts-form-btn main-cataloge__shoping-btn">
+										<button type="button" class="popup__bottom-btn popup__bottom-btn--gray contacts-form-btn main-cataloge__shoping-btn js-resend-code-btn">
 											<span class="main-cataloge__shoping-text">Отправить снова</span>
 										</button>
 									</div>
