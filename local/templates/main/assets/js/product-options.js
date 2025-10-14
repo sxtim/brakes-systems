@@ -1,101 +1,121 @@
-document.querySelectorAll(".spollers__item").forEach((spoller) => {
-  spoller.addEventListener("click", (e) => {
-    const clickedItem = e.target.closest(".main-cataloge__sublist-item");
-    if (!clickedItem) return;
+﻿const PRICE_UPDATE_DELAY = 150;
+const PRICE_DECODE_HELPER = document.createElement("span");
+const DEBUG_PREFIX = "[ProductOptions]";
+const pendingPriceTimers = new Map();
 
-    e.preventDefault();
-    e.stopPropagation();
+document.addEventListener("click", (event) => {
+  const spoller = event.target.closest(".spollers__item");
+  const optionNode = event.target.closest(".main-cataloge__sublist-item");
+  if (!spoller || !optionNode) {
+    return;
+  }
 
-    const currentSpoller = clickedItem.closest(".spollers__item");
-    currentSpoller.querySelectorAll(".main-cataloge__sublist-item").forEach((item) => {
-      item.classList.remove("selected");
-    });
+  event.preventDefault();
+  event.stopPropagation();
 
-    clickedItem.classList.add("selected");
+  spoller.querySelectorAll(".main-cataloge__sublist-item").forEach((item) => item.classList.remove("selected"));
+  optionNode.classList.add("selected");
 
-    const productCard = currentSpoller.closest(".main-cataloge__item");
-    if (productCard) {
-      updateProductPrice(productCard);
-      updateProductOptions(productCard);
-    } else {
-      updateProductPrice(document.body);
-      updateProductOptions(document.body);
-    }
-  });
+  const container =
+    spoller.closest(".main-cataloge__item") ||
+    spoller.closest(".main__details") ||
+    spoller.closest(".main-details") ||
+    document.querySelector(".main__details") ||
+    document.querySelector(".main-details") ||
+    document;
+
+  const options = updateProductOptions(container, "click");
+  schedulePriceUpdate(container, options, "click");
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  updateProductOptions(document.body);
+  const catalogItems = new Set();
+  document.querySelectorAll(".main-cataloge__item").forEach((card) => {
+    if (catalogItems.has(card)) {
+      return;
+    }
+    catalogItems.add(card);
+    const options = updateProductOptions(card, "init-card");
+    schedulePriceUpdate(card, options, "init-card");
+  });
+
+  const detailItems = new Set();
+  document.querySelectorAll(".main__details, .main-details").forEach((details) => {
+    if (detailItems.has(details)) {
+      return;
+    }
+    detailItems.add(details);
+    const options = updateProductOptions(details, "init-details");
+    schedulePriceUpdate(details, options, "init-details");
+  });
+
   handleOneClickBuyButtons();
 });
 
-// Функция для обработки кнопок "Купить в один клик"
 function handleOneClickBuyButtons() {
-  document.querySelectorAll('[data-fls-popup-link="speedBuy"]').forEach(button => {
-    button.addEventListener('click', function(e) {
-      const buyButton = e.currentTarget; // Используем currentTarget, так как слушатель на самой кнопке
+  document.querySelectorAll('[data-fls-popup-link="speedBuy"]').forEach((button) => {
+    button.addEventListener("click", function (event) {
+      const buyButton = event.currentTarget;
 
       const popup = document.querySelector('.popup[data-fls-popup="speedBuy"]');
       if (!popup) {
-          return;
+        return;
       }
 
-      // Получаем все данные из data-атрибутов кнопки
-      const productName = buyButton.dataset.productName || '';
-      const productPrice = buyButton.dataset.productPrice || ''; // Цена теперь берется из DOM, но на всякий случай
-      const productUrl = buyButton.dataset.productUrl || '';
-      const options = buyButton.dataset.options || '';
+      const productName = buyButton.dataset.productName || "";
+      const productPrice = buyButton.dataset.productPrice || "";
+      const productUrl = buyButton.dataset.productUrl || "";
+      const options = buyButton.dataset.options || "";
 
-      // Находим элементы цены на странице (для детальной и каталога)
-      const itemContainer = buyButton.closest('.main-cataloge__item') || buyButton.closest('.main__details');
-      const priceElement = itemContainer ? itemContainer.querySelector('.main-details__price-new, .main-cataloge__price') : null;
-      const actualPrice = priceElement ? priceElement.textContent.trim() : productPrice; // Берем актуальную цену
+      const itemContainer =
+        buyButton.closest(".main-cataloge__item") ||
+        buyButton.closest(".main__details") ||
+        buyButton.closest(".main-details");
+      const priceElement = itemContainer ? itemContainer.querySelector(".main-details__price-new, .main-cataloge__price") : null;
+      const actualPrice = priceElement ? priceElement.textContent.trim() : decodeHtml(productPrice);
 
-      // Формируем читаемую строку опций
-      let optionsString = '';
+      let optionsString = "";
       const keyMap = {
-          'two_piece_disc_construction': 'Двусоставная конструкция диска',
-          'rotor_pattern': 'Рисунок ротора',
-          'caliper_logo': 'Лого на суппорт',
-          'electric_handbrake': 'Электроручник'
+        two_piece_disc_construction: "Двусоставная конструкция диска",
+        rotor_pattern: "Рисунок ротора",
+        caliper_logo: "Лого на суппорт",
+        electric_handbrake: "Электроручник",
       };
       const valueMap = {
-          'no': 'Нет',
-          'yes': 'Да',
-          'standard': 'Стандартный',
-          'special': 'Особый логотип',
-          'perforation': 'Перфорация',
-          'slots': 'Насечки',
-          'perforation_slots': 'Перфорация + насечки'
+        no: "Нет",
+        yes: "Да",
+        standard: "Стандартный",
+        special: "Особый логотип",
+        perforation: "Перфорация",
+        slots: "Насечки",
+        perforation_slots: "Перфорация + насечки",
       };
 
       try {
-          if (options && options !== '{}') {
-              const optionsData = JSON.parse(options);
-              const optionsArray = [];
-              if (optionsData && typeof optionsData.options === 'object') {
-                   for (const key in optionsData.options) {
-                      const rawValue = optionsData.options[key].value;
-                      if (keyMap[key] && rawValue) {
-                          const translatedValue = valueMap[rawValue.toLowerCase()] || rawValue;
-                          optionsArray.push(`${keyMap[key]}: ${translatedValue}`);
-                      }
-                  }
+        if (options && options !== "{}") {
+          const optionsData = JSON.parse(options);
+          const optionsArray = [];
+          if (optionsData && typeof optionsData.options === "object") {
+            for (const key in optionsData.options) {
+              const rawValue = optionsData.options[key].value;
+              if (keyMap[key] && rawValue) {
+                const translatedValue = valueMap[rawValue.toLowerCase()] || rawValue;
+                optionsArray.push(`${keyMap[key]}: ${translatedValue}`);
               }
-              optionsString = optionsArray.join(', ');
+            }
           }
+          optionsString = optionsArray.join(", ");
+        }
       } catch (error) {
-          console.error('Error parsing options data:', error);
-          optionsString = options || 'Ошибка чтения опций';
+        console.error("Error parsing options data:", error);
+        optionsString = options || "Ошибка чтения опций";
       }
 
-      // Находим все инпуты в попапе
       const productNameInput = popup.querySelector('input[data-product-input="name"]');
       const productPriceInput = popup.querySelector('input[data-product-input="price"]');
       const productUrlInput = popup.querySelector('input[data-product-input="url"]');
       const productOptionsInput = popup.querySelector('input[data-product-input="options"]');
 
-      // Заполняем инпуты
       if (productNameInput) productNameInput.value = productName;
       if (productPriceInput) productPriceInput.value = actualPrice;
       if (productUrlInput) productUrlInput.value = productUrl;
@@ -104,104 +124,95 @@ function handleOneClickBuyButtons() {
   });
 }
 
-function updateProductPrice(productCard) {
-  let priceElement = productCard.querySelector(".main-cataloge__price");
-  if (!priceElement) {
-    priceElement = productCard.querySelector(".main-details__price-new");
-  }
-  if (!priceElement) {
-    const parentContainer = document.querySelector(".main-details__price");
-    if (parentContainer) {
-      priceElement = parentContainer.querySelector(".main-details__price-new");
-    }
-  }
-  if (!priceElement) return;
+function updateProductOptions(productContainer, reason = "manual") {
+  const scope = productContainer instanceof Element ? productContainer : document;
+  const productId = getProductIdFromContainer(scope);
+  const fallbackOptions = getInitialOptions(scope, productId);
+  const fallbackClone = cloneOptionsPayload(fallbackOptions);
 
-  const container = priceElement.closest(".main-cataloge__item") || document.body;
-  if (!container.dataset.basePrice) {
-    const basePriceText = priceElement.textContent.replace(/[^0-9]/g, "");
-    container.dataset.basePrice = parseInt(basePriceText) || 0;
+  let optionsData = null;
+  if (reason === "init-card" && fallbackClone) {
+    optionsData = fallbackClone;
+  } else {
+    optionsData = collectSelectedOptions(scope, fallbackOptions, reason);
   }
-  
-  const basePrice = parseInt(container.dataset.basePrice);
-  let totalMarkup = 0;
-  
-  const allSpollersInProduct = document.querySelectorAll(".spollers__item");
-  allSpollersInProduct.forEach((spoller) => {
-    const selectedOption = spoller.querySelector(".main-cataloge__sublist-item.selected");
-    if (!selectedOption) return;
-    
-    const optionText = selectedOption.textContent.trim().toLowerCase();
-    const featureTitleElement = spoller.querySelector(".main-cataloge__feature-item, .main-details__feature-item");
-    if (!featureTitleElement) return;
-    
-    const featureTitle = featureTitleElement.textContent;
-    
-    if (optionText === "да" && featureTitle.includes("Двусоставная")) {
-      totalMarkup += 10000;
-    } else if (optionText === "особый логотип") {
-      totalMarkup += 5000;
-    } else if (optionText === "да" && featureTitle.includes("Электроручник")) {
-      totalMarkup += 50000;
-    } else if (featureTitle.includes("Рисунок ротора")) {
-      if (optionText === "НЕТ") {
-        // No markup for "НЕТ" option
-      } else if (optionText.includes("перфорация") && optionText.includes("насечки")) {
-        totalMarkup += 30000;
-      } else if (optionText.includes("перфорация")) {
-        totalMarkup += 18000;
-      } else if (optionText.includes("насечки")) {
-        totalMarkup += 20000;
-      }
-    }
-  });
 
-  const finalPrice = basePrice + totalMarkup;
-  priceElement.textContent = finalPrice.toLocaleString('ru-RU') + " ₽";
+  const optionsJson = JSON.stringify(optionsData);
+
+  setOptionsAttribute(scope, optionsJson);
+
+  if (productId) {
+    console.debug(DEBUG_PREFIX, "updateProductOptions dispatch", { productId, optionsData, reason });
+    document.dispatchEvent(new CustomEvent("productOptions:changed", {
+      detail: {
+        productId,
+        options: optionsData,
+        reason,
+      },
+    }));
+    optionsData.productId = productId;
+  }
+
+  console.debug(DEBUG_PREFIX, "updateProductOptions result", { reason, productId, optionsData, fallbackOptions });
+  return optionsData;
 }
 
-function updateProductOptions(productContainer) {
-  const selectedOptions = {
-    "two_piece_disc_construction": { value: "no" },
-    "rotor_pattern": { value: "standard" },
-    "caliper_logo": { value: "standard" },
-    "electric_handbrake": { value: "no" }
+function collectSelectedOptions(scope, defaults = null, reason = "manual") {
+  const baseDefaults = {
+    two_piece_disc_construction: { value: "no" },
+    rotor_pattern: { value: "none" },
+    caliper_logo: { value: "standard" },
+    electric_handbrake: { value: "no" },
   };
-  
-  const allSpollersInProduct = productContainer === document.body 
-    ? document.querySelectorAll(".spollers__item")
-    : productContainer.querySelectorAll(".spollers__item");
-    
-  allSpollersInProduct.forEach((spoller) => {
+  const selectedOptions = { ...baseDefaults };
+  if (defaults && defaults.options && typeof defaults.options === "object") {
+    Object.keys(defaults.options).forEach((key) => {
+      const value = defaults.options[key];
+      if (value && typeof value === "object") {
+        selectedOptions[key] = { ...value };
+      }
+    });
+  }
+
+  (scope instanceof Element ? scope : document).querySelectorAll(".spollers__item").forEach((spoller) => {
     const selectedOption = spoller.querySelector(".main-cataloge__sublist-item.selected");
-    if (!selectedOption) return;
-    
+    if (!selectedOption) {
+      if (reason === "click" || !defaults) {
+        console.debug(DEBUG_PREFIX, "collectSelectedOptions no selected option", { spoller, reason });
+      }
+      return;
+    }
+
     const optionText = selectedOption.textContent.trim();
     const featureTitleElement = spoller.querySelector(".main-cataloge__feature-item, .main-details__feature-item");
-    if (!featureTitleElement) return;
-    
+    if (!featureTitleElement) {
+      return;
+    }
+
     const featureTitle = featureTitleElement.textContent.trim();
-    
+
     let englishKey = featureTitle;
     let englishValue = optionText;
-    
+
     if (featureTitle.includes("Двусоставная конструкция диска")) {
       englishKey = "two_piece_disc_construction";
       englishValue = optionText.toLowerCase() === "да" ? "yes" : "no";
     } else if (featureTitle.includes("Рисунок ротора")) {
       englishKey = "rotor_pattern";
-      if (optionText === "НЕТ") {
+      if (optionText.toUpperCase() === "НЕТ") {
         englishValue = "none";
-      } else if (optionText.includes("ПЕРФОРАЦИЯ") && optionText.includes("НАСЕЧКИ")) {
-        englishValue = "perforation_and_notches";
-      } else if (optionText.includes("ПЕРФОРАЦИЯ")) {
+      } else if (optionText.toUpperCase().includes("ПЕРФОРАЦИЯ") && optionText.toUpperCase().includes("НАСЕЧКИ")) {
+        englishValue = "perforation_slots";
+      } else if (optionText.toUpperCase().includes("ПЕРФОРАЦИЯ")) {
         englishValue = "perforation";
-      } else if (optionText.includes("НАСЕЧКИ")) {
-        englishValue = "notches";
+      } else if (optionText.toUpperCase().includes("НАСЕЧКИ")) {
+        englishValue = "slots";
       }
     } else if (featureTitle.includes("Лого на суппорт")) {
       englishKey = "caliper_logo";
-      if (optionText.toLowerCase().includes("особый")) {
+      if (optionText.toLowerCase().includes("особ")) {
+        englishValue = "special";
+      } else if (optionText.toLowerCase().includes("логотип")) {
         englishValue = "custom_logo";
       } else {
         englishValue = "standard";
@@ -210,21 +221,280 @@ function updateProductOptions(productContainer) {
       englishKey = "electric_handbrake";
       englishValue = optionText.toLowerCase() === "да" ? "yes" : "no";
     }
-    
+
     selectedOptions[englishKey] = {
-      value: englishValue
+      value: englishValue,
     };
   });
-  
-  const optionsData = {
-    options: selectedOptions
-  };
-  
-  const buyButtons = productContainer === document.body
-    ? document.querySelectorAll('[data-fls-addtocart-button], [data-fls-popup-link="speedBuy"], .main-details__buy, .main-cataloge__shoping-btn')
-    : productContainer.querySelectorAll('[data-fls-addtocart-button], .main-cataloge__shoping-btn, .main-cataloge__buy');
-    
-  buyButtons.forEach(button => {
-    button.setAttribute('data-options', JSON.stringify(optionsData));
+
+  console.debug(DEBUG_PREFIX, "collectSelectedOptions", { selectedOptions, reason });
+  return { options: selectedOptions };
+}
+
+function setOptionsAttribute(scope, payload) {
+  const holder = scope instanceof Element ? scope : document;
+  if (!holder) {
+    return;
+  }
+
+  let value = payload;
+  if (value && typeof value === "object") {
+    try {
+      value = JSON.stringify(value);
+    } catch (error) {
+      console.debug(DEBUG_PREFIX, "setOptionsAttribute stringify failed", error);
+      value = null;
+    }
+  }
+
+  if (typeof value !== "string" || value === "") {
+    return;
+  }
+
+  const buyButtons = holder.querySelectorAll('[data-fls-addtocart-button], [data-fls-popup-link="speedBuy"], .main-details__buy, .main-cataloge__shoping-btn');
+  const favoriteButtons = holder.querySelectorAll("[data-fls-like-button]");
+
+  buyButtons.forEach((button) => {
+    button.setAttribute("data-options", value);
   });
+
+  favoriteButtons.forEach((button) => {
+    button.setAttribute("data-options", value);
+  });
+}
+
+function getInitialOptions(scope, productId) {
+  const result = {};
+
+  const optionsFromDataset = extractOptionsFromDataset(scope, productId);
+  if (optionsFromDataset) {
+    console.debug(DEBUG_PREFIX, "initial options from dataset", { productId, options: optionsFromDataset });
+    Object.assign(result, optionsFromDataset);
+  }
+
+  if (productId) {
+    const metaOptions = extractOptionsFromMeta(productId);
+    if (metaOptions) {
+      console.debug(DEBUG_PREFIX, "initial options from meta", { productId, options: metaOptions });
+      Object.assign(result, metaOptions);
+      if (!optionsFromDataset) {
+        setOptionsAttribute(scope, JSON.stringify({ options: metaOptions.options || metaOptions }));
+      }
+    }
+  }
+
+  return result;
+}
+
+function cloneOptionsPayload(input) {
+  if (!input || typeof input !== "object") {
+    return null;
+  }
+
+  const source = input.options && typeof input.options === "object"
+    ? input.options
+    : input;
+
+  if (!source || typeof source !== "object") {
+    return null;
+  }
+
+  const normalized = {};
+  Object.keys(source).forEach((key) => {
+    const raw = source[key];
+    if (raw && typeof raw === "object") {
+      normalized[key] = { ...raw };
+    } else if (raw !== undefined && raw !== null) {
+      normalized[key] = { value: raw };
+    }
+  });
+
+  if (Object.keys(normalized).length === 0) {
+    return null;
+  }
+
+  return { options: normalized };
+}
+
+function extractOptionsFromDataset(scope, productId) {
+  const selectorParts = [];
+  if (productId) {
+    selectorParts.push(`[data-fls-like-button][data-product-id="${productId}"]`);
+    selectorParts.push(`[data-fls-like-button][data-fls-like-product="${productId}"]`);
+  }
+  selectorParts.push("[data-fls-like-button]");
+  const selector = selectorParts.join(", ");
+
+  const candidates = [];
+  if (scope instanceof Element) {
+    candidates.push(...scope.querySelectorAll(selector));
+  } else {
+    document.querySelectorAll(selector).forEach((node) => candidates.push(node));
+  }
+
+  const button = candidates.find((node) => node.dataset && (
+    (productId && (node.dataset.productId === String(productId) || node.dataset.flsLikeProduct === String(productId))) ||
+    productId === null
+  )) || candidates[0];
+
+  if (!button || !button.dataset || !button.dataset.options) {
+    console.debug(DEBUG_PREFIX, "extractOptionsFromDataset missing", { productId });
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(button.dataset.options);
+    if (parsed && typeof parsed === "object") {
+      return parsed;
+    }
+  } catch (error) {
+    console.debug(DEBUG_PREFIX, "extractOptionsFromDataset parse error", error);
+  }
+
+  return null;
+}
+
+function extractOptionsFromMeta(productId) {
+  const meta = window.__FAVORITES__?.meta;
+  if (!meta || typeof meta !== "object") {
+    return null;
+  }
+
+  const entry = meta[productId];
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  return entry.options || null;
+}
+
+function schedulePriceUpdate(productContainer, optionsData, reason = "manual") {
+  let targetContainer = productContainer instanceof Element ? productContainer : null;
+  if (!targetContainer && optionsData && optionsData.options) {
+    const lookupId = typeof optionsData.productId !== "undefined" ? optionsData.productId : null;
+    if (lookupId) {
+      targetContainer = document.querySelector(`[data-fls-like-product="${lookupId}"]`);
+    }
+  }
+
+  const productId = getProductIdFromContainer(targetContainer || productContainer);
+  if (!productId) {
+    console.debug(DEBUG_PREFIX, "schedulePriceUpdate skip: productId not found", { productContainer });
+    return;
+  }
+
+  if (!targetContainer) {
+    targetContainer = document.querySelector(`[data-fls-like-product="${productId}"]`)
+      || document.querySelector(`[data-product-id="${productId}"]`)
+      || document.querySelector(".main-details, .main__details")
+      || document.querySelector(".main-cataloge__item")
+      || document;
+  }
+
+  if (!targetContainer) {
+    console.debug(DEBUG_PREFIX, "schedulePriceUpdate resolved container fallback", { productId, reason });
+  }
+
+  console.debug(DEBUG_PREFIX, "schedulePriceUpdate queued", { productId, optionsData, reason });
+
+  const key = String(productId);
+  if (pendingPriceTimers.has(key)) {
+    clearTimeout(pendingPriceTimers.get(key));
+  }
+
+  const timer = setTimeout(() => {
+    pendingPriceTimers.delete(key);
+    requestPriceUpdate(targetContainer, productId, optionsData, reason);
+  }, PRICE_UPDATE_DELAY);
+
+  pendingPriceTimers.set(key, timer);
+}
+
+function requestPriceUpdate(productContainer, productId, optionsData, reason = "manual") {
+  if (typeof BX === "undefined" || !BX.ajax || typeof BX.ajax.runComponentAction !== "function") {
+    console.debug(DEBUG_PREFIX, "requestPriceUpdate skipped: BX.ajax unavailable", { productId });
+    return;
+  }
+
+  console.debug(DEBUG_PREFIX, "requestPriceUpdate sent", { productId, optionsData, reason });
+
+  BX.ajax.runComponentAction("brakes:favorites.sync", "calculate", {
+    mode: "class",
+    data: { productId, options: optionsData },
+  }).then((response) => {
+    const priceData = response?.data?.price || response?.data;
+    const formatted = priceData?.formatted || priceData?.PRICE_FORMATTED || priceData?.formattedPrice || null;
+    console.debug(DEBUG_PREFIX, "requestPriceUpdate response", { productId, priceData, reason });
+    if (formatted) {
+      applyPriceToContainer(productContainer, formatted);
+    }
+  }).catch((error) => {
+    console.error("Product options: price update failed", error);
+  });
+}
+
+function applyPriceToContainer(productContainer, formattedPrice) {
+  const decoded = decodeHtml(formattedPrice);
+  const targets = [];
+
+  if (productContainer instanceof Element) {
+    const node = productContainer.querySelector(".main-details__price-new, .main-cataloge__price");
+    if (node) {
+      targets.push(node);
+    }
+  }
+
+  if (targets.length === 0) {
+    const detailNode = document.querySelector(".main-details__price-new");
+    if (detailNode) {
+      targets.push(detailNode);
+    }
+  }
+
+  console.debug(DEBUG_PREFIX, "applyPriceToContainer", { formattedPrice: decoded, targetsCount: targets.length });
+
+  targets.forEach((node) => {
+    node.textContent = decoded;
+  });
+}
+
+function getProductIdFromContainer(container) {
+  let scope = container instanceof Element ? container : null;
+
+  if (!scope) {
+    scope = document.querySelector('.main-details, .main__details') || document.querySelector('.main-cataloge__item');
+    console.debug(DEBUG_PREFIX, "getProductIdFromContainer fallback scope", { found: !!scope });
+  }
+
+  if (scope) {
+    if (scope.dataset && scope.dataset.productId) {
+      console.debug(DEBUG_PREFIX, "getProductIdFromContainer via data-product-id", { productId: scope.dataset.productId });
+      return parseInt(scope.dataset.productId, 10) || 0;
+    }
+    if (scope.dataset && scope.dataset.flsLikeProduct) {
+      console.debug(DEBUG_PREFIX, "getProductIdFromContainer via data-fls-like-product", { productId: scope.dataset.flsLikeProduct });
+      return parseInt(scope.dataset.flsLikeProduct, 10) || 0;
+    }
+    const button = scope.querySelector('[data-fls-like-button]');
+    if (button) {
+      const id = parseInt(button.dataset.productId || button.dataset.flsLikeProduct, 10) || 0;
+      console.debug(DEBUG_PREFIX, "getProductIdFromContainer via button", { productId: id });
+      return id;
+    }
+  }
+
+  const globalButton = document.querySelector('[data-fls-like-button]');
+  if (globalButton) {
+    const id = parseInt(globalButton.dataset.productId || globalButton.dataset.flsLikeProduct, 10) || 0;
+    console.debug(DEBUG_PREFIX, "getProductIdFromContainer via global button", { productId: id });
+    return id;
+  }
+
+  console.debug(DEBUG_PREFIX, "getProductIdFromContainer failed", { container });
+  return 0;
+}
+
+function decodeHtml(html) {
+  PRICE_DECODE_HELPER.innerHTML = html;
+  return PRICE_DECODE_HELPER.textContent || '';
 }

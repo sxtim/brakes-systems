@@ -5,25 +5,42 @@ const ACTIVE_CLASS = "liked";
 const FAVORITE_POPUP_BODY_SELECTOR = ".favorit-box__body";
 const PRICE_SELECTORS = [".main-details__price-new", ".main-cataloge__price"];
 
-const initialState = window.__FAVORITES__ || { items: [], count: 0, isAuthorized: false };
+function favoritesLog(...args) {
+    if (typeof console !== "undefined" && console.log) {
+        console.log("[Favorites]", ...args);
+    }
+}
+
+const initialState = window.__FAVORITES__ || { items: [], count: 0, isAuthorized: false, meta: {} };
 const state = {
     items: normalizeIds(initialState.items || []),
     isAuthorized: Boolean(initialState.isAuthorized),
+    meta: typeof initialState.meta === "object" && initialState.meta !== null ? initialState.meta : {},
 };
 
 const priceObservers = new WeakMap();
 const lastPriceHtml = new WeakMap();
+const pendingUpdateTimers = new Map();
 
 function applyPriceToPopup(id, priceHtml, priceText) {
     const itemNode = document.querySelector(`[data-fls-like-product="${id}"]`);
     if (!itemNode) {
+        favoritesLog("applyPriceToPopup skip: item missing", { id });
         return;
     }
 
     const priceNode = itemNode.querySelector('.favorit-box__item-price');
     if (!priceNode) {
+        favoritesLog("applyPriceToPopup skip: price node missing", { id });
         return;
     }
+
+    favoritesLog("applyPriceToPopup", {
+        id,
+        priceHtml,
+        priceText,
+        previous: priceNode.innerHTML,
+    });
 
     if (typeof priceHtml === 'string' && priceHtml !== '') {
         priceNode.innerHTML = priceHtml;
@@ -92,6 +109,7 @@ function updatePopupHtml(markup) {
     if (typeof markup === "string") {
         const container = document.querySelector(FAVORITE_POPUP_BODY_SELECTOR);
         if (container) {
+            favoritesLog("Update popup HTML (string)", { length: markup.length });
             container.innerHTML = markup;
             initPriceObservers(container);
         }
@@ -106,9 +124,11 @@ function updatePopupHtml(markup) {
     items.forEach((item) => {
         const id = parseInt(item.id, 10);
         if (!id) {
+            favoritesLog("Skip popup update item without id", item);
             return;
         }
 
+        favoritesLog("Update popup HTML (partial)", id, item);
         applyPriceToPopup(id, item.priceHtml ?? null, item.price ?? null);
     });
 }
@@ -218,8 +238,23 @@ const productMutationObserver = typeof MutationObserver === "undefined" ? null :
     });
 });
 
-function applyState(items, popupHtml = null) {
+function applyState(items, popupHtml = null, meta = null) {
+    favoritesLog("Apply state called", { items, popupHtml, meta });
     state.items = normalizeIds(items);
+    const previousMeta = state.meta || {};
+    if (meta && typeof meta === "object") {
+        state.meta = meta;
+        favoritesLog("State meta replaced", meta);
+    } else {
+        const filtered = {};
+        state.items.forEach((id) => {
+            if (previousMeta[id]) {
+                filtered[id] = previousMeta[id];
+            }
+        });
+        state.meta = filtered;
+        favoritesLog("State meta filtered", filtered);
+    }
     updateCounter();
     updateButtons();
 
@@ -232,8 +267,10 @@ function applyState(items, popupHtml = null) {
             items: [...state.items],
             count: state.items.length,
             isAuthorized: state.isAuthorized,
+            meta: state.meta,
         },
     }));
+    favoritesLog("State applied", state);
 }
 
 function handleButtonClick(event) {
@@ -244,6 +281,7 @@ function handleButtonClick(event) {
 
     const productId = getProductId(target);
     if (!productId) {
+        favoritesLog("Button click without product id", target);
         return;
     }
 
@@ -251,8 +289,10 @@ function handleButtonClick(event) {
     event.stopPropagation();
 
     const priceSnapshot = captureCurrentPrice(target.closest(FAVORITE_PRODUCT_SELECTOR));
+    const optionsData = extractOptionsData(target, productId);
+    favoritesLog("Toggle click", { productId, priceSnapshot, optionsData });
 
-    toggleFavorite(productId, target, priceSnapshot);
+    toggleFavorite(productId, target, priceSnapshot, optionsData);
 }
 
 function captureCurrentPrice(container) {
@@ -267,31 +307,38 @@ function captureCurrentPrice(container) {
     };
 }
 
-function toggleFavorite(productId, button, priceSnapshot) {
+function toggleFavorite(productId, button, priceSnapshot, optionsOverride = null) {
     if (typeof BX === "undefined" || !BX.ajax || typeof BX.ajax.runComponentAction !== "function") {
         console.error("Favorites: Bitrix ajax is not available.");
+        favoritesLog("BX.ajax is not available");
         return;
     }
 
     button?.classList.add("is-processing");
 
+    const options = optionsOverride ?? extractOptionsData(button, productId);
+    favoritesLog("Toggle request", { productId, options, priceSnapshot });
+
     BX.ajax.runComponentAction("brakes:favorites.sync", "toggle", {
         mode: "class",
-        data: { productId },
+        data: { productId, options },
     }).then((response) => {
+        favoritesLog("Toggle response", response);
         const data = response?.data;
+        favoritesLog("Toggle response data", data, Array.isArray(data?.items));
         if (!data || data.status !== "success" || !Array.isArray(data.items)) {
             throw new Error("Unexpected response format");
         }
 
-        applyState(data.items, data.popupHtml);
+        applyState(data.items, data.popupHtml, data.meta);
 
         button?.classList.remove("is-processing");
     }).catch((error) => {
         console.error("Favorites: toggle failed", error);
+        favoritesLog("Toggle failed", error);
         if (BX?.UI?.Notification?.Center) {
             BX.UI.Notification.Center.notify({
-                content: BX.message?.ERROR_FAVORITES_TOGGLE || "Не удалось обновить избранное.",
+                content: BX.message?.ERROR_FAVORITES_TOGGLE || "Error updating favorites.",
                 autoHideDelay: 5000,
                 position: "top-right",
             });
@@ -300,7 +347,9 @@ function toggleFavorite(productId, button, priceSnapshot) {
     });
 }
 
+
 function refreshFromServer() {
+    favoritesLog("refreshFromServer invoked");
     if (typeof BX === "undefined" || !BX.ajax || typeof BX.ajax.runComponentAction !== "function") {
         return Promise.resolve(state.items);
     }
@@ -308,21 +357,24 @@ function refreshFromServer() {
     return BX.ajax.runComponentAction("brakes:favorites.sync", "list", {
         mode: "class",
     }).then((response) => {
+        favoritesLog("refreshFromServer response", response);
         const data = response?.data;
         if (!data || data.status !== "success" || !Array.isArray(data.items)) {
             throw new Error("Unexpected response format");
         }
 
-        applyState(data.items, data.popupHtml);
+        applyState(data.items, data.popupHtml, data.meta);
 
         return state.items;
     }).catch((error) => {
         console.error("Favorites: refresh failed", error);
+        favoritesLog("refreshFromServer error", error);
         return state.items;
     });
 }
 
 function initFavorites() {
+    favoritesLog("initFavorites start", state);
     applyState(state.items);
     initPriceObservers();
 
@@ -331,6 +383,8 @@ function initFavorites() {
     }
 
     document.addEventListener("click", handleButtonClick, true);
+    document.addEventListener("productOptions:changed", handleProductOptionsChanged);
+    favoritesLog("initFavorites completed");
 }
 
 window.addEventListener("load", initFavorites);
@@ -338,6 +392,128 @@ window.addEventListener("load", initFavorites);
 window.brakesFavorites = {
     getIds: () => [...state.items],
     has: (id) => state.items.includes(parseInt(id, 10)),
-    toggle: (id) => toggleFavorite(parseInt(id, 10)),
+    toggle: (id, options) => toggleFavorite(parseInt(id, 10), null, null, options || null),
     refresh: refreshFromServer,
 };
+
+function parseOptions(value) {
+    favoritesLog("parseOptions input", value);
+    if (!value) {
+        return null;
+    }
+
+    if (typeof value === "object") {
+        return value;
+    }
+
+    if (typeof value === "string") {
+        try {
+            const parsed = JSON.parse(value);
+            favoritesLog("parseOptions parsed", parsed);
+            return parsed;
+        } catch (error) {
+            console.warn("Favorites: failed to parse options JSON", error);
+            favoritesLog("parseOptions failed", error);
+        }
+    }
+
+    return null;
+}
+
+function normalizeOptionsPayload(options) {
+    favoritesLog("normalizeOptionsPayload input", options);
+    const parsed = parseOptions(options);
+    if (parsed && typeof parsed === "object") {
+        return parsed;
+    }
+    return {};
+}
+
+function extractOptionsData(element, productId) {
+    favoritesLog("extractOptionsData input", { element, productId });
+    if (element) {
+        const direct = normalizeOptionsPayload(element.dataset?.options);
+        if (Object.keys(direct).length > 0) {
+            favoritesLog("extractOptionsData direct dataset", direct);
+            return direct;
+        }
+
+        const container = element.closest(FAVORITE_PRODUCT_SELECTOR)
+            || element.closest(".main-cataloge__item")
+            || element.closest(".main-details")
+            || element.closest(".main__details");
+
+        if (container) {
+            const button = container.querySelector("[data-fls-like-button]");
+            if (button && button !== element) {
+                const parsed = normalizeOptionsPayload(button.dataset?.options);
+                if (Object.keys(parsed).length > 0) {
+                    favoritesLog("extractOptionsData sibling dataset", parsed);
+                    return parsed;
+                }
+            }
+        }
+    }
+
+    favoritesLog("extractOptionsData dataset missing", { productId });
+    if (productId && state.meta && state.meta[productId] && state.meta[productId].options) {
+        favoritesLog("extractOptionsData from meta", state.meta[productId].options);
+        return state.meta[productId].options;
+    }
+
+    favoritesLog("extractOptionsData empty result");
+    return {};
+}
+
+function handleProductOptionsChanged(event) {
+    favoritesLog("handleProductOptionsChanged", event);
+    const detail = event?.detail || {};
+    const productId = parseInt(detail.productId, 10);
+    if (!productId || !state.items.includes(productId)) {
+        return;
+    }
+
+    const options = normalizeOptionsPayload(detail.options);
+    favoritesLog("handleProductOptionsChanged processed", { productId, options });
+    scheduleFavoriteUpdate(productId, options);
+}
+
+function scheduleFavoriteUpdate(productId, options) {
+    favoritesLog("scheduleFavoriteUpdate", { productId, options });
+    const key = String(productId);
+    if (pendingUpdateTimers.has(key)) {
+        clearTimeout(pendingUpdateTimers.get(key));
+    }
+
+    const timer = setTimeout(() => {
+        favoritesLog("scheduleFavoriteUpdate trigger", { productId, options });
+        pendingUpdateTimers.delete(key);
+        sendUpdateRequest(productId, options);
+    }, 200);
+
+    pendingUpdateTimers.set(key, timer);
+}
+
+function sendUpdateRequest(productId, options) {
+    favoritesLog("sendUpdateRequest", { productId, options });
+    if (typeof BX === "undefined" || !BX.ajax || typeof BX.ajax.runComponentAction !== "function") {
+        favoritesLog("sendUpdateRequest skipped: BX.ajax not available");
+        return;
+    }
+
+    BX.ajax.runComponentAction("brakes:favorites.sync", "update", {
+        mode: "class",
+        data: { productId, options },
+    }).then((response) => {
+        favoritesLog("sendUpdateRequest response", response);
+        const data = response?.data;
+        if (!data || data.status !== "success" || !Array.isArray(data.items)) {
+            throw new Error("Unexpected response format");
+        }
+
+        applyState(data.items, data.popupHtml, data.meta);
+    }).catch((error) => {
+        console.error("Favorites: update failed", error);
+        favoritesLog("sendUpdateRequest error", error);
+    });
+}

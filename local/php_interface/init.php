@@ -1,5 +1,4 @@
 <?php
-require_once $_SERVER['DOCUMENT_ROOT'] . '/local/app/Brakes/Helper/FavoritesManager.php';
 
 if (!\Bitrix\Main\Loader::includeModule('pull'))
 {
@@ -15,6 +14,7 @@ require_once __DIR__ . '/include/events.php';
     'App\Brakes\Helper\Favorites' => '/local/app/Brakes/Helper/Favorites.php',
     'App\Brakes\Helper\FavoritesManager' => '/local/app/Brakes/Helper/FavoritesManager.php',
     'App\Brakes\Auth\Sms' => '/local/app/Brakes/Auth/Sms.php',
+    'App\Brakes\Pricing\Configurator' => '/local/app/Brakes/Pricing/Configurator.php',
 ]);
 
 AddEventHandler('main', 'OnBeforeProlog', static function (): void {

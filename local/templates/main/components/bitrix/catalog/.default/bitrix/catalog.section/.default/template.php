@@ -1,4 +1,3 @@
-
 <?php
 
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
@@ -24,114 +23,75 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     <div class="main-cataloge__body view-grid">
         <?php
 
+        $cardPartialPath = __DIR__ . '/partials/product-card.php';
+
         foreach ($arResult['ITEMS'] as $item) {
-        ?>
-            <div class="main-cataloge__item" data-fls-like-product="<?=$item['ID']?>">
-                <a class="main-cataloge__picture" href="<?=$item['DETAIL_PAGE_URL']?>">
-                    <picture>
-                        <source media="(max-width: 600px)" srcset="<?=$item['IMG']?>" type="image/webp">
-                        <source media="(max-width: 1200px)" srcset="<?=$item['IMG']?>" type="image/webp">
-                        <img class="main-cataloge__img" alt="Image" src="<?=$item['IMG']?>">
-                    </picture>
-                </a>
-                <div class="main-cataloge__item-content">
-                    <div class="main-cataloge__item-top">
-                        <h3 class="main-cataloge__item-title"><a href="<?=$item['DETAIL_PAGE_URL']?>"><?=$item['NAME']?></a></h3>
-                        <button data-fls-like-image="" data-fls-like-button="" data-product-id="<?=$item['ID']?>" class="main-cataloge__like main-details__shoping-like"></button>
-                    </div>
-                    <div class="main-cataloge__details main__details details">
-                        <div class="main-cataloge__details-row details-row">
-                            <span class="main-cataloge__details-label details-label">Артикул</span>
-                            <span class="main-cataloge__details-dots details-dots"></span>
-                            <span class="main-cataloge__details-value details-value"><?=$item['PROPERTIES']['CML2_ARTICLE']['VALUE']?></span>
-                        </div>
-                        <div class="main-cataloge__details-row details-row">
-                            <span class="main-cataloge__details-label details-label">Производитель:</span>
-                            <span class="main-cataloge__details-dots details-dots"></span>
-                            <span class="main-cataloge__details-value details-value"><?=$item['PROPERTIES']['MANUFACTURER']['VALUE']?></span>
-                        </div>
-                        <div class="main-cataloge__details-row details-row">
-                            <span class="main-cataloge__details-label details-label">Кол-во поршней:</span>
-                            <span class="main-cataloge__details-dots details-dots"></span>
-                            <span class="main-cataloge__details-value details-value"><?=$item['PROPERTIES']['NUMBER_PISTONS']['VALUE']?></span>
-                        </div>
-                        <div class="main-cataloge__details-row details-row">
-                            <span class="main-cataloge__details-label details-label">Ось:</span>
-                            <span class="main-cataloge__details-dots details-dots"></span>
-                            <span class="main-cataloge__details-value details-value"><?=$item['PROPERTIES']['INSTALLATION_AXIS']['VALUE']?></span>
-                        </div>
-                    </div>
-                    <?php
+            $priceFormatted = null;
+            if (!empty($item['FAVORITES_PRICE']['PRICE_FORMATTED'])) {
+                $priceFormatted = htmlspecialcharsback($item['FAVORITES_PRICE']['PRICE_FORMATTED']);
+            }
+            if ($priceFormatted === null) {
+                $basePrice = isset($item['ITEM_PRICES'][0]['PRICE']) ? (float)$item['ITEM_PRICES'][0]['PRICE'] : 0.0;
+                $priceFormatted = number_format($basePrice, 0, '.', ' ') . ' ₽';
+            }
 
-                    if ($item['DISPLAY_PROPERTIES']['COLOR']['VALUE']) {
-                    ?>
-                        <div class="main-cataloge__colors">
-                            <h4 class="main-cataloge__colors-title">Доступные цвета:</h4>
-                            <div class="main-cataloge__colors-box">
-                                <?php
+            $optionsJson = $item['FAVORITES_OPTIONS_JSON'] ?? '{}';
+            $optionsAttr = htmlspecialcharsbx($optionsJson);
 
-                                foreach ($item['DISPLAY_PROPERTIES']['COLOR']['VALUE'] as $i => $val) {
-                                ?>
-                                    <button class="main-cataloge__colors-item cataloge__color--<?=$item['DISPLAY_PROPERTIES']['COLOR']['VALUE_XML_ID'][$i]?>"></button>
-                                <?php
+            $details = [
+                [
+                    'label' => 'Артикул',
+                    'value' => $item['PROPERTIES']['CML2_ARTICLE']['VALUE'] ?? '',
+                ],
+                [
+                    'label' => 'Производитель:',
+                    'value' => $item['PROPERTIES']['MANUFACTURER']['VALUE'] ?? '',
+                ],
+                [
+                    'label' => 'Кол-во поршней:',
+                    'value' => $item['PROPERTIES']['NUMBER_PISTONS']['VALUE'] ?? '',
+                ],
+                [
+                    'label' => 'Ось:',
+                    'value' => $item['PROPERTIES']['INSTALLATION_AXIS']['VALUE'] ?? '',
+                ],
+            ];
 
-                                }
-                                ?>
-                            </div>
-                        </div>
-                    <?php
-
+            $colors = [];
+            if (!empty($item['DISPLAY_PROPERTIES']['COLOR']['VALUE']) && is_array($item['DISPLAY_PROPERTIES']['COLOR']['VALUE'])) {
+                foreach ($item['DISPLAY_PROPERTIES']['COLOR']['VALUE'] as $index => $value) {
+                    $xmlId = $item['DISPLAY_PROPERTIES']['COLOR']['VALUE_XML_ID'][$index] ?? null;
+                    if ($xmlId === null) {
+                        continue;
                     }
-                    ?>
-                </div>
-                <div class="main-cataloge__info">
-                    <div data-fls-spollers="" data-fls-spollers-one="" class="main-cataloge__feature spollers">
-                        <details class="spollers__item main-cataloge__feature-item--big">
-                            <summary class="main-cataloge__feature-item spollers__title">Двусоставная конструкция диска:</summary>
-                            <div class="main-cataloge__sublist spollers__body">
-                                <div class="main-cataloge__sublist-item">Да</div>
-                                <div class="main-cataloge__sublist-item">Нет</div>
-                            </div>
-                        </details>
-                        <details class="spollers__item main-cataloge__feature-item--big">
-                            <summary class="main-cataloge__feature-item spollers__title">Рисунок ротора:</summary>
-                            <div class="main-cataloge__sublist spollers__body">
-                                <div class="main-cataloge__sublist-item">ПЕРФОРАЦИЯ</div>
-                                <div class="main-cataloge__sublist-item">НАСЕЧКИ</div>
-                                <div class="main-cataloge__sublist-item">ПЕРФОРАЦИЯ + НАСЕЧКИ</div>
-                            </div>
-                        </details>
-                        <details class="spollers__item">
-                            <summary class="main-cataloge__feature-item spollers__title">Лого на суппорт:</summary>
-                            <div class="main-cataloge__sublist spollers__body">
-                                <div class="main-cataloge__sublist-item">Стандартный</div>
-                                <div class="main-cataloge__sublist-item">Особый логотип</div>
-                            </div>
-                        </details>
-                        <details class="spollers__item">
-                            <summary class="main-cataloge__feature-item spollers__title">Электроручник</summary>
-                            <div class="main-cataloge__sublist spollers__body">
-                                <div class="main-cataloge__sublist-item">Да</div>
-                                <div class="main-cataloge__sublist-item">Нет</div>
-                            </div>
-                        </details>
-                    </div>
-                    <div class="main-cataloge__price"><?=number_format($item['ITEM_PRICES'][0]['PRICE'], 0, '.', ' ')?> ₽</div>
-                    <div class="main-cataloge__bottom-controls">
-                        <button data-fls-popup-link="speedBuy"
-                                class="main-cataloge__buy"
-                                data-product-name="<?= $item['NAME'] ?>"
-                                data-product-url="<?= $item['DETAIL_PAGE_URL'] ?>"
-                                data-options='{}'>Купить в один клик</button>
-                        <button data-fls-addtocart-button="" class="main-cataloge__shoping-btn" data-add-basket>
-                            <span class="main-cataloge__shoping-text">В корзину</span>
-                            <img class="main-cataloge__shoping-img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/shopping-icon.svg" alt="Img">
-                        </button>
-                    </div>
-                </div>
-            </div>
-        <?php
+                    $colors[] = [
+                        'xmlId' => $xmlId,
+                    ];
+                }
+            }
 
+            $cardData = [
+                'ID' => $item['ID'],
+                'NAME' => $item['NAME'],
+                'DETAIL_PAGE_URL' => $item['DETAIL_PAGE_URL'],
+                'IMG' => $item['IMG'],
+                'PRICE_HTML' => $priceFormatted,
+                'OPTIONS_ATTR' => $optionsAttr,
+                'DETAILS' => $details,
+                'COLORS' => $colors,
+                'SELECTED' => $item['FAVORITES_SELECTED_OPTIONS'] ?? [],
+                'EXPAND_FEATURES' => false,
+                'BUY' => [
+                    'NAME' => $item['NAME'],
+                    'URL' => $item['DETAIL_PAGE_URL'],
+                ],
+            ];
+
+            if (file_exists($cardPartialPath)) {
+                $card = $cardData;
+                include $cardPartialPath;
+                unset($card);
+            }
         }
         ?>
     </div>

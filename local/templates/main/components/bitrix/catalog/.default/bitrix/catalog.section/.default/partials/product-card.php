@@ -1,0 +1,240 @@
+<?php
+
+if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
+    exit;
+}
+
+if (!isset($card) || !is_array($card)) {
+    return;
+}
+
+$id = isset($card['ID']) ? (int)$card['ID'] : 0;
+if ($id <= 0) {
+    return;
+}
+
+$name = (string)($card['NAME'] ?? '');
+$detailUrl = (string)($card['DETAIL_PAGE_URL'] ?? '#');
+$imageSrc = (string)($card['IMG'] ?? '');
+$priceHtml = (string)($card['PRICE_HTML'] ?? '');
+$optionsAttr = (string)($card['OPTIONS_ATTR'] ?? '{}');
+$details = isset($card['DETAILS']) && is_array($card['DETAILS']) ? $card['DETAILS'] : [];
+$colors = isset($card['COLORS']) && is_array($card['COLORS']) ? $card['COLORS'] : [];
+$buy = isset($card['BUY']) && is_array($card['BUY']) ? $card['BUY'] : [];
+$selectedOptions = isset($card['SELECTED']) && is_array($card['SELECTED']) ? $card['SELECTED'] : [];
+$favoritesView = !empty($card['FAVORITES_VIEW']);
+$expandFeatures = !empty($card['EXPAND_FEATURES']);
+
+$buyName = (string)($buy['NAME'] ?? $name);
+$buyUrl = (string)($buy['URL'] ?? $detailUrl);
+
+$normalizeCase = static function ($value) {
+    if (!is_string($value) || $value === '') {
+        return null;
+    }
+
+    if (function_exists('mb_strtolower')) {
+        return mb_strtolower($value);
+    }
+
+    return strtolower($value);
+};
+
+if ($selectedOptions !== []) {
+    $normalized = [];
+    foreach ($selectedOptions as $key => $value) {
+        $normalizedKey = $normalizeCase($key);
+        if ($normalizedKey === null) {
+            continue;
+        }
+        $normalized[$normalizedKey] = $normalizeCase($value);
+    }
+    $selectedOptions = $normalized;
+}
+
+$optionLabelMap = [
+    'two_piece_disc_construction' => 'Двусоставная конструкция диска:',
+    'rotor_pattern' => 'Рисунок ротора:',
+    'caliper_logo' => 'Лого на суппорт:',
+    'electric_handbrake' => 'Электроручник:',
+];
+
+$optionValueMap = [
+    'two_piece_disc_construction' => [
+        'yes' => 'Да',
+        'no' => 'Нет',
+    ],
+    'rotor_pattern' => [
+        'none' => 'Нет',
+        'perforation' => 'Перфорация',
+        'slots' => 'Насечки',
+        'perforation_slots' => 'Перфорация + насечки',
+        'perforation_and_notches' => 'Перфорация + насечки',
+        'notches' => 'Насечки',
+    ],
+    'caliper_logo' => [
+        'standard' => 'Стандарт',
+        'special' => 'Особый логотип',
+        'custom_logo' => 'Особый логотип',
+        'custom' => 'Особый логотип',
+    ],
+    'electric_handbrake' => [
+        'yes' => 'Да',
+        'no' => 'Нет',
+    ],
+];
+
+$formatOptionValue = static function (string $key, ?string $value) use ($optionValueMap): string {
+    if ($value === null || $value === '') {
+        return '—';
+    }
+
+    $normalizedKey = strtolower($key);
+    $normalizedValue = strtolower($value);
+
+    if (isset($optionValueMap[$normalizedKey][$normalizedValue])) {
+        return $optionValueMap[$normalizedKey][$normalizedValue];
+    }
+
+    return $value;
+};
+
+$hasSelectedValues = $selectedOptions !== [];
+$twoPieceSelected = $hasSelectedValues ? ($selectedOptions['two_piece_disc_construction'] ?? 'no') : null;
+$rotorSelected = $hasSelectedValues ? ($selectedOptions['rotor_pattern'] ?? null) : null;
+$caliperSelected = $hasSelectedValues ? ($selectedOptions['caliper_logo'] ?? 'standard') : null;
+$handbrakeSelected = $hasSelectedValues ? ($selectedOptions['electric_handbrake'] ?? 'no') : null;
+
+$twoPieceYesSelected = $twoPieceSelected === 'yes';
+$twoPieceNoSelected = $twoPieceSelected !== null && $twoPieceSelected !== 'yes';
+$rotorNoneSelected = $rotorSelected === 'none';
+$rotorPerforationSelected = $rotorSelected === 'perforation';
+$rotorSlotsSelected = $rotorSelected === 'slots';
+$rotorComboSelected = $rotorSelected === 'perforation_slots';
+$caliperStandardSelected = $caliperSelected === 'standard';
+$caliperSpecialSelected = in_array($caliperSelected, ['special', 'custom_logo'], true);
+$handbrakeYesSelected = $handbrakeSelected === 'yes';
+$handbrakeNoSelected = $handbrakeSelected !== null && $handbrakeSelected !== 'yes';
+$detailsOpenAttr = $expandFeatures ? ' open' : '';
+
+?>
+<div class="main-cataloge__item" data-fls-like-product="<?=$id?>">
+    <a class="main-cataloge__picture" href="<?=htmlspecialcharsbx($detailUrl)?>">
+        <picture>
+            <source media="(max-width: 600px)" srcset="<?=htmlspecialcharsbx($imageSrc)?>" type="image/webp">
+            <source media="(max-width: 1200px)" srcset="<?=htmlspecialcharsbx($imageSrc)?>" type="image/webp">
+            <img class="main-cataloge__img" alt="<?=htmlspecialcharsbx($name !== '' ? $name : 'Image')?>" src="<?=htmlspecialcharsbx($imageSrc)?>">
+        </picture>
+    </a>
+    <div class="main-cataloge__item-content">
+        <div class="main-cataloge__item-top">
+            <h3 class="main-cataloge__item-title"><a href="<?=htmlspecialcharsbx($detailUrl)?>"><?=htmlspecialcharsbx($name)?></a></h3>
+            <button
+                data-fls-like-image=""
+                data-fls-like-button=""
+                data-product-id="<?=$id?>"
+                data-options="<?=$optionsAttr?>"
+                class="main-cataloge__like main-details__shoping-like"></button>
+        </div>
+        <?php if ($details !== []) { ?>
+            <div class="main-cataloge__details main__details details">
+                <?php foreach ($details as $detail) {
+                    $label = (string)($detail['label'] ?? '');
+                    $value = (string)($detail['value'] ?? '');
+                    if ($label === '' && $value === '') {
+                        continue;
+                    }
+                ?>
+                    <div class="main-cataloge__details-row details-row">
+                        <?php if ($label !== '') { ?>
+                            <span class="main-cataloge__details-label details-label"><?=htmlspecialcharsbx($label)?></span>
+                        <?php } ?>
+                        <span class="main-cataloge__details-dots details-dots"></span>
+                        <span class="main-cataloge__details-value details-value"><?=htmlspecialcharsbx($value)?></span>
+                    </div>
+                <?php } ?>
+            </div>
+        <?php } ?>
+        <?php if ($colors !== []) { ?>
+            <div class="main-cataloge__colors">
+                <h4 class="main-cataloge__colors-title">Доступные цвета:</h4>
+                <div class="main-cataloge__colors-box">
+                    <?php foreach ($colors as $color) {
+                        $modifier = (string)($color['xmlId'] ?? $color['modifier'] ?? '');
+                        if ($modifier === '') {
+                            continue;
+                        }
+                    ?>
+                        <button class="main-cataloge__colors-item cataloge__color--<?=htmlspecialcharsbx($modifier)?>"></button>
+                    <?php } ?>
+                </div>
+            </div>
+        <?php } ?>
+        <div class="main-cataloge__info">
+            <?php if ($favoritesView) { ?>
+                <div class="main-cataloge__feature main-cataloge__feature--favorite">
+                    <?php foreach ($optionLabelMap as $optionKey => $label) {
+                        $rawValue = $selectedOptions[$optionKey] ?? null;
+                        $displayValue = $formatOptionValue($optionKey, $rawValue);
+                    ?>
+                        <div class="main-cataloge__details-row details-row">
+                            <span class="main-cataloge__details-label details-label"><?=htmlspecialcharsbx($label)?></span>
+                            <span class="main-cataloge__details-dots details-dots"></span>
+                            <span class="main-cataloge__details-value details-value"><?=htmlspecialcharsbx($displayValue)?></span>
+                        </div>
+                    <?php } ?>
+                </div>
+            <?php } else { ?>
+                <div data-fls-spollers="" data-fls-spollers-one="" class="main-cataloge__feature spollers">
+                    <details class="spollers__item main-cataloge__feature-item--big"<?=$detailsOpenAttr?>>
+                        <summary class="main-cataloge__feature-item спollers__title">Двусоставная конструкция диска:</summary>
+                        <div class="main-cataloge__sublist спollers__body">
+                            <div class="main-cataloge__sublist-item<?=$twoPieceYesSelected ? ' selected' : ''?>">Да</div>
+                            <div class="main-cataloge__sublist-item<?=$twoPieceNoSelected ? ' selected' : ''?>">Нет</div>
+                        </div>
+                    </details>
+                    <details class="spollers__item main-cataloge__feature-item--big"<?=$detailsOpenAttr?>>
+                        <summary class="main-cataloge__feature-item спollers__title">Рисунок ротора:</summary>
+                        <div class="main-cataloge__sublist спollers__body">
+                            <div class="main-cataloge__sublist-item<?=$rotorNoneSelected ? ' selected' : ''?>">НЕТ</div>
+                            <div class="main-cataloge__sublist-item<?=$rotorPerforationSelected ? ' selected' : ''?>">ПЕРФОРАЦИЯ</div>
+                            <div class="main-cataloge__sublist-item<?=$rotorSlotsSelected ? ' selected' : ''?>">НАСЕЧКИ</div>
+                            <div class="main-cataloge__sublist-item<?=$rotorComboSelected ? ' selected' : ''?>">ПЕРФОРАЦИЯ + НАСЕЧКИ</div>
+                        </div>
+                    </details>
+                    <details class="spollers__item"<?=$detailsOpenAttr?>>
+                        <summary class="main-cataloge__feature-item спollers__title">Лого на суппорт:</summary>
+                        <div class="main-cataloge__sublist спollers__body">
+                            <div class="main-cataloge__sublist-item<?=$caliperStandardSelected ? ' selected' : ''?>">Стандартный</div>
+                            <div class="main-cataloge__sublist-item<?=$caliperSpecialSelected ? ' selected' : ''?>">Особый логотип</div>
+                        </div>
+                    </details>
+                    <details class="spollers__item"<?=$detailsOpenAttr?>>
+                        <summary class="main-cataloge__feature-item спollers__title">Электроручник</summary>
+                        <div class="main-cataloge__sublist спollers__body">
+                            <div class="main-cataloge__sublist-item<?=$handbrakeYesSelected ? ' selected' : ''?>">Да</div>
+                            <div class="main-cataloge__sublist-item<?=$handbrakeNoSelected ? ' selected' : ''?>">Нет</div>
+                        </div>
+                    </details>
+                </div>
+            <?php } ?>
+            <div class="main-cataloge__price"><?=$priceHtml?></div>
+            <div class="main-cataloge__bottom-controls">
+                <button
+                    data-fls-popup-link="speedBuy"
+                    class="main-cataloge__buy"
+                    data-product-name="<?=htmlspecialcharsbx($buyName)?>"
+                    data-product-url="<?=htmlspecialcharsbx($buyUrl)?>"
+                    data-options='<?=$optionsAttr?>'>Купить в один клик</button>
+                <button
+                    data-fls-addtocart-button=""
+                    class="main-cataloge__shoping-btn"
+                    data-add-basket
+                    data-options="<?=$optionsAttr?>">
+                    <span class="main-cataloge__shoping-text">В корзину</span>
+                    <img class="main-cataloge__shoping-img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/shopping-icon.svg" alt="Img">
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
