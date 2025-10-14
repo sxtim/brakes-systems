@@ -1,6 +1,5 @@
 ﻿const PRICE_UPDATE_DELAY = 150;
 const PRICE_DECODE_HELPER = document.createElement("span");
-const DEBUG_PREFIX = "[ProductOptions]";
 const pendingPriceTimers = new Map();
 
 document.addEventListener("click", (event) => {
@@ -107,7 +106,6 @@ function handleOneClickBuyButtons() {
           optionsString = optionsArray.join(", ");
         }
       } catch (error) {
-        console.error("Error parsing options data:", error);
         optionsString = options || "Ошибка чтения опций";
       }
 
@@ -142,7 +140,6 @@ function updateProductOptions(productContainer, reason = "manual") {
   setOptionsAttribute(scope, optionsJson);
 
   if (productId) {
-    console.debug(DEBUG_PREFIX, "updateProductOptions dispatch", { productId, optionsData, reason });
     document.dispatchEvent(new CustomEvent("productOptions:changed", {
       detail: {
         productId,
@@ -153,7 +150,6 @@ function updateProductOptions(productContainer, reason = "manual") {
     optionsData.productId = productId;
   }
 
-  console.debug(DEBUG_PREFIX, "updateProductOptions result", { reason, productId, optionsData, fallbackOptions });
   return optionsData;
 }
 
@@ -177,9 +173,6 @@ function collectSelectedOptions(scope, defaults = null, reason = "manual") {
   (scope instanceof Element ? scope : document).querySelectorAll(".spollers__item").forEach((spoller) => {
     const selectedOption = spoller.querySelector(".main-cataloge__sublist-item.selected");
     if (!selectedOption) {
-      if (reason === "click" || !defaults) {
-        console.debug(DEBUG_PREFIX, "collectSelectedOptions no selected option", { spoller, reason });
-      }
       return;
     }
 
@@ -227,7 +220,6 @@ function collectSelectedOptions(scope, defaults = null, reason = "manual") {
     };
   });
 
-  console.debug(DEBUG_PREFIX, "collectSelectedOptions", { selectedOptions, reason });
   return { options: selectedOptions };
 }
 
@@ -242,7 +234,6 @@ function setOptionsAttribute(scope, payload) {
     try {
       value = JSON.stringify(value);
     } catch (error) {
-      console.debug(DEBUG_PREFIX, "setOptionsAttribute stringify failed", error);
       value = null;
     }
   }
@@ -268,14 +259,12 @@ function getInitialOptions(scope, productId) {
 
   const optionsFromDataset = extractOptionsFromDataset(scope, productId);
   if (optionsFromDataset) {
-    console.debug(DEBUG_PREFIX, "initial options from dataset", { productId, options: optionsFromDataset });
     Object.assign(result, optionsFromDataset);
   }
 
   if (productId) {
     const metaOptions = extractOptionsFromMeta(productId);
     if (metaOptions) {
-      console.debug(DEBUG_PREFIX, "initial options from meta", { productId, options: metaOptions });
       Object.assign(result, metaOptions);
       if (!optionsFromDataset) {
         setOptionsAttribute(scope, JSON.stringify({ options: metaOptions.options || metaOptions }));
@@ -337,8 +326,7 @@ function extractOptionsFromDataset(scope, productId) {
     productId === null
   )) || candidates[0];
 
-  if (!button || !button.dataset || !button.dataset.options) {
-    console.debug(DEBUG_PREFIX, "extractOptionsFromDataset missing", { productId });
+  if (!button || !button.dataset.options) {
     return null;
   }
 
@@ -348,7 +336,6 @@ function extractOptionsFromDataset(scope, productId) {
       return parsed;
     }
   } catch (error) {
-    console.debug(DEBUG_PREFIX, "extractOptionsFromDataset parse error", error);
   }
 
   return null;
@@ -379,9 +366,8 @@ function schedulePriceUpdate(productContainer, optionsData, reason = "manual") {
 
   const productId = getProductIdFromContainer(targetContainer || productContainer);
   if (!productId) {
-    console.debug(DEBUG_PREFIX, "schedulePriceUpdate skip: productId not found", { productContainer });
     return;
-  }
+ }
 
   if (!targetContainer) {
     targetContainer = document.querySelector(`[data-fls-like-product="${productId}"]`)
@@ -392,10 +378,8 @@ function schedulePriceUpdate(productContainer, optionsData, reason = "manual") {
   }
 
   if (!targetContainer) {
-    console.debug(DEBUG_PREFIX, "schedulePriceUpdate resolved container fallback", { productId, reason });
   }
 
-  console.debug(DEBUG_PREFIX, "schedulePriceUpdate queued", { productId, optionsData, reason });
 
   const key = String(productId);
   if (pendingPriceTimers.has(key)) {
@@ -412,11 +396,9 @@ function schedulePriceUpdate(productContainer, optionsData, reason = "manual") {
 
 function requestPriceUpdate(productContainer, productId, optionsData, reason = "manual") {
   if (typeof BX === "undefined" || !BX.ajax || typeof BX.ajax.runComponentAction !== "function") {
-    console.debug(DEBUG_PREFIX, "requestPriceUpdate skipped: BX.ajax unavailable", { productId });
     return;
   }
 
-  console.debug(DEBUG_PREFIX, "requestPriceUpdate sent", { productId, optionsData, reason });
 
   BX.ajax.runComponentAction("brakes:favorites.sync", "calculate", {
     mode: "class",
@@ -424,12 +406,10 @@ function requestPriceUpdate(productContainer, productId, optionsData, reason = "
   }).then((response) => {
     const priceData = response?.data?.price || response?.data;
     const formatted = priceData?.formatted || priceData?.PRICE_FORMATTED || priceData?.formattedPrice || null;
-    console.debug(DEBUG_PREFIX, "requestPriceUpdate response", { productId, priceData, reason });
     if (formatted) {
       applyPriceToContainer(productContainer, formatted);
     }
   }).catch((error) => {
-    console.error("Product options: price update failed", error);
   });
 }
 
@@ -451,7 +431,6 @@ function applyPriceToContainer(productContainer, formattedPrice) {
     }
   }
 
-  console.debug(DEBUG_PREFIX, "applyPriceToContainer", { formattedPrice: decoded, targetsCount: targets.length });
 
   targets.forEach((node) => {
     node.textContent = decoded;
@@ -463,22 +442,18 @@ function getProductIdFromContainer(container) {
 
   if (!scope) {
     scope = document.querySelector('.main-details, .main__details') || document.querySelector('.main-cataloge__item');
-    console.debug(DEBUG_PREFIX, "getProductIdFromContainer fallback scope", { found: !!scope });
   }
 
   if (scope) {
     if (scope.dataset && scope.dataset.productId) {
-      console.debug(DEBUG_PREFIX, "getProductIdFromContainer via data-product-id", { productId: scope.dataset.productId });
       return parseInt(scope.dataset.productId, 10) || 0;
     }
     if (scope.dataset && scope.dataset.flsLikeProduct) {
-      console.debug(DEBUG_PREFIX, "getProductIdFromContainer via data-fls-like-product", { productId: scope.dataset.flsLikeProduct });
       return parseInt(scope.dataset.flsLikeProduct, 10) || 0;
     }
     const button = scope.querySelector('[data-fls-like-button]');
     if (button) {
       const id = parseInt(button.dataset.productId || button.dataset.flsLikeProduct, 10) || 0;
-      console.debug(DEBUG_PREFIX, "getProductIdFromContainer via button", { productId: id });
       return id;
     }
   }
@@ -486,11 +461,9 @@ function getProductIdFromContainer(container) {
   const globalButton = document.querySelector('[data-fls-like-button]');
   if (globalButton) {
     const id = parseInt(globalButton.dataset.productId || globalButton.dataset.flsLikeProduct, 10) || 0;
-    console.debug(DEBUG_PREFIX, "getProductIdFromContainer via global button", { productId: id });
     return id;
   }
 
-  console.debug(DEBUG_PREFIX, "getProductIdFromContainer failed", { container });
   return 0;
 }
 

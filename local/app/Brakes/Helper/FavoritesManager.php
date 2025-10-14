@@ -15,7 +15,6 @@ class FavoritesManager
     private const COOKIE_NAME = 'BR_FAVORITES';
     private const COOKIE_TTL = 31536000; // 1 year
     private const SESSION_FLAG = 'BR_FAVORITES_SYNC_DONE';
-    private const LOG_PATH = '/upload/favorites_log.txt';
 
     /**
      * @var array<int, array{options: array}>
@@ -86,46 +85,34 @@ class FavoritesManager
     {
         $productId = (int)$productId;
         if ($productId <= 0) {
-            self::log('toggleProduct invalid productId', ['productId' => $productId, 'options' => $options]);
             return self::getCurrentFavorites();
         }
 
         self::ensureLoaded();
         $normalizedOptions = self::normalizeOptions($options);
-        self::log('toggleProduct called', [
-            'productId' => $productId,
-            'options' => $options,
-            'normalizedOptions' => $normalizedOptions,
-            'isAuthorized' => self::$isAuthorized,
-        ]);
 
         if (self::$isAuthorized) {
             $userId = self::getCurrentUserId();
             if ($userId === 0) {
-                self::log('toggleProduct userId=0', ['productId' => $productId]);
                 return self::getCurrentFavorites();
             }
 
             if (isset(self::$currentItems[$productId])) {
                 Favorites::removeProduct($userId, $productId);
                 unset(self::$currentItems[$productId]);
-                self::log('toggleProduct removed', ['userId' => $userId, 'productId' => $productId]);
             } else {
                 Favorites::addProduct($userId, $productId, $normalizedOptions);
                 self::$currentItems[$productId] = [
                     'options' => $normalizedOptions,
                 ];
-                self::log('toggleProduct added', ['userId' => $userId, 'productId' => $productId, 'normalizedOptions' => $normalizedOptions]);
             }
         } else {
             if (isset(self::$currentItems[$productId])) {
                 unset(self::$currentItems[$productId]);
-                self::log('toggleProduct removed guest', ['productId' => $productId]);
             } else {
                 self::$currentItems[$productId] = [
                     'options' => $normalizedOptions,
                 ];
-                self::log('toggleProduct added guest', ['productId' => $productId, 'normalizedOptions' => $normalizedOptions]);
             }
 
             self::setCookieFavorites(self::$currentItems);
@@ -140,37 +127,27 @@ class FavoritesManager
     {
         $productId = (int)$productId;
         if ($productId <= 0) {
-            self::log('updateProductOptions invalid productId', ['productId' => $productId, 'options' => $options]);
             return false;
         }
 
         self::ensureLoaded();
 
         if (!isset(self::$currentItems[$productId])) {
-            self::log('updateProductOptions product not in favorites', ['productId' => $productId]);
             return false;
         }
 
         $normalizedOptions = self::normalizeOptions($options);
         self::$currentItems[$productId]['options'] = $normalizedOptions;
-        self::log('updateProductOptions set options', [
-            'productId' => $productId,
-            'normalizedOptions' => $normalizedOptions,
-            'isAuthorized' => self::$isAuthorized,
-        ]);
 
         if (self::$isAuthorized) {
             $userId = self::getCurrentUserId();
             if ($userId === 0) {
-                self::log('updateProductOptions userId=0', ['productId' => $productId]);
                 return false;
             }
 
             Favorites::setProductOptions($userId, $productId, $normalizedOptions);
-            self::log('updateProductOptions saved for user', ['productId' => $productId, 'userId' => $userId]);
         } else {
             self::setCookieFavorites(self::$currentItems);
-            self::log('updateProductOptions saved for guest', ['productId' => $productId]);
         }
 
         return true;
@@ -183,17 +160,14 @@ class FavoritesManager
         $ids = Favorites::normalizeProductIds($productIds);
 
         if ($ids === []) {
-            self::log('getFavoritesProductsData empty ids', ['productIds' => $productIds]);
             return [];
         }
 
         if (!Loader::includeModule('iblock')) {
-            self::log('getFavoritesProductsData iblock not loaded', ['ids' => $ids]);
             return [];
         }
 
         if (!Loader::includeModule('catalog')) {
-            self::log('getFavoritesProductsData catalog not loaded', ['ids' => $ids]);
             return [];
         }
 
@@ -480,16 +454,7 @@ class FavoritesManager
             $lastSignature = $signature;
 
             if (self::$isAuthorized) {
-                self::log('ensureLoaded authorized', [
-                    'userId' => $userId ?? 0,
-                    'itemsCount' => count(self::$currentItems),
-                    'productIds' => $ids,
-                ]);
             } else {
-                self::log('ensureLoaded guest', [
-                    'itemsCount' => count(self::$currentItems),
-                    'productIds' => $ids,
-                ]);
             }
         }
     }
@@ -527,7 +492,6 @@ class FavoritesManager
         }
 
         if (!Loader::includeModule('iblock')) {
-            self::log('pruneMissingProducts skipped: iblock module not available', ['ids' => $ids]);
             return;
         }
 
@@ -557,10 +521,6 @@ class FavoritesManager
             self::setCookieFavorites(self::$currentItems);
         }
 
-        self::log('pruneMissingProducts removed', [
-            'missingIds' => $missing,
-            'isAuthorized' => self::$isAuthorized,
-        ]);
     }
 
     private static function renderLegacyFavoritesItem(array $item, string $templatePath): string
@@ -793,35 +753,16 @@ class FavoritesManager
 
     private static function calculatePrice(int $productId, array $options): ?array
     {
-        self::log('calculatePrice request', [
-            'productId' => $productId,
-            'options' => $options,
-        ]);
 
         try {
             $price = Configurator::calculate($productId, $options);
             if ($price !== null) {
-                self::log('calculatePrice success', [
-                    'productId' => $productId,
-                    'options' => $options,
-                    'priceFormatted' => $price['PRICE_FORMATTED'] ?? null,
-                    'markup' => $price['MARKUP'] ?? null,
-                ]);
                 return $price;
             }
         } catch (\Throwable $exception) {
-            self::log('calculatePrice exception', [
-                'productId' => $productId,
-                'options' => $options,
-                'error' => $exception->getMessage(),
-            ]);
             // ignore and fallback to base price
         }
 
-        self::log('calculatePrice fallback base', [
-            'productId' => $productId,
-            'options' => $options,
-        ]);
 
         return self::getBasePriceData($productId);
     }
@@ -835,20 +776,12 @@ class FavoritesManager
 
         $priceRow = CPrice::GetList([], ['PRODUCT_ID' => $productId, 'CATALOG_GROUP_ID' => (int)$baseGroup['ID']])->Fetch();
         if (!$priceRow || !isset($priceRow['PRICE'])) {
-            self::log('getBasePriceData missing', [
-                'productId' => $productId,
-            ]);
             return null;
         }
 
         $value = (float)$priceRow['PRICE'];
         $currency = $priceRow['CURRENCY'] ?? 'RUB';
 
-        self::log('getBasePriceData', [
-            'productId' => $productId,
-            'value' => $value,
-            'currency' => $currency,
-        ]);
 
         return [
             'PRICE_FORMATTED' => number_format($value, 0, '.', ' ') . ' ' . $currency,

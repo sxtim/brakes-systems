@@ -116,10 +116,6 @@ class FavoritesSyncComponent extends CBitrixComponent implements Controllerable
 
         try {
             $options = $this->getRequestOptions();
-            $this->log('calculateAction request', [
-                'productId' => $productId,
-                'options' => $options,
-            ]);
             $price = FavoritesManager::getProductPrice($productId, $options);
 
             if ($price === null) {
@@ -127,11 +123,6 @@ class FavoritesSyncComponent extends CBitrixComponent implements Controllerable
                 return $this->buildErrorResponse();
             }
 
-            $this->log('calculateAction success', [
-                'productId' => $productId,
-                'priceFormatted' => $price['PRICE_FORMATTED'] ?? null,
-                'markup' => $price['MARKUP'] ?? null,
-            ]);
 
             return [
                 'status' => 'success',
@@ -145,16 +136,8 @@ class FavoritesSyncComponent extends CBitrixComponent implements Controllerable
             ];
         } catch (SystemException $exception) {
             $this->errors->setError(new Error($exception->getMessage()));
-            $this->log('calculateAction SystemException', [
-                'productId' => $productId,
-                'message' => $exception->getMessage(),
-            ]);
         } catch (\Throwable $exception) {
             $this->errors->setError(new Error($exception->getMessage()));
-            $this->log('calculateAction Throwable', [
-                'productId' => $productId,
-                'message' => $exception->getMessage(),
-            ]);
         }
 
         return $this->buildErrorResponse();
@@ -214,20 +197,4 @@ class FavoritesSyncComponent extends CBitrixComponent implements Controllerable
         }
     }
 
-    private function log(string $message, array $context = []): void
-    {
-        $path = $_SERVER['DOCUMENT_ROOT'] . '/upload/favorites_log.txt';
-        $log = date('Y-m-d H:i:s') . ' favorites.sync ' . $message;
-        if ($context !== []) {
-            $encoded = json_encode(
-                $context,
-                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR
-            );
-            if ($encoded !== false) {
-                $log .= ' | ' . $encoded;
-            }
-        }
-        $log .= PHP_EOL;
-        error_log($log, 3, $path);
-    }
 }
