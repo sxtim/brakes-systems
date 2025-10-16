@@ -41,6 +41,12 @@ class FavoritesSyncComponent extends CBitrixComponent implements Controllerable
                     new ActionFilter\HttpMethod([ActionFilter\HttpMethod::METHOD_GET]),
                 ],
             ],
+            'update' => [
+                'prefilters' => [
+                    new ActionFilter\HttpMethod([ActionFilter\HttpMethod::METHOD_POST]),
+                    new ActionFilter\Csrf(),
+                ],
+            ],
             'calculate' => [
                 'prefilters' => [
                     new ActionFilter\HttpMethod([ActionFilter\HttpMethod::METHOD_POST]),
