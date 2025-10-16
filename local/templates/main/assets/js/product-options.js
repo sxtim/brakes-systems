@@ -371,13 +371,11 @@ function schedulePriceUpdate(productContainer, optionsData, reason = "manual") {
 
   if (!targetContainer) {
     targetContainer = document.querySelector(`[data-fls-like-product="${productId}"]`)
-      || document.querySelector(`[data-product-id="${productId}"]`)
-      || document.querySelector(".main-details, .main__details")
-      || document.querySelector(".main-cataloge__item")
-      || document;
+      || document.querySelector(`[data-product-id="${productId}"]`);
   }
 
   if (!targetContainer) {
+    return;
   }
 
 
@@ -399,17 +397,21 @@ function requestPriceUpdate(productContainer, productId, optionsData, reason = "
     return;
   }
 
-
+  console.debug("[ProductOptions]", "requestPriceUpdate", { productId, reason, options: optionsData });
   BX.ajax.runComponentAction("brakes:favorites.sync", "calculate", {
     mode: "class",
     data: { productId, options: optionsData },
   }).then((response) => {
     const priceData = response?.data?.price || response?.data;
     const formatted = priceData?.formatted || priceData?.PRICE_FORMATTED || priceData?.formattedPrice || null;
+    console.debug("[ProductOptions]", "response", { productId, reason, priceData });
     if (formatted) {
       applyPriceToContainer(productContainer, formatted);
+    } else {
+      console.warn("[ProductOptions]", "formatted price missing", { productId, reason, priceData });
     }
   }).catch((error) => {
+    console.error("[ProductOptions]", "calculate request failed", error);
   });
 }
 
@@ -425,13 +427,8 @@ function applyPriceToContainer(productContainer, formattedPrice) {
   }
 
   if (targets.length === 0) {
-    const detailNode = document.querySelector(".main-details__price-new");
-    if (detailNode) {
-      targets.push(detailNode);
-    }
+    console.warn("[ProductOptions]", "applyPriceToContainer: price nodes not found", { formattedPrice });
   }
-
-
   targets.forEach((node) => {
     node.textContent = decoded;
   });
