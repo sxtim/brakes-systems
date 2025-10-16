@@ -14,6 +14,7 @@ $favoriteSelectedOptions = [
     'electric_handbrake' => 'no',
 ];
 
+$productMeta = null;
 if (class_exists(FavoritesManager::class)) {
     $state = FavoritesManager::getClientState();
     $meta = isset($state['meta']) && is_array($state['meta']) ? $state['meta'] : [];
@@ -64,6 +65,18 @@ foreach ($favoriteSelectedOptions as $optionKey => $optionValue) {
 $optionsAttrJson = json_encode(['options' => $optionsAttrPayload], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 $optionsAttr = htmlspecialcharsbx($optionsAttrJson ?: '{}');
 
+$favoritePriceFormatted = null;
+if ($productMeta && $optionsAttrPayload !== []) {
+    try {
+        $priceData = FavoritesManager::getProductPrice($arResult['ID'], ['options' => $optionsAttrPayload]);
+        if (is_array($priceData) && !empty($priceData['PRICE_FORMATTED'])) {
+            $favoritePriceFormatted = (string)$priceData['PRICE_FORMATTED'];
+        }
+    } catch (\Throwable $exception) {
+        // ignore preload errors to keep page rendering
+    }
+}
+
 $basePriceValue = null;
 $basePriceCurrency = 'RUB';
 
@@ -83,6 +96,11 @@ if ($basePriceValue === null && isset($arResult['ITEM_PRICES'][0]['PRICE'])) {
 $basePriceFormatted = $basePriceValue !== null
     ? number_format($basePriceValue, 0, '.', ' ') . ' ' . htmlspecialcharsbx($basePriceCurrency)
     : '';
+
+$initialPriceFormatted = $basePriceFormatted;
+if ($favoritePriceFormatted !== null && $favoritePriceFormatted !== '') {
+    $initialPriceFormatted = htmlspecialcharsback($favoritePriceFormatted);
+}
 ?>
 <div class="main__overlay">
     <div class="main__content">
@@ -162,7 +180,7 @@ $basePriceFormatted = $basePriceValue !== null
 <!--                    <span class="main-details__price-action">-25%</span>-->
 <!--                    <span class="main-details__price-old">170 000 ₽%</span>-->
 <!--                </div>-->
-                <span class="main-details__price-new"><?= $basePriceFormatted ?></span>
+                <span class="main-details__price-new"><?= $initialPriceFormatted ?></span>
             </div>
             <div class="main-details__feature">
                 <div class="main-cataloge__info">
