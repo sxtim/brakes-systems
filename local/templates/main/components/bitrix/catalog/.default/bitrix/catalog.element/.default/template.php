@@ -7,37 +7,36 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
 
-$favoriteSelectedOptions = [
+$defaultSelectedOptions = [
     'two_piece_disc_construction' => 'no',
     'rotor_pattern' => 'none',
     'caliper_logo' => 'standard',
     'electric_handbrake' => 'no',
 ];
 
+$favoriteSelectedOptions = $defaultSelectedOptions;
 $productMeta = null;
+$optionsFromMeta = [];
+$favoritePriceFormatted = null;
+
 if (class_exists(FavoritesManager::class)) {
     $state = FavoritesManager::getClientState();
     $meta = isset($state['meta']) && is_array($state['meta']) ? $state['meta'] : [];
     $productMeta = $meta[$arResult['ID']] ?? null;
     if (is_array($productMeta)) {
-        $options = $productMeta['options'] ?? [];
-        if (isset($options['options']) && is_array($options['options'])) {
-            $options = $options['options'];
-        }
-        if (is_array($options)) {
-            foreach ($options as $key => $value) {
-                $normalizedKey = is_string($key) ? strtolower($key) : null;
-                if ($normalizedKey === null || !array_key_exists($normalizedKey, $favoriteSelectedOptions)) {
+        $optionsFromMeta = FavoritesManager::prepareOptionsPayload($productMeta['options'] ?? [], false);
+        if (is_array($optionsFromMeta)) {
+            foreach ($optionsFromMeta as $code => $value) {
+                if (!array_key_exists($code, $favoriteSelectedOptions)) {
                     continue;
                 }
-                if (is_array($value)) {
-                    $value = $value['value'] ?? $value['VALUE'] ?? reset($value);
-                }
-                if (!is_scalar($value)) {
-                    continue;
-                }
-                $favoriteSelectedOptions[$normalizedKey] = strtolower((string)$value);
+                $favoriteSelectedOptions[$code] = is_string($value) ? $value : (is_scalar($value) ? strtolower((string)$value) : $favoriteSelectedOptions[$code]);
             }
+        }
+
+        $metaPrice = $productMeta['price']['formatted'] ?? null;
+        if (is_string($metaPrice) && $metaPrice !== '') {
+            $favoritePriceFormatted = $metaPrice;
         }
     }
 }
@@ -58,17 +57,15 @@ $caliperSpecialSelected = in_array($caliperSelected, ['special', 'custom_logo', 
 $handbrakeYesSelected = $handbrakeSelected === 'yes';
 $handbrakeNoSelected = $handbrakeSelected !== 'yes';
 
-$optionsAttrPayload = [];
-foreach ($favoriteSelectedOptions as $optionKey => $optionValue) {
-    $optionsAttrPayload[$optionKey] = ['value' => $optionValue];
-}
-$optionsAttrJson = json_encode(['options' => $optionsAttrPayload], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+$optionsAttrPayload = FavoritesManager::prepareOptionsPayload($favoriteSelectedOptions);
+$optionsAttrJson = !empty($optionsAttrPayload)
+    ? json_encode($optionsAttrPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+    : '{}';
 $optionsAttr = htmlspecialcharsbx($optionsAttrJson ?: '{}');
 
-$favoritePriceFormatted = null;
-if ($productMeta && $optionsAttrPayload !== []) {
+if ($favoritePriceFormatted === null && !empty($optionsAttrPayload)) {
     try {
-        $priceData = FavoritesManager::getProductPrice($arResult['ID'], ['options' => $optionsAttrPayload]);
+        $priceData = FavoritesManager::getProductPrice($arResult['ID'], $optionsAttrPayload);
         if (is_array($priceData) && !empty($priceData['PRICE_FORMATTED'])) {
             $favoritePriceFormatted = (string)$priceData['PRICE_FORMATTED'];
         }
@@ -98,7 +95,7 @@ $basePriceFormatted = $basePriceValue !== null
     : '';
 
 $initialPriceFormatted = $basePriceFormatted;
-if ($favoritePriceFormatted !== null && $favoritePriceFormatted !== '') {
+if (is_string($favoritePriceFormatted) && $favoritePriceFormatted !== '') {
     $initialPriceFormatted = htmlspecialcharsback($favoritePriceFormatted);
 }
 ?>

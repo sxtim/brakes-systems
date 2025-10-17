@@ -1,6 +1,161 @@
 ﻿const PRICE_UPDATE_DELAY = 150;
 const PRICE_DECODE_HELPER = document.createElement("span");
 const pendingPriceTimers = new Map();
+const OPTION_DEFAULTS = Object.freeze({
+  two_piece_disc_construction: "no",
+  rotor_pattern: "none",
+  caliper_logo: "standard",
+  electric_handbrake: "no",
+});
+const LOG_ENABLED = false;
+
+function logDebug(...args) {
+  if (!LOG_ENABLED) {
+    return;
+  }
+  console.debug(...args);
+}
+
+function logWarn(...args) {
+  if (!LOG_ENABLED) {
+    return;
+  }
+  console.warn(...args);
+}
+
+function logError(...args) {
+  if (!LOG_ENABLED) {
+    return;
+  }
+  console.error(...args);
+}
+
+function toLowerString(value) {
+  if (typeof value === "string") {
+    return value.toLowerCase();
+  }
+
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  return String(value).toLowerCase();
+}
+
+function normalizeOptionsPayload(value) {
+  if (!value) {
+    return null;
+  }
+
+  let payload = value;
+
+  if (typeof payload === "string") {
+    try {
+      payload = JSON.parse(payload);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  if (payload && typeof payload === "object" && payload.options && typeof payload.options === "object") {
+    payload = payload.options;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const normalized = {};
+  Object.keys(payload).forEach((key) => {
+    if (!key) {
+      return;
+    }
+    const normalizedKey = toLowerString(key);
+    let rawValue = payload[key];
+    if (rawValue && typeof rawValue === "object" && Object.prototype.hasOwnProperty.call(rawValue, "value")) {
+      rawValue = rawValue.value;
+    } else if (rawValue && typeof rawValue === "object" && Object.prototype.hasOwnProperty.call(rawValue, "VALUE")) {
+      rawValue = rawValue.VALUE;
+    }
+
+    if (rawValue === undefined || rawValue === null) {
+      return;
+    }
+
+    normalized[normalizedKey] = toLowerString(rawValue);
+  });
+
+  if (Object.keys(normalized).length === 0) {
+    return null;
+  }
+
+  return { options: normalized };
+}
+
+function cloneOptionsPayload(input) {
+  const normalized = normalizeOptionsPayload(input);
+  if (!normalized) {
+    return null;
+  }
+
+  return {
+    options: { ...normalized.options },
+  };
+}
+
+function mergeOptionsPayload(...payloads) {
+  const merged = {};
+
+  payloads.forEach((payload) => {
+    const normalized = normalizeOptionsPayload(payload);
+    if (normalized && normalized.options) {
+      Object.assign(merged, normalized.options);
+    }
+  });
+
+  return Object.keys(merged).length > 0 ? { options: merged } : null;
+}
+
+function stringifyOptionsPayload(payload) {
+  const normalized = normalizeOptionsPayload(payload);
+  if (!normalized) {
+    return null;
+  }
+
+  try {
+    return JSON.stringify(normalized);
+  } catch (error) {
+    logWarn("[ProductOptions]", "Failed to stringify options payload", error, payload);
+    return null;
+  }
+}
+
+function extractPriceFromMeta(productId) {
+  const meta = window.__FAVORITES__?.meta;
+  if (!meta || typeof meta !== "object") {
+    return null;
+  }
+
+  const entry = meta[productId];
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  const price = entry.price;
+  if (!price || typeof price !== "object") {
+    return null;
+  }
+
+  if (typeof price.formatted === "string") {
+    return price.formatted;
+  }
+
+  if (typeof price.PRICE_FORMATTED === "string") {
+    return price.PRICE_FORMATTED;
+  }
+
+  return null;
+}
 
 document.addEventListener("click", (event) => {
   const spoller = event.target.closest(".spollers__item");
@@ -92,17 +247,16 @@ function handleOneClickBuyButtons() {
 
       try {
         if (options && options !== "{}") {
-          const optionsData = JSON.parse(options);
+          const normalizedOptions = normalizeOptionsPayload(options);
+          const optionsMap = normalizedOptions?.options || {};
           const optionsArray = [];
-          if (optionsData && typeof optionsData.options === "object") {
-            for (const key in optionsData.options) {
-              const rawValue = optionsData.options[key].value;
-              if (keyMap[key] && rawValue) {
-                const translatedValue = valueMap[rawValue.toLowerCase()] || rawValue;
-                optionsArray.push(`${keyMap[key]}: ${translatedValue}`);
-              }
+          Object.keys(optionsMap).forEach((key) => {
+            const rawValue = optionsMap[key];
+            if (keyMap[key] && rawValue) {
+              const translatedValue = valueMap[rawValue.toLowerCase()] || rawValue;
+              optionsArray.push(`${keyMap[key]}: ${translatedValue}`);
             }
-          }
+          });
           optionsString = optionsArray.join(", ");
         }
       } catch (error) {
@@ -128,46 +282,39 @@ function updateProductOptions(productContainer, reason = "manual") {
   const fallbackOptions = getInitialOptions(scope, productId);
   const fallbackClone = cloneOptionsPayload(fallbackOptions);
 
-  let optionsData = null;
-  if (reason === "init-card" && fallbackClone) {
-    optionsData = fallbackClone;
+  let optionsPayload = null;
+  if ((reason === "init-card" || reason === "init-details") && fallbackClone) {
+    optionsPayload = fallbackClone;
   } else {
-    optionsData = collectSelectedOptions(scope, fallbackOptions, reason);
+    optionsPayload = collectSelectedOptions(scope, fallbackClone || fallbackOptions, reason);
   }
 
-  const optionsJson = JSON.stringify(optionsData);
-
-  setOptionsAttribute(scope, optionsJson);
+  const normalizedOptions = cloneOptionsPayload(optionsPayload) || { options: {} };
+  setOptionsAttribute(scope, normalizedOptions);
 
   if (productId) {
     document.dispatchEvent(new CustomEvent("productOptions:changed", {
       detail: {
         productId,
-        options: optionsData,
+        options: normalizedOptions,
         reason,
       },
     }));
-    optionsData.productId = productId;
   }
 
-  return optionsData;
+  return {
+    productId,
+    options: { ...normalizedOptions.options },
+    reason,
+    timestamp: Date.now(),
+  };
 }
 
 function collectSelectedOptions(scope, defaults = null, reason = "manual") {
-  const baseDefaults = {
-    two_piece_disc_construction: { value: "no" },
-    rotor_pattern: { value: "none" },
-    caliper_logo: { value: "standard" },
-    electric_handbrake: { value: "no" },
-  };
-  const selectedOptions = { ...baseDefaults };
-  if (defaults && defaults.options && typeof defaults.options === "object") {
-    Object.keys(defaults.options).forEach((key) => {
-      const value = defaults.options[key];
-      if (value && typeof value === "object") {
-        selectedOptions[key] = { ...value };
-      }
-    });
+  const selectedOptions = { ...OPTION_DEFAULTS };
+  const normalizedDefaults = normalizeOptionsPayload(defaults);
+  if (normalizedDefaults && normalizedDefaults.options) {
+    Object.assign(selectedOptions, normalizedDefaults.options);
   }
 
   (scope instanceof Element ? scope : document).querySelectorAll(".spollers__item").forEach((spoller) => {
@@ -215,9 +362,9 @@ function collectSelectedOptions(scope, defaults = null, reason = "manual") {
       englishValue = optionText.toLowerCase() === "да" ? "yes" : "no";
     }
 
-    selectedOptions[englishKey] = {
-      value: englishValue,
-    };
+    if (englishKey) {
+      selectedOptions[englishKey.toLowerCase()] = toLowerString(englishValue);
+    }
   });
 
   return { options: selectedOptions };
@@ -229,15 +376,7 @@ function setOptionsAttribute(scope, payload) {
     return;
   }
 
-  let value = payload;
-  if (value && typeof value === "object") {
-    try {
-      value = JSON.stringify(value);
-    } catch (error) {
-      value = null;
-    }
-  }
-
+  const value = stringifyOptionsPayload(payload);
   if (typeof value !== "string" || value === "") {
     return;
   }
@@ -255,54 +394,16 @@ function setOptionsAttribute(scope, payload) {
 }
 
 function getInitialOptions(scope, productId) {
-  const result = {};
+  const datasetPayload = extractOptionsFromDataset(scope, productId);
+  const metaPayload = productId ? extractOptionsFromMeta(productId) : null;
 
-  const optionsFromDataset = extractOptionsFromDataset(scope, productId);
-  if (optionsFromDataset) {
-    Object.assign(result, optionsFromDataset);
+  const merged = mergeOptionsPayload(datasetPayload, metaPayload);
+
+  if (!datasetPayload && merged) {
+    setOptionsAttribute(scope, merged);
   }
 
-  if (productId) {
-    const metaOptions = extractOptionsFromMeta(productId);
-    if (metaOptions) {
-      Object.assign(result, metaOptions);
-      if (!optionsFromDataset) {
-        setOptionsAttribute(scope, JSON.stringify({ options: metaOptions.options || metaOptions }));
-      }
-    }
-  }
-
-  return result;
-}
-
-function cloneOptionsPayload(input) {
-  if (!input || typeof input !== "object") {
-    return null;
-  }
-
-  const source = input.options && typeof input.options === "object"
-    ? input.options
-    : input;
-
-  if (!source || typeof source !== "object") {
-    return null;
-  }
-
-  const normalized = {};
-  Object.keys(source).forEach((key) => {
-    const raw = source[key];
-    if (raw && typeof raw === "object") {
-      normalized[key] = { ...raw };
-    } else if (raw !== undefined && raw !== null) {
-      normalized[key] = { value: raw };
-    }
-  });
-
-  if (Object.keys(normalized).length === 0) {
-    return null;
-  }
-
-  return { options: normalized };
+  return merged;
 }
 
 function extractOptionsFromDataset(scope, productId) {
@@ -330,15 +431,7 @@ function extractOptionsFromDataset(scope, productId) {
     return null;
   }
 
-  try {
-    const parsed = JSON.parse(button.dataset.options);
-    if (parsed && typeof parsed === "object") {
-      return parsed;
-    }
-  } catch (error) {
-  }
-
-  return null;
+  return normalizeOptionsPayload(button.dataset.options);
 }
 
 function extractOptionsFromMeta(productId) {
@@ -352,22 +445,23 @@ function extractOptionsFromMeta(productId) {
     return null;
   }
 
-  return entry.options || null;
+  return normalizeOptionsPayload(entry.options || entry);
 }
 
 function schedulePriceUpdate(productContainer, optionsData, reason = "manual") {
   let targetContainer = productContainer instanceof Element ? productContainer : null;
-  if (!targetContainer && optionsData && optionsData.options) {
-    const lookupId = typeof optionsData.productId !== "undefined" ? optionsData.productId : null;
-    if (lookupId) {
-      targetContainer = document.querySelector(`[data-fls-like-product="${lookupId}"]`);
-    }
+  const lookupId = optionsData && typeof optionsData.productId !== "undefined"
+    ? optionsData.productId
+    : null;
+
+  if (!targetContainer && lookupId) {
+    targetContainer = document.querySelector(`[data-fls-like-product="${lookupId}"]`);
   }
 
-  const productId = getProductIdFromContainer(targetContainer || productContainer);
+  const productId = lookupId || getProductIdFromContainer(targetContainer || productContainer);
   if (!productId) {
     return;
- }
+  }
 
   if (!targetContainer) {
     targetContainer = document.querySelector(`[data-fls-like-product="${productId}"]`)
@@ -378,58 +472,104 @@ function schedulePriceUpdate(productContainer, optionsData, reason = "manual") {
     return;
   }
 
+  if ((reason === "init-card" || reason === "init-details")) {
+    const metaPrice = extractPriceFromMeta(productId);
+    if (metaPrice !== null && metaPrice !== undefined) {
+      applyPriceToContainer(targetContainer, metaPrice, productId);
+      return;
+    }
+  }
 
   const key = String(productId);
   if (pendingPriceTimers.has(key)) {
     clearTimeout(pendingPriceTimers.get(key));
   }
 
+  const payload = { options: { ...(optionsData?.options || {}) } };
+
   const timer = setTimeout(() => {
     pendingPriceTimers.delete(key);
-    requestPriceUpdate(targetContainer, productId, optionsData, reason);
+    requestPriceUpdate(targetContainer, productId, payload, reason);
   }, PRICE_UPDATE_DELAY);
 
   pendingPriceTimers.set(key, timer);
 }
 
-function requestPriceUpdate(productContainer, productId, optionsData, reason = "manual") {
+function requestPriceUpdate(productContainer, productId, optionsPayload, reason = "manual") {
   if (typeof BX === "undefined" || !BX.ajax || typeof BX.ajax.runComponentAction !== "function") {
     return;
   }
 
-  console.debug("[ProductOptions]", "requestPriceUpdate", { productId, reason, options: optionsData });
+  logDebug("[ProductOptions]", "requestPriceUpdate", { productId, reason, options: optionsPayload });
   BX.ajax.runComponentAction("brakes:favorites.sync", "calculate", {
     mode: "class",
-    data: { productId, options: optionsData },
+    data: { productId, options: optionsPayload },
   }).then((response) => {
-    const priceData = response?.data?.price || response?.data;
-    const formatted = priceData?.formatted || priceData?.PRICE_FORMATTED || priceData?.formattedPrice || null;
-    console.debug("[ProductOptions]", "response", { productId, reason, priceData });
-    if (formatted) {
-      applyPriceToContainer(productContainer, formatted);
+    const transportStatus = response?.status || null;
+    const payload = response?.data ?? response ?? null;
+
+    if (transportStatus && transportStatus !== "success") {
+      logWarn("[ProductOptions]", "calculate transport error", { productId, reason, response });
+      return;
+    }
+
+    if (!payload || (payload.status && payload.status !== "success")) {
+      logWarn("[ProductOptions]", "calculate returned error", { productId, reason, payload });
+      return;
+    }
+
+    const priceData = payload?.price ?? payload;
+    const formatted = priceData?.formatted
+      || priceData?.PRICE_FORMATTED
+      || priceData?.formattedPrice
+      || priceData?.raw?.PRICE_FORMATTED
+      || null;
+    const fallbackText = formatted || (priceData?.raw && typeof priceData.raw.PRICE !== "undefined"
+      ? String(priceData.raw.PRICE)
+      : null);
+    logDebug("[ProductOptions]", "response", { productId, reason, priceData });
+    if (formatted || fallbackText) {
+      applyPriceToContainer(productContainer, formatted || fallbackText, productId);
     } else {
-      console.warn("[ProductOptions]", "formatted price missing", { productId, reason, priceData });
+      logWarn("[ProductOptions]", "formatted price missing", { productId, reason, priceData });
     }
   }).catch((error) => {
-    console.error("[ProductOptions]", "calculate request failed", error);
+    logError("[ProductOptions]", "calculate request failed", error);
   });
 }
 
-function applyPriceToContainer(productContainer, formattedPrice) {
+function applyPriceToContainer(productContainer, formattedPrice, productId = null) {
   const decoded = decodeHtml(formattedPrice);
-  const targets = [];
+  const selectorList = [".main-details__price-new", ".main-cataloge__price", ".favorit-box__item-price"];
+  const targets = new Set();
 
   if (productContainer instanceof Element) {
-    const node = productContainer.querySelector(".main-details__price-new, .main-cataloge__price");
-    if (node) {
-      targets.push(node);
-    }
+    selectorList.forEach((selector) => {
+      const node = productContainer.querySelector(selector);
+      if (node) {
+        targets.add(node);
+      }
+    });
   }
 
-  if (targets.length === 0) {
-    console.warn("[ProductOptions]", "applyPriceToContainer: price nodes not found", { formattedPrice });
+  if (targets.size === 0 && productId) {
+    selectorList.forEach((selector) => {
+      document.querySelectorAll(`[data-fls-like-product="${productId}"] ${selector}`).forEach((node) => {
+        targets.add(node);
+      });
+    });
   }
+
+  if (targets.size === 0) {
+    logWarn("[ProductOptions]", "applyPriceToContainer: price nodes not found", { formattedPrice, productId });
+    return;
+  }
+
   targets.forEach((node) => {
+    if (node.classList && node.classList.contains("favorit-box__item-price")) {
+      node.innerHTML = formattedPrice;
+      return;
+    }
     node.textContent = decoded;
   });
 }

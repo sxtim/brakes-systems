@@ -291,7 +291,7 @@ function toggleFavorite(productId, button, priceSnapshot, optionsOverride = null
 
     button?.classList.add("is-processing");
 
-    const options = optionsOverride ?? extractOptionsData(button, productId);
+    const options = normalizeOptionsPayload(optionsOverride ?? extractOptionsData(button, productId));
 
     BX.ajax.runComponentAction("brakes:favorites.sync", "toggle", {
         mode: "class",
@@ -383,16 +383,50 @@ function parseOptions(value) {
 
 function normalizeOptionsPayload(options) {
     const parsed = parseOptions(options);
-    if (parsed && typeof parsed === "object") {
-        return parsed;
+    if (!parsed || typeof parsed !== "object") {
+        return { options: {} };
     }
-    return {};
+
+    let source = parsed;
+    if (source && typeof source === "object" && source.options && typeof source.options === "object") {
+        source = source.options;
+    }
+
+    if (!source || typeof source !== "object") {
+        return { options: {} };
+    }
+
+    const normalized = {};
+    Object.keys(source).forEach((key) => {
+        if (!key) {
+            return;
+        }
+        let rawValue = source[key];
+        if (rawValue && typeof rawValue === "object" && Object.prototype.hasOwnProperty.call(rawValue, "value")) {
+            rawValue = rawValue.value;
+        } else if (rawValue && typeof rawValue === "object" && Object.prototype.hasOwnProperty.call(rawValue, "VALUE")) {
+            rawValue = rawValue.VALUE;
+        }
+
+        if (rawValue === undefined || rawValue === null) {
+            return;
+        }
+
+        const normalizedKey = String(key).toLowerCase();
+        normalized[normalizedKey] = String(rawValue).toLowerCase();
+    });
+
+    return { options: normalized };
+}
+
+function hasOptions(payload) {
+    return Boolean(payload && payload.options && Object.keys(payload.options).length > 0);
 }
 
 function extractOptionsData(element, productId) {
     if (element) {
         const direct = normalizeOptionsPayload(element.dataset?.options);
-        if (Object.keys(direct).length > 0) {
+        if (hasOptions(direct)) {
             return direct;
         }
 
@@ -405,7 +439,7 @@ function extractOptionsData(element, productId) {
             const button = container.querySelector("[data-fls-like-button]");
             if (button && button !== element) {
                 const parsed = normalizeOptionsPayload(button.dataset?.options);
-                if (Object.keys(parsed).length > 0) {
+                if (hasOptions(parsed)) {
                     return parsed;
                 }
             }
@@ -413,10 +447,13 @@ function extractOptionsData(element, productId) {
     }
 
     if (productId && state.meta && state.meta[productId] && state.meta[productId].options) {
-        return state.meta[productId].options;
+        const metaPayload = normalizeOptionsPayload(state.meta[productId].options);
+        if (hasOptions(metaPayload)) {
+            return metaPayload;
+        }
     }
 
-    return {};
+    return { options: {} };
 }
 
 function handleProductOptionsChanged(event) {
@@ -436,9 +473,13 @@ function scheduleFavoriteUpdate(productId, options) {
         clearTimeout(pendingUpdateTimers.get(key));
     }
 
+    const payload = {
+        options: { ...(options?.options || {}) },
+    };
+
     const timer = setTimeout(() => {
         pendingUpdateTimers.delete(key);
-        sendUpdateRequest(productId, options);
+        sendUpdateRequest(productId, payload);
     }, 200);
 
     pendingUpdateTimers.set(key, timer);

@@ -129,7 +129,6 @@ class FavoritesSyncComponent extends CBitrixComponent implements Controllerable
                 return $this->buildErrorResponse();
             }
 
-
             return [
                 'status' => 'success',
                 'price' => [

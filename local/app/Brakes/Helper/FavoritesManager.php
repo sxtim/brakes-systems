@@ -15,6 +15,8 @@ class FavoritesManager
     private const COOKIE_NAME = 'BR_FAVORITES';
     private const COOKIE_TTL = 31536000; // 1 year
     private const SESSION_FLAG = 'BR_FAVORITES_SYNC_DONE';
+    private const LOG_PATH = '/upload/favorites_debug.txt';
+    private const LOG_ENABLED = false;
 
     /**
      * @var array<int, array{options: array}>
@@ -64,14 +66,36 @@ class FavoritesManager
 
     public static function getClientState(): array
     {
-        $items = self::getCurrentFavorites();
+        self::ensureLoaded();
+
+        $items = array_keys(self::$currentItems);
+        $meta = self::buildClientMeta();
 
         return [
             'items' => $items,
             'count' => count($items),
             'isAuthorized' => self::$isAuthorized === true,
-            'meta' => self::$currentItems,
+            'meta' => $meta,
         ];
+    }
+
+    /**
+     * @return array<int, array{options: array, optionsHash: string, price: ?array}>
+     */
+    private static function buildClientMeta(): array
+    {
+        $meta = [];
+
+        foreach (self::$currentItems as $productId => $item) {
+            $productId = (int)$productId;
+            if ($productId <= 0) {
+                continue;
+            }
+
+            $meta[$productId] = self::buildClientMetaEntry($productId, $item);
+        }
+
+        return $meta;
     }
 
     public static function isFavorite(int $productId): bool
@@ -90,6 +114,7 @@ class FavoritesManager
 
         self::ensureLoaded();
         $normalizedOptions = self::normalizeOptions($options);
+        $itemState = self::makeItemState($normalizedOptions);
 
         if (self::$isAuthorized) {
             $userId = self::getCurrentUserId();
@@ -102,17 +127,13 @@ class FavoritesManager
                 unset(self::$currentItems[$productId]);
             } else {
                 Favorites::addProduct($userId, $productId, $normalizedOptions);
-                self::$currentItems[$productId] = [
-                    'options' => $normalizedOptions,
-                ];
+                self::$currentItems[$productId] = $itemState;
             }
         } else {
             if (isset(self::$currentItems[$productId])) {
                 unset(self::$currentItems[$productId]);
             } else {
-                self::$currentItems[$productId] = [
-                    'options' => $normalizedOptions,
-                ];
+                self::$currentItems[$productId] = $itemState;
             }
 
             self::setCookieFavorites(self::$currentItems);
@@ -137,7 +158,12 @@ class FavoritesManager
         }
 
         $normalizedOptions = self::normalizeOptions($options);
-        self::$currentItems[$productId]['options'] = $normalizedOptions;
+        $itemState = self::makeItemState($normalizedOptions);
+        self::$currentItems[$productId]['options'] = $itemState['options'];
+        self::$currentItems[$productId]['optionsHash'] = $itemState['optionsHash'];
+        self::$currentItems[$productId]['priceHash'] = null;
+        self::$currentItems[$productId]['priceData'] = null;
+        self::$currentItems[$productId]['pricePublic'] = null;
 
         if (self::$isAuthorized) {
             $userId = self::getCurrentUserId();
@@ -278,8 +304,18 @@ class FavoritesManager
                 continue;
             }
 
-            $options = $elements[$id]['OPTIONS'];
-            $priceData = self::calculatePrice($id, $options);
+            $currentItem = self::$currentItems[$id] ?? [];
+            $metaEntry = self::buildClientMetaEntry($id, $currentItem);
+
+            $optionsPayload = $metaEntry['options'] ?? $elements[$id]['OPTIONS'];
+            $elements[$id]['OPTIONS'] = $optionsPayload;
+
+            $optionsUnwrapped = $elements[$id]['OPTIONS_UNWRAPPED'] ?? self::unwrapOptionsPayload($optionsPayload);
+            $elements[$id]['OPTIONS_UNWRAPPED'] = $optionsUnwrapped;
+            $elements[$id]['SELECTED_OPTIONS'] = $elements[$id]['SELECTED_OPTIONS'] ?? self::flattenOptionValues($optionsUnwrapped);
+
+            $priceData = self::$currentItems[$id]['priceData'] ?? null;
+            $pricePublic = self::$currentItems[$id]['pricePublic'] ?? $metaEntry['price'];
 
             if ($priceData !== null) {
                 $elements[$id]['PRICE_DATA'] = $priceData;
@@ -291,10 +327,18 @@ class FavoritesManager
                     $elements[$id]['PRICE_HTML'] = null;
                     $elements[$id]['PRICE'] = null;
                 }
+            } elseif (is_array($pricePublic)) {
+                $formattedPrice = $pricePublic['formatted'] ?? null;
+                if (is_string($formattedPrice) && $formattedPrice !== '') {
+                    $elements[$id]['PRICE_HTML'] = $formattedPrice;
+                    $elements[$id]['PRICE'] = htmlspecialcharsback($formattedPrice);
+                } else {
+                    $elements[$id]['PRICE_HTML'] = null;
+                    $elements[$id]['PRICE'] = null;
+                }
             }
 
             $optionsAttr = '{}';
-            $optionsUnwrapped = $elements[$id]['OPTIONS_UNWRAPPED'] ?? [];
             if (!empty($optionsUnwrapped)) {
                 $encoded = json_encode(
                     ['options' => $optionsUnwrapped],
@@ -346,11 +390,31 @@ class FavoritesManager
                 'priceFormatted' => $price['PRICE_FORMATTED'] ?? null,
                 'markup' => $price['MARKUP'] ?? null,
             ]);
+
+            if (isset(self::$currentItems[$productId])) {
+                $payload = self::prepareOptionsPayload($normalized);
+                $hash = self::hashOptionsPayload($payload);
+                self::$currentItems[$productId]['options'] = $payload;
+                self::$currentItems[$productId]['optionsHash'] = $hash;
+                self::$currentItems[$productId]['priceData'] = $price;
+                self::$currentItems[$productId]['priceHash'] = $hash;
+                self::$currentItems[$productId]['pricePublic'] = self::buildPublicPrice($price);
+            }
         } else {
             self::log('getProductPrice result null', [
                 'productId' => $productId,
                 'options' => $normalized,
             ]);
+
+            if (isset(self::$currentItems[$productId])) {
+                $payload = self::prepareOptionsPayload($normalized);
+                $hash = self::hashOptionsPayload($payload);
+                self::$currentItems[$productId]['options'] = $payload;
+                self::$currentItems[$productId]['optionsHash'] = $hash;
+                self::$currentItems[$productId]['priceData'] = null;
+                self::$currentItems[$productId]['priceHash'] = null;
+                self::$currentItems[$productId]['pricePublic'] = null;
+            }
         }
 
         return $price;
@@ -418,6 +482,38 @@ class FavoritesManager
         self::ensureLoaded();
     }
 
+    /**
+     * @param array{
+     *     options?: array,
+     *     optionsHash?: string,
+     *     priceData?: ?array,
+     *     priceHash?: ?string,
+     *     pricePublic?: ?array
+     * } $item
+     *
+     * @return array{options: array, optionsHash: string, price: ?array}
+     */
+    private static function buildClientMetaEntry(int $productId, array $item): array
+    {
+        $optionsPayload = self::prepareOptionsPayload($item['options'] ?? []);
+        $optionsHash = $item['optionsHash'] ?? self::hashOptionsPayload($optionsPayload);
+
+        $priceData = self::getCachedPriceData($productId, $optionsPayload, $optionsHash);
+        $pricePublic = self::buildPublicPrice($priceData);
+
+        self::$currentItems[$productId]['options'] = $optionsPayload;
+        self::$currentItems[$productId]['optionsHash'] = $optionsHash;
+        self::$currentItems[$productId]['priceData'] = $priceData;
+        self::$currentItems[$productId]['priceHash'] = $priceData !== null ? $optionsHash : null;
+        self::$currentItems[$productId]['pricePublic'] = $pricePublic;
+
+        return [
+            'options' => $optionsPayload,
+            'optionsHash' => $optionsHash,
+            'price' => $pricePublic,
+        ];
+    }
+
     private static function ensureLoaded(): void
     {
         if (self::$currentItems !== null) {
@@ -433,9 +529,8 @@ class FavoritesManager
 
             $items = [];
             foreach ($rows as $productId => $row) {
-                $items[$productId] = [
-                    'options' => self::normalizeOptions($row['OPTIONS'] ?? []),
-                ];
+                $normalizedOptions = self::normalizeOptions($row['OPTIONS'] ?? []);
+                $items[$productId] = self::makeItemState($normalizedOptions);
             }
 
             self::$currentItems = $items;
@@ -644,19 +739,31 @@ class FavoritesManager
                     $options = $item['OPTIONS'];
                 }
 
-                $normalized[$productId] = [
-                    'options' => self::normalizeOptions($options),
-                ];
-            } else {
-                $productId = (int)$item;
-                if ($productId <= 0) {
-                    continue;
-                }
+                $normalizedOptions = self::normalizeOptions($options);
+                $optionsHash = isset($item['optionsHash']) && is_string($item['optionsHash']) && $item['optionsHash'] !== ''
+                    ? (string)$item['optionsHash']
+                    : self::hashOptionsPayload($normalizedOptions);
+
+                $pricePublic = self::normalizePublicPrice($item['price'] ?? null);
 
                 $normalized[$productId] = [
-                    'options' => [],
+                    'options' => $normalizedOptions,
+                    'optionsHash' => $optionsHash,
+                    'pricePublic' => $pricePublic,
+                    'priceHash' => $pricePublic !== null ? $optionsHash : null,
                 ];
+                continue;
             }
+
+            $productId = (int)$item;
+            if ($productId <= 0) {
+                continue;
+            }
+
+            $normalized[$productId] = [
+                'options' => [],
+                'optionsHash' => 'empty',
+            ];
         }
 
         ksort($normalized);
@@ -669,6 +776,9 @@ class FavoritesManager
      */
     private static function setCookieFavorites(array $items): void
     {
+        self::ensureLoaded();
+        $meta = self::buildClientMeta();
+
         $payload = [];
         foreach ($items as $productId => $data) {
             $productId = (int)$productId;
@@ -676,9 +786,13 @@ class FavoritesManager
                 continue;
             }
 
+            $metaEntry = $meta[$productId] ?? self::buildClientMetaEntry($productId, $data);
+
             $payload[] = [
                 'id' => $productId,
-                'options' => $data['options']['options'] ?? ($data['options'] ?? []),
+                'options' => $metaEntry['options'],
+                'optionsHash' => $metaEntry['optionsHash'],
+                'price' => $metaEntry['price'],
             ];
         }
 
@@ -705,10 +819,19 @@ class FavoritesManager
         return 0;
     }
 
-    private static function normalizeOptions(array $options): array
+    public static function prepareOptionsPayload(array $options, bool $wrap = true): array
     {
-        self::log('normalizeOptions input', ['options' => $options]);
+        $map = self::normalizeOptionsMap($options);
 
+        if (!$wrap) {
+            return $map;
+        }
+
+        return $map === [] ? [] : ['options' => $map];
+    }
+
+    private static function normalizeOptionsMap(array $options): array
+    {
         if (isset($options['options']) && is_array($options['options'])) {
             $options = $options['options'];
         }
@@ -716,27 +839,166 @@ class FavoritesManager
         $normalized = [];
 
         foreach ($options as $key => $value) {
-            if (!is_string($key)) {
+            if (!is_string($key) || $key === '') {
                 continue;
             }
 
-            if (is_array($value) && array_key_exists('value', $value)) {
-                $val = $value['value'];
-            } else {
-                $val = $value;
+            if (is_array($value)) {
+                if (array_key_exists('value', $value)) {
+                    $value = $value['value'];
+                } elseif (array_key_exists('VALUE', $value)) {
+                    $value = $value['VALUE'];
+                } else {
+                    $value = reset($value);
+                }
             }
 
-            if (!is_scalar($val)) {
+            if ($value === null) {
+                continue;
+            }
+
+            if (!is_scalar($value)) {
                 continue;
             }
 
             $normalizedKey = self::lowercase((string)$key);
-            $normalized[$normalizedKey] = [
-                'value' => self::lowercase((string)$val),
-            ];
+            $normalized[$normalizedKey] = self::lowercase((string)$value);
         }
 
-        $result = $normalized === [] ? [] : ['options' => $normalized];
+        ksort($normalized);
+
+        return $normalized;
+    }
+
+    private static function hashOptionsPayload(array $options): string
+    {
+        $map = self::prepareOptionsPayload($options, false);
+
+        if ($map === []) {
+            return 'empty';
+        }
+
+        ksort($map);
+
+        $encoded = json_encode($map, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        return $encoded !== false ? md5($encoded) : md5((string)microtime(true));
+    }
+
+    private static function makeItemState(array $optionsPayload): array
+    {
+        $hash = self::hashOptionsPayload($optionsPayload);
+
+        return [
+            'options' => $optionsPayload,
+            'optionsHash' => $hash,
+            'priceHash' => null,
+            'priceData' => null,
+            'pricePublic' => null,
+        ];
+    }
+
+    /**
+     * @param array{options?: array} $optionsPayload
+     */
+    private static function getCachedPriceData(int $productId, array $optionsPayload, string $optionsHash): ?array
+    {
+        $cachedHash = self::$currentItems[$productId]['priceHash'] ?? null;
+        $cachedData = self::$currentItems[$productId]['priceData'] ?? null;
+
+        if ($cachedData !== null && $cachedHash === $optionsHash) {
+            return $cachedData;
+        }
+
+        $priceData = self::calculatePrice($productId, $optionsPayload);
+        self::$currentItems[$productId]['priceHash'] = $priceData !== null ? $optionsHash : null;
+        self::$currentItems[$productId]['priceData'] = $priceData;
+
+        return $priceData;
+    }
+
+    private static function buildPublicPrice(?array $priceData): ?array
+    {
+        if ($priceData === null) {
+            return null;
+        }
+
+        return [
+            'formatted' => isset($priceData['PRICE_FORMATTED']) ? (string)$priceData['PRICE_FORMATTED'] : '',
+            'basePrice' => isset($priceData['BASE_PRICE']) ? (float)$priceData['BASE_PRICE'] : null,
+            'currency' => $priceData['CURRENCY'] ?? null,
+            'discountPrice' => isset($priceData['DISCOUNT_PRICE']) ? (float)$priceData['DISCOUNT_PRICE'] : null,
+            'markup' => isset($priceData['MARKUP']) ? (float)$priceData['MARKUP'] : null,
+        ];
+    }
+
+    private static function normalizePublicPrice($value): ?array
+    {
+        if (!is_array($value)) {
+            return null;
+        }
+
+        $formatted = isset($value['formatted']) && is_string($value['formatted']) ? $value['formatted'] : '';
+        $base = isset($value['basePrice']) ? (float)$value['basePrice'] : null;
+        $currency = isset($value['currency']) && is_string($value['currency']) ? $value['currency'] : null;
+        $discount = isset($value['discountPrice']) ? (float)$value['discountPrice'] : null;
+        $markup = isset($value['markup']) ? (float)$value['markup'] : null;
+
+        return [
+            'formatted' => $formatted,
+            'basePrice' => $base,
+            'currency' => $currency,
+            'discountPrice' => $discount,
+            'markup' => $markup,
+        ];
+    }
+
+    /**
+     * @param array{
+     *     PRICE_FORMATTED?: mixed,
+     *     BASE_PRICE?: mixed,
+     *     DISCOUNT_PRICE?: mixed,
+     *     CURRENCY?: mixed
+     * } $price
+     */
+    private static function normalizePriceOutput(array $price): array
+    {
+        $currency = is_string($price['CURRENCY'] ?? null) ? (string)($price['CURRENCY']) : 'RUB';
+
+        if (!isset($price['BASE_PRICE']) && isset($price['DISCOUNT_PRICE'])) {
+            $price['BASE_PRICE'] = (float)$price['DISCOUNT_PRICE'];
+        }
+
+        if (!isset($price['DISCOUNT_PRICE']) && isset($price['BASE_PRICE'])) {
+            $price['DISCOUNT_PRICE'] = (float)$price['BASE_PRICE'];
+        }
+
+        $formatted = $price['PRICE_FORMATTED'] ?? null;
+
+        if (!is_string($formatted) || trim($formatted) === '') {
+            $value = null;
+
+            if (isset($price['DISCOUNT_PRICE']) && is_numeric($price['DISCOUNT_PRICE'])) {
+                $value = (float)$price['DISCOUNT_PRICE'];
+            } elseif (isset($price['BASE_PRICE']) && is_numeric($price['BASE_PRICE'])) {
+                $value = (float)$price['BASE_PRICE'];
+            }
+
+            if ($value !== null) {
+                $price['PRICE_FORMATTED'] = number_format($value, 0, '.', ' ') . ' ' . $currency;
+            } else {
+                $price['PRICE_FORMATTED'] = '';
+            }
+        }
+
+        return $price;
+    }
+
+    private static function normalizeOptions(array $options): array
+    {
+        self::log('normalizeOptions input', ['options' => $options]);
+        $map = self::normalizeOptionsMap($options);
+        $result = $map === [] ? [] : ['options' => $map];
         self::log('normalizeOptions output', ['result' => $result]);
 
         return $result;
@@ -757,26 +1019,28 @@ class FavoritesManager
         try {
             $price = Configurator::calculate($productId, $options);
             if ($price !== null) {
-                return $price;
+                return self::normalizePriceOutput($price);
             }
         } catch (\Throwable $exception) {
             // ignore and fallback to base price
         }
 
 
-        return self::getBasePriceData($productId);
+        $fallback = self::getBasePriceData($productId);
+
+        return $fallback !== null ? self::normalizePriceOutput($fallback) : null;
     }
 
     private static function getBasePriceData(int $productId): ?array
     {
         $baseGroup = CCatalogGroup::GetBaseGroup();
         if (!is_array($baseGroup) || !isset($baseGroup['ID'])) {
-            return null;
+            return self::buildZeroPrice();
         }
 
         $priceRow = CPrice::GetList([], ['PRODUCT_ID' => $productId, 'CATALOG_GROUP_ID' => (int)$baseGroup['ID']])->Fetch();
         if (!$priceRow || !isset($priceRow['PRICE'])) {
-            return null;
+            return self::buildZeroPrice();
         }
 
         $value = (float)$priceRow['PRICE'];
@@ -786,12 +1050,27 @@ class FavoritesManager
         return [
             'PRICE_FORMATTED' => number_format($value, 0, '.', ' ') . ' ' . $currency,
             'BASE_PRICE' => $value,
+            'DISCOUNT_PRICE' => $value,
             'CURRENCY' => $currency,
+        ];
+    }
+
+    private static function buildZeroPrice(): array
+    {
+        return [
+            'PRICE_FORMATTED' => '0',
+            'BASE_PRICE' => 0.0,
+            'DISCOUNT_PRICE' => 0.0,
+            'CURRENCY' => 'RUB',
         ];
     }
 
     private static function log(string $message, array $context = []): void
     {
+        if (!self::LOG_ENABLED) {
+            return;
+        }
+
         static $skipMessages = [
             'normalizeOptions input',
             'normalizeOptions output',
