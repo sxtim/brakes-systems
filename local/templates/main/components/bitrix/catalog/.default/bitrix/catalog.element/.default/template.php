@@ -1,9 +1,102 @@
 <?php
 
 use App\Brakes\Helper\FavoritesManager;
+use Bitrix\Main\Loader;
 
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
+}
+
+$defaultSelectedOptions = [
+    'two_piece_disc_construction' => 'no',
+    'rotor_pattern' => 'none',
+    'caliper_logo' => 'standard',
+    'electric_handbrake' => 'no',
+];
+
+$favoriteSelectedOptions = $defaultSelectedOptions;
+$productMeta = null;
+$optionsFromMeta = [];
+$favoritePriceFormatted = null;
+
+if (class_exists(FavoritesManager::class)) {
+    $state = FavoritesManager::getClientState();
+    $meta = isset($state['meta']) && is_array($state['meta']) ? $state['meta'] : [];
+    $productMeta = $meta[$arResult['ID']] ?? null;
+    if (is_array($productMeta)) {
+        $optionsFromMeta = FavoritesManager::prepareOptionsPayload($productMeta['options'] ?? [], false);
+        if (is_array($optionsFromMeta)) {
+            foreach ($optionsFromMeta as $code => $value) {
+                if (!array_key_exists($code, $favoriteSelectedOptions)) {
+                    continue;
+                }
+                $favoriteSelectedOptions[$code] = is_string($value) ? $value : (is_scalar($value) ? strtolower((string)$value) : $favoriteSelectedOptions[$code]);
+            }
+        }
+
+        $metaPrice = $productMeta['price']['formatted'] ?? null;
+        if (is_string($metaPrice) && $metaPrice !== '') {
+            $favoritePriceFormatted = $metaPrice;
+        }
+    }
+}
+
+$twoPieceSelected = $favoriteSelectedOptions['two_piece_disc_construction'];
+$rotorSelected = $favoriteSelectedOptions['rotor_pattern'];
+$caliperSelected = $favoriteSelectedOptions['caliper_logo'];
+$handbrakeSelected = $favoriteSelectedOptions['electric_handbrake'];
+
+$twoPieceYesSelected = $twoPieceSelected === 'yes';
+$twoPieceNoSelected = $twoPieceSelected !== 'yes';
+$rotorNoneSelected = $rotorSelected === 'none';
+$rotorPerforationSelected = $rotorSelected === 'perforation';
+$rotorSlotsSelected = $rotorSelected === 'slots';
+$rotorComboSelected = in_array($rotorSelected, ['perforation_slots', 'perforation_and_notches'], true);
+$caliperStandardSelected = $caliperSelected === 'standard';
+$caliperSpecialSelected = in_array($caliperSelected, ['special', 'custom_logo', 'custom'], true);
+$handbrakeYesSelected = $handbrakeSelected === 'yes';
+$handbrakeNoSelected = $handbrakeSelected !== 'yes';
+
+$optionsAttrPayload = FavoritesManager::prepareOptionsPayload($favoriteSelectedOptions);
+$optionsAttrJson = !empty($optionsAttrPayload)
+    ? json_encode($optionsAttrPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+    : '{}';
+$optionsAttr = htmlspecialcharsbx($optionsAttrJson ?: '{}');
+
+if ($favoritePriceFormatted === null && !empty($optionsAttrPayload)) {
+    try {
+        $priceData = FavoritesManager::getProductPrice($arResult['ID'], $optionsAttrPayload);
+        if (is_array($priceData) && !empty($priceData['PRICE_FORMATTED'])) {
+            $favoritePriceFormatted = (string)$priceData['PRICE_FORMATTED'];
+        }
+    } catch (\Throwable $exception) {
+        // ignore preload errors to keep page rendering
+    }
+}
+
+$basePriceValue = null;
+$basePriceCurrency = 'RUB';
+
+if (Loader::includeModule('catalog')) {
+    $basePriceRow = \CPrice::GetBasePrice($arResult['ID']);
+    if (is_array($basePriceRow) && isset($basePriceRow['PRICE'])) {
+        $basePriceValue = (float)$basePriceRow['PRICE'];
+        $basePriceCurrency = $basePriceRow['CURRENCY'] ?? 'RUB';
+    }
+}
+
+if ($basePriceValue === null && isset($arResult['ITEM_PRICES'][0]['PRICE'])) {
+    $basePriceValue = (float)$arResult['ITEM_PRICES'][0]['PRICE'];
+    $basePriceCurrency = $arResult['ITEM_PRICES'][0]['CURRENCY'] ?? 'RUB';
+}
+
+$basePriceFormatted = $basePriceValue !== null
+    ? number_format($basePriceValue, 0, '.', ' ') . ' ' . htmlspecialcharsbx($basePriceCurrency)
+    : '';
+
+$initialPriceFormatted = $basePriceFormatted;
+if (is_string($favoritePriceFormatted) && $favoritePriceFormatted !== '') {
+    $initialPriceFormatted = htmlspecialcharsback($favoritePriceFormatted);
 }
 ?>
 <div class="main__overlay">
@@ -84,15 +177,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 <!--                    <span class="main-details__price-action">-25%</span>-->
 <!--                    <span class="main-details__price-old">170 000 ₽%</span>-->
 <!--                </div>-->
-                <?php
-
-                if (isset($arResult['ITEM_PRICES'][0]['PRICE'])) {
-                ?>
-                    <span class="main-details__price-new"><?=number_format($arResult['ITEM_PRICES'][0]['PRICE'], 0, '.', ' ')?> ₽</span>
-                <?php
-
-                }
-                ?>
+                <span class="main-details__price-new"><?= $initialPriceFormatted ?></span>
             </div>
             <div class="main-details__feature">
                 <div class="main-cataloge__info">
@@ -100,48 +185,48 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                         <details class="spollers__item">
                             <summary class="main-details__feature-item main-cataloge__feature-item--big spollers__title">Двусоставная конструкция диска:</summary>
                             <div class="main-cataloge__sublist spollers__body">
-                                <div class="main-cataloge__sublist-item">Да</div>
-                                <div class="main-cataloge__sublist-item">Нет</div>
+                                <div class="main-cataloge__sublist-item<?= $twoPieceYesSelected ? ' selected' : '' ?>">Да</div>
+                                <div class="main-cataloge__sublist-item<?= $twoPieceNoSelected ? ' selected' : '' ?>">Нет</div>
                             </div>
                         </details>
                         <details class="spollers__item">
                             <summary class="main-details__feature-item spollers__title">Рисунок ротора:</summary>
                             <div class="main-cataloge__sublist spollers__body">
-                                <div class="main-cataloge__sublist-item">НЕТ</div>
-                                <div class="main-cataloge__sublist-item">ПЕРФОРАЦИЯ</div>
-                                <div class="main-cataloge__sublist-item">НАСЕЧКИ</div>
-                                <div class="main-cataloge__sublist-item">ПЕРФОРАЦИЯ + НАСЕЧКИ</div>
+                                <div class="main-cataloge__sublist-item<?= $rotorNoneSelected ? ' selected' : '' ?>">НЕТ</div>
+                                <div class="main-cataloge__sublist-item<?= $rotorPerforationSelected ? ' selected' : '' ?>">ПЕРФОРАЦИЯ</div>
+                                <div class="main-cataloge__sublist-item<?= $rotorSlotsSelected ? ' selected' : '' ?>">НАСЕЧКИ</div>
+                                <div class="main-cataloge__sublist-item<?= $rotorComboSelected ? ' selected' : '' ?>">ПЕРФОРАЦИЯ + НАСЕЧКИ</div>
                             </div>
                         </details>
                         <details class="spollers__item">
                             <summary class="main-details__feature-item spollers__title">Лого на суппорт:</summary>
                             <div class="main-cataloge__sublist spollers__body">
-                                <div class="main-cataloge__sublist-item">Стандартный</div>
-                                <div class="main-cataloge__sublist-item">Особый логотип</div>
+                                <div class="main-cataloge__sublist-item<?= $caliperStandardSelected ? ' selected' : '' ?>">Стандартный</div>
+                                <div class="main-cataloge__sublist-item<?= $caliperSpecialSelected ? ' selected' : '' ?>">Особый логотип</div>
                             </div>
                         </details>
                         <details class="spollers__item">
                             <summary class="main-details__feature-item spollers__title">Электроручник</summary>
                             <div class="main-cataloge__sublist spollers__body">
-                                <div class="main-cataloge__sublist-item">Да</div>
-                                <div class="main-cataloge__sublist-item">Нет</div>
+                                <div class="main-cataloge__sublist-item<?= $handbrakeYesSelected ? ' selected' : '' ?>">Да</div>
+                                <div class="main-cataloge__sublist-item<?= $handbrakeNoSelected ? ' selected' : '' ?>">Нет</div>
                             </div>
                         </details>
                     </div>
                 </div>
             </div>
             <div class="main-details__shoping" data-fls-like-product="<?=$arResult['ID']?>">
-                <button data-fls-addtocart-button="" class="main-details__shoping-btn">
+                <button data-fls-addtocart-button="" class="main-details__shoping-btn" data-options='<?=$optionsAttr?>'>
                     <span class="main-details__shoping-text">В корзину</span>
                 </button>
-                <button data-fls-like-image="" data-fls-like-button="" data-product-id="<?=$arResult['ID']?>" class="main-details__shoping-like"></button>
+                <button data-fls-like-image="" data-fls-like-button="" data-product-id="<?=$arResult['ID']?>" data-options='<?=$optionsAttr?>' class="main-details__shoping-like"></button>
             </div>
             <button data-fls-popup-link="speedBuy"
                     class="main-details__buy"
                     href="#"
                     data-product-name="<?= $arResult['NAME'] ?>"
                     data-product-url="<?= $arResult['DETAIL_PAGE_URL'] ?>"
-                    data-options='{}'>Купить в один клик</button>
+                    data-options='<?=$optionsAttr?>'>Купить в один клик</button>
         </div>
     </div>
 </div>

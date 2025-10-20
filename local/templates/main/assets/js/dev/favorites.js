@@ -5,14 +5,17 @@ const ACTIVE_CLASS = "liked";
 const FAVORITE_POPUP_BODY_SELECTOR = ".favorit-box__body";
 const PRICE_SELECTORS = [".main-details__price-new", ".main-cataloge__price"];
 
-const initialState = window.__FAVORITES__ || { items: [], count: 0, isAuthorized: false };
+
+const initialState = window.__FAVORITES__ || { items: [], count: 0, isAuthorized: false, meta: {} };
 const state = {
     items: normalizeIds(initialState.items || []),
     isAuthorized: Boolean(initialState.isAuthorized),
+    meta: typeof initialState.meta === "object" && initialState.meta !== null ? initialState.meta : {},
 };
 
 const priceObservers = new WeakMap();
 const lastPriceHtml = new WeakMap();
+const pendingUpdateTimers = new Map();
 
 function applyPriceToPopup(id, priceHtml, priceText) {
     const itemNode = document.querySelector(`[data-fls-like-product="${id}"]`);
@@ -24,6 +27,7 @@ function applyPriceToPopup(id, priceHtml, priceText) {
     if (!priceNode) {
         return;
     }
+
 
     if (typeof priceHtml === 'string' && priceHtml !== '') {
         priceNode.innerHTML = priceHtml;
@@ -94,6 +98,9 @@ function updatePopupHtml(markup) {
         if (container) {
             container.innerHTML = markup;
             initPriceObservers(container);
+            document.dispatchEvent(new CustomEvent("favorites:popupHtmlUpdated", {
+                detail: { container },
+            }));
         }
         return;
     }
@@ -209,17 +216,37 @@ const productMutationObserver = typeof MutationObserver === "undefined" ? null :
 
             if (node.matches && node.matches(FAVORITE_PRODUCT_SELECTOR)) {
                 observeProductPrice(node);
+                document.dispatchEvent(new CustomEvent("favorites:popupHtmlUpdated", {
+                    detail: { container: node },
+                }));
             }
 
             if (node.querySelectorAll) {
-                node.querySelectorAll(FAVORITE_PRODUCT_SELECTOR).forEach(observeProductPrice);
+                node.querySelectorAll(FAVORITE_PRODUCT_SELECTOR).forEach((productNode) => {
+                    observeProductPrice(productNode);
+                    document.dispatchEvent(new CustomEvent("favorites:popupHtmlUpdated", {
+                        detail: { container: productNode },
+                    }));
+                });
             }
         });
     });
 });
 
-function applyState(items, popupHtml = null) {
+function applyState(items, popupHtml = null, meta = null) {
     state.items = normalizeIds(items);
+    const previousMeta = state.meta || {};
+    if (meta && typeof meta === "object") {
+        state.meta = meta;
+    } else {
+        const filtered = {};
+        state.items.forEach((id) => {
+            if (previousMeta[id]) {
+                filtered[id] = previousMeta[id];
+            }
+        });
+        state.meta = filtered;
+    }
     updateCounter();
     updateButtons();
 
@@ -232,6 +259,7 @@ function applyState(items, popupHtml = null) {
             items: [...state.items],
             count: state.items.length,
             isAuthorized: state.isAuthorized,
+            meta: state.meta,
         },
     }));
 }
@@ -251,8 +279,8 @@ function handleButtonClick(event) {
     event.stopPropagation();
 
     const priceSnapshot = captureCurrentPrice(target.closest(FAVORITE_PRODUCT_SELECTOR));
-
-    toggleFavorite(productId, target, priceSnapshot);
+    const optionsData = extractOptionsData(target, productId);
+    toggleFavorite(productId, target, priceSnapshot, optionsData);
 }
 
 function captureCurrentPrice(container) {
@@ -267,31 +295,31 @@ function captureCurrentPrice(container) {
     };
 }
 
-function toggleFavorite(productId, button, priceSnapshot) {
+function toggleFavorite(productId, button, priceSnapshot, optionsOverride = null) {
     if (typeof BX === "undefined" || !BX.ajax || typeof BX.ajax.runComponentAction !== "function") {
-        console.error("Favorites: Bitrix ajax is not available.");
         return;
     }
 
     button?.classList.add("is-processing");
 
+    const options = normalizeOptionsPayload(optionsOverride ?? extractOptionsData(button, productId));
+
     BX.ajax.runComponentAction("brakes:favorites.sync", "toggle", {
         mode: "class",
-        data: { productId },
+        data: { productId, options },
     }).then((response) => {
         const data = response?.data;
         if (!data || data.status !== "success" || !Array.isArray(data.items)) {
             throw new Error("Unexpected response format");
         }
 
-        applyState(data.items, data.popupHtml);
+        applyState(data.items, data.popupHtml, data.meta);
 
         button?.classList.remove("is-processing");
     }).catch((error) => {
-        console.error("Favorites: toggle failed", error);
         if (BX?.UI?.Notification?.Center) {
             BX.UI.Notification.Center.notify({
-                content: BX.message?.ERROR_FAVORITES_TOGGLE || "Не удалось обновить избранное.",
+                content: BX.message?.ERROR_FAVORITES_TOGGLE || "Error updating favorites.",
                 autoHideDelay: 5000,
                 position: "top-right",
             });
@@ -299,6 +327,7 @@ function toggleFavorite(productId, button, priceSnapshot) {
         button?.classList.remove("is-processing");
     });
 }
+
 
 function refreshFromServer() {
     if (typeof BX === "undefined" || !BX.ajax || typeof BX.ajax.runComponentAction !== "function") {
@@ -313,11 +342,10 @@ function refreshFromServer() {
             throw new Error("Unexpected response format");
         }
 
-        applyState(data.items, data.popupHtml);
+        applyState(data.items, data.popupHtml, data.meta);
 
         return state.items;
     }).catch((error) => {
-        console.error("Favorites: refresh failed", error);
         return state.items;
     });
 }
@@ -331,6 +359,7 @@ function initFavorites() {
     }
 
     document.addEventListener("click", handleButtonClick, true);
+    document.addEventListener("productOptions:changed", handleProductOptionsChanged);
 }
 
 window.addEventListener("load", initFavorites);
@@ -338,6 +367,150 @@ window.addEventListener("load", initFavorites);
 window.brakesFavorites = {
     getIds: () => [...state.items],
     has: (id) => state.items.includes(parseInt(id, 10)),
-    toggle: (id) => toggleFavorite(parseInt(id, 10)),
+    toggle: (id, options) => toggleFavorite(parseInt(id, 10), null, null, options || null),
     refresh: refreshFromServer,
 };
+
+function parseOptions(value) {
+    if (!value) {
+        return null;
+    }
+
+    if (typeof value === "object") {
+        return value;
+    }
+
+    if (typeof value === "string") {
+        try {
+            const parsed = JSON.parse(value);
+            return parsed;
+        } catch (error) {
+            console.warn("Favorites: failed to parse options JSON", error);
+        }
+    }
+
+    return null;
+}
+
+function normalizeOptionsPayload(options) {
+    const parsed = parseOptions(options);
+    if (!parsed || typeof parsed !== "object") {
+        return { options: {} };
+    }
+
+    let source = parsed;
+    if (source && typeof source === "object" && source.options && typeof source.options === "object") {
+        source = source.options;
+    }
+
+    if (!source || typeof source !== "object") {
+        return { options: {} };
+    }
+
+    const normalized = {};
+    Object.keys(source).forEach((key) => {
+        if (!key) {
+            return;
+        }
+        let rawValue = source[key];
+        if (rawValue && typeof rawValue === "object" && Object.prototype.hasOwnProperty.call(rawValue, "value")) {
+            rawValue = rawValue.value;
+        } else if (rawValue && typeof rawValue === "object" && Object.prototype.hasOwnProperty.call(rawValue, "VALUE")) {
+            rawValue = rawValue.VALUE;
+        }
+
+        if (rawValue === undefined || rawValue === null) {
+            return;
+        }
+
+        const normalizedKey = String(key).toLowerCase();
+        normalized[normalizedKey] = String(rawValue).toLowerCase();
+    });
+
+    return { options: normalized };
+}
+
+function hasOptions(payload) {
+    return Boolean(payload && payload.options && Object.keys(payload.options).length > 0);
+}
+
+function extractOptionsData(element, productId) {
+    if (element) {
+        const direct = normalizeOptionsPayload(element.dataset?.options);
+        if (hasOptions(direct)) {
+            return direct;
+        }
+
+        const container = element.closest(FAVORITE_PRODUCT_SELECTOR)
+            || element.closest(".main-cataloge__item")
+            || element.closest(".main-details")
+            || element.closest(".main__details");
+
+        if (container) {
+            const button = container.querySelector("[data-fls-like-button]");
+            if (button && button !== element) {
+                const parsed = normalizeOptionsPayload(button.dataset?.options);
+                if (hasOptions(parsed)) {
+                    return parsed;
+                }
+            }
+        }
+    }
+
+    if (productId && state.meta && state.meta[productId] && state.meta[productId].options) {
+        const metaPayload = normalizeOptionsPayload(state.meta[productId].options);
+        if (hasOptions(metaPayload)) {
+            return metaPayload;
+        }
+    }
+
+    return { options: {} };
+}
+
+function handleProductOptionsChanged(event) {
+    const detail = event?.detail || {};
+    const productId = parseInt(detail.productId, 10);
+    if (!productId || !state.items.includes(productId)) {
+        return;
+    }
+
+    const options = normalizeOptionsPayload(detail.options);
+    scheduleFavoriteUpdate(productId, options);
+}
+
+function scheduleFavoriteUpdate(productId, options) {
+    const key = String(productId);
+    if (pendingUpdateTimers.has(key)) {
+        clearTimeout(pendingUpdateTimers.get(key));
+    }
+
+    const payload = {
+        options: { ...(options?.options || {}) },
+    };
+
+    const timer = setTimeout(() => {
+        pendingUpdateTimers.delete(key);
+        sendUpdateRequest(productId, payload);
+    }, 200);
+
+    pendingUpdateTimers.set(key, timer);
+}
+
+function sendUpdateRequest(productId, options) {
+    if (typeof BX === "undefined" || !BX.ajax || typeof BX.ajax.runComponentAction !== "function") {
+        return;
+    }
+
+    BX.ajax.runComponentAction("brakes:favorites.sync", "update", {
+        mode: "class",
+        data: { productId, options },
+    }).then((response) => {
+        const data = response?.data;
+        if (!data || data.status !== "success" || !Array.isArray(data.items)) {
+            throw new Error("Unexpected response format");
+        }
+
+        applyState(data.items, data.popupHtml, data.meta);
+    }).catch((error) => {
+    });
+}

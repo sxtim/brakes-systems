@@ -309,13 +309,16 @@ document.addEventListener("click", (e) => {
     searchBox.classList.remove("active");
   }
 });
+const FAVORITES_SCROLL_CLASS = "favorites-popup-open";
 const favoriteBtn = document.querySelector(".header__like");
 const favoriteBox = document.querySelector(".favorit-box");
 const favoriteClose = document.querySelector(".favorit-box__close");
 favoriteBtn.addEventListener("click", (e) => {
   e.stopPropagation();
+  const willOpen = !favoriteBox.classList.contains("active");
   favoriteBox.classList.toggle("active");
   favoriteBtn.classList.toggle("active");
+  document.documentElement.classList.toggle(FAVORITES_SCROLL_CLASS, willOpen);
 });
 favoriteBox.addEventListener("click", (e) => {
   e.stopPropagation();
@@ -325,11 +328,13 @@ document.addEventListener("click", (e) => {
   if (!isClickInsideFavorite) {
     favoriteBox.classList.remove("active");
     favoriteBtn.classList.remove("active");
+    document.documentElement.classList.remove(FAVORITES_SCROLL_CLASS);
   }
 });
 favoriteClose.addEventListener("click", () => {
   favoriteBtn.classList.remove("active");
   favoriteBox.classList.remove("active");
+  document.documentElement.classList.remove(FAVORITES_SCROLL_CLASS);
 });
 document.querySelector(".favorit-box__body").addEventListener("click", function(e) {
   const deleteBtn = e.target.closest(".favorit-box__delete");

@@ -1309,6 +1309,32 @@ body {
   transition: background-color 0.2s ease-in-out;
 }
 
+.main-cataloge__sublist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  border: none;
+  padding: 0.625rem 0 0.3125rem;
+}
+
+.main-cataloge__sublist-item {
+  color: #404040;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 0.625rem;
+}
+
+.main-cataloge__sublist-item:hover {
+  transition: background-color 0.2s ease-in-out;
+  background-color: #C7C7C7;
+}
+
+.main-cataloge__sublist-item.selected {
+  background-color: #2D4F66 !important;
+  color: #fff !important;
+}
+
 .favorit-box__delete {
   position: absolute;
   top: 0.625rem;
@@ -2049,3 +2075,11 @@ body {
   .icon-menu {
     cursor: default;
   }}
+
+.main-cataloge__feature--favorite {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.625rem 0;
+}
+
