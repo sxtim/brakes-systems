@@ -98,6 +98,9 @@ function updatePopupHtml(markup) {
         if (container) {
             container.innerHTML = markup;
             initPriceObservers(container);
+            document.dispatchEvent(new CustomEvent("favorites:popupHtmlUpdated", {
+                detail: { container },
+            }));
         }
         return;
     }
@@ -213,10 +216,18 @@ const productMutationObserver = typeof MutationObserver === "undefined" ? null :
 
             if (node.matches && node.matches(FAVORITE_PRODUCT_SELECTOR)) {
                 observeProductPrice(node);
+                document.dispatchEvent(new CustomEvent("favorites:popupHtmlUpdated", {
+                    detail: { container: node },
+                }));
             }
 
             if (node.querySelectorAll) {
-                node.querySelectorAll(FAVORITE_PRODUCT_SELECTOR).forEach(observeProductPrice);
+                node.querySelectorAll(FAVORITE_PRODUCT_SELECTOR).forEach((productNode) => {
+                    observeProductPrice(productNode);
+                    document.dispatchEvent(new CustomEvent("favorites:popupHtmlUpdated", {
+                        detail: { container: productNode },
+                    }));
+                });
             }
         });
     });

@@ -206,8 +206,25 @@ document.addEventListener("DOMContentLoaded", () => {
   handleOneClickBuyButtons();
 });
 
-function handleOneClickBuyButtons() {
-  document.querySelectorAll('[data-fls-popup-link="speedBuy"]').forEach((button) => {
+function handleOneClickBuyButtons(root = document) {
+  const hasDocumentFragment = typeof DocumentFragment !== "undefined";
+  let scope = document;
+
+  if (root instanceof Document) {
+    scope = root;
+  } else if (root instanceof Element) {
+    scope = root;
+  } else if (hasDocumentFragment && root instanceof DocumentFragment && typeof root.querySelectorAll === "function") {
+    scope = root;
+  }
+
+  scope.querySelectorAll('[data-fls-popup-link="speedBuy"]').forEach((button) => {
+    if (button.dataset.oneClickBound === "true") {
+      return;
+    }
+
+    button.dataset.oneClickBound = "true";
+
     button.addEventListener("click", function (event) {
       const buyButton = event.currentTarget;
 
@@ -272,9 +289,25 @@ function handleOneClickBuyButtons() {
       if (productPriceInput) productPriceInput.value = actualPrice;
       if (productUrlInput) productUrlInput.value = productUrl;
       if (productOptionsInput) productOptionsInput.value = optionsString;
+
+      const popupInstance = window.flsPopup;
+      if (popupInstance && typeof popupInstance.open === "function") {
+        popupInstance.open("speedBuy");
+      }
     });
   });
 }
+
+document.addEventListener("favorites:popupHtmlUpdated", (event) => {
+  const container = event?.detail?.container;
+  const isFragment = typeof DocumentFragment !== "undefined" && container instanceof DocumentFragment;
+  if (container instanceof Element || isFragment) {
+    handleOneClickBuyButtons(container);
+    return;
+  }
+
+  handleOneClickBuyButtons();
+});
 
 function updateProductOptions(productContainer, reason = "manual") {
   const scope = productContainer instanceof Element ? productContainer : document;

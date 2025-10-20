@@ -1,3 +1,4 @@
+.favorites-popup-open, .favorites-popup-open body{overflow:hidden;}
 @charset "UTF-8";
 @font-face {
 	font-family: Montserrat;
@@ -1600,7 +1601,7 @@ body {
 		justify-items: center;
 	}
 	.favorit-box__body {
-		grid-template-columns: repeat(2, 1fr);
+		grid-template-columns: repeat(1, 1fr);
 	}
 }
 

@@ -2,6 +2,7 @@
 
 namespace App\Brakes\Pricing;
 
+use Bitrix\Highloadblock\HighloadBlockTable;
 use Bitrix\Main\Loader;
 use Bitrix\Main\Context;
 use Bitrix\Main\SystemException;
@@ -22,21 +23,24 @@ class Configurator
             'yes' => 10000.0,
         ],
         'caliper_logo' => [
-            'custom_logo' => 5000.0,
             'special' => 5000.0,
-            'custom' => 5000.0,
         ],
         'electric_handbrake' => [
             'yes' => 50000.0,
         ],
         'rotor_pattern' => [
             'perforation_slots' => 30000.0,
-            'perforation_and_notches' => 30000.0,
             'perforation' => 18000.0,
             'slots' => 20000.0,
-            'notches' => 20000.0,
         ],
     ];
+
+    private const HL_TABLE_NAME = 'brakes_option_markups';
+
+    /**
+     * @var array<string, array<string, float>>|null
+     */
+    private static ?array $cachedMarkupRules = null;
 
     /**
      * @throws SystemException
@@ -107,16 +111,17 @@ class Configurator
     private static function calculateMarkup(array $options): float
     {
         $normalized = self::normalizeOptions($options);
+        $rules = self::getMarkupRules();
         $sum = 0.0;
 
-        foreach (self::MARKUP_RULES as $code => $rules) {
+        foreach ($rules as $code => $map) {
             $value = $normalized[$code] ?? null;
             if ($value === null) {
                 continue;
             }
 
-            if (isset($rules[$value])) {
-                $sum += (float)$rules[$value];
+            if (isset($map[$value])) {
+                $sum += (float)$map[$value];
             }
         }
 
@@ -167,6 +172,57 @@ class Configurator
         }
 
         return $resultPrice;
+    }
+
+    private static function getMarkupRules(): array
+    {
+        if (self::$cachedMarkupRules !== null) {
+            return self::$cachedMarkupRules;
+        }
+
+        $rules = self::MARKUP_RULES;
+
+        if (!Loader::includeModule('highloadblock')) {
+            self::$cachedMarkupRules = $rules;
+            return self::$cachedMarkupRules;
+        }
+
+        $hlBlock = HighloadBlockTable::getList([
+            'filter' => ['=TABLE_NAME' => self::HL_TABLE_NAME],
+            'limit' => 1,
+        ])->fetch();
+
+        if (!$hlBlock) {
+            self::$cachedMarkupRules = $rules;
+            return self::$cachedMarkupRules;
+        }
+
+        $entity = HighloadBlockTable::compileEntity($hlBlock);
+        $dataClass = $entity->getDataClass();
+
+        $result = $dataClass::getList([
+            'select' => ['UF_OPTION', 'UF_VALUE', 'UF_PRICE'],
+        ]);
+
+        while ($row = $result->fetch()) {
+            $option = isset($row['UF_OPTION']) ? self::toLower((string)$row['UF_OPTION']) : '';
+            $value = isset($row['UF_VALUE']) ? self::toLower((string)$row['UF_VALUE']) : '';
+            $price = isset($row['UF_PRICE']) && is_numeric($row['UF_PRICE']) ? (float)$row['UF_PRICE'] : null;
+
+            if ($option === '' || $value === '' || $price === null) {
+                continue;
+            }
+
+            if (!isset($rules[$option])) {
+                $rules[$option] = [];
+            }
+
+            $rules[$option][$value] = $price;
+        }
+
+        self::$cachedMarkupRules = $rules;
+
+        return self::$cachedMarkupRules;
     }
 
     private static function toLower(string $value): string

@@ -15,8 +15,6 @@ class FavoritesManager
     private const COOKIE_NAME = 'BR_FAVORITES';
     private const COOKIE_TTL = 31536000; // 1 year
     private const SESSION_FLAG = 'BR_FAVORITES_SYNC_DONE';
-    private const LOG_PATH = '/upload/favorites_debug.txt';
-    private const LOG_ENABLED = false;
 
     /**
      * @var array<int, array{options: array}>
@@ -377,20 +375,10 @@ class FavoritesManager
         }
 
         $normalized = self::normalizeOptions($options);
-        self::log('getProductPrice request', [
-            'productId' => $productId,
-            'options' => $normalized,
-        ]);
 
         $price = self::calculatePrice($productId, $normalized);
 
         if ($price !== null) {
-            self::log('getProductPrice result', [
-                'productId' => $productId,
-                'priceFormatted' => $price['PRICE_FORMATTED'] ?? null,
-                'markup' => $price['MARKUP'] ?? null,
-            ]);
-
             if (isset(self::$currentItems[$productId])) {
                 $payload = self::prepareOptionsPayload($normalized);
                 $hash = self::hashOptionsPayload($payload);
@@ -401,11 +389,6 @@ class FavoritesManager
                 self::$currentItems[$productId]['pricePublic'] = self::buildPublicPrice($price);
             }
         } else {
-            self::log('getProductPrice result null', [
-                'productId' => $productId,
-                'options' => $normalized,
-            ]);
-
             if (isset(self::$currentItems[$productId])) {
                 $payload = self::prepareOptionsPayload($normalized);
                 $hash = self::hashOptionsPayload($payload);
@@ -423,7 +406,7 @@ class FavoritesManager
     public static function buildFavoritesPopupHtml(array $items): string
     {
         if ($items === []) {
-            return '<div class="favorit-box__empty">Favorites list is empty.</div>';
+            return '<div class="favorit-box__empty">Нет добавленных товаров.</div>';
         }
 
         $templatePath = defined('SITE_TEMPLATE_PATH') ? SITE_TEMPLATE_PATH : '/local/templates/main';
@@ -996,10 +979,8 @@ class FavoritesManager
 
     private static function normalizeOptions(array $options): array
     {
-        self::log('normalizeOptions input', ['options' => $options]);
         $map = self::normalizeOptionsMap($options);
         $result = $map === [] ? [] : ['options' => $map];
-        self::log('normalizeOptions output', ['result' => $result]);
 
         return $result;
     }
@@ -1065,37 +1046,4 @@ class FavoritesManager
         ];
     }
 
-    private static function log(string $message, array $context = []): void
-    {
-        if (!self::LOG_ENABLED) {
-            return;
-        }
-
-        static $skipMessages = [
-            'normalizeOptions input',
-            'normalizeOptions output',
-        ];
-
-        foreach ($skipMessages as $skip) {
-            if (strpos($message, $skip) === 0) {
-                return;
-            }
-        }
-
-        $path = $_SERVER['DOCUMENT_ROOT'] . self::LOG_PATH;
-        $log = date('Y-m-d H:i:s') . ' ' . $message;
-
-        if ($context !== []) {
-            $encoded = json_encode(
-                $context,
-                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR
-            );
-            if ($encoded !== false) {
-                $log .= ' | ' . $encoded;
-            }
-        }
-
-        $log .= PHP_EOL;
-        error_log($log, 3, $path);
-    }
 }
