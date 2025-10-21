@@ -15,7 +15,10 @@ if ($id <= 0) {
 
 $name = (string)($card['NAME'] ?? '');
 $detailUrl = (string)($card['DETAIL_PAGE_URL'] ?? '#');
-$imageSrc = (string)($card['IMG'] ?? '');
+$imageData = isset($card['IMAGE']) && is_array($card['IMAGE']) ? $card['IMAGE'] : [];
+$imageSrc = (string)($imageData['src'] ?? $card['IMG'] ?? '');
+$imageWidth = isset($imageData['width']) ? (int)$imageData['width'] : 0;
+$imageHeight = isset($imageData['height']) ? (int)$imageData['height'] : 0;
 $priceHtml = (string)($card['PRICE_HTML'] ?? '');
 $optionsAttr = (string)($card['OPTIONS_ATTR'] ?? '{}');
 $details = isset($card['DETAILS']) && is_array($card['DETAILS']) ? $card['DETAILS'] : [];
@@ -121,9 +124,14 @@ $detailsOpenAttr = $expandFeatures ? ' open' : '';
 <div class="main-cataloge__item" data-fls-like-product="<?=$id?>">
     <a class="main-cataloge__picture" href="<?=htmlspecialcharsbx($detailUrl)?>">
         <picture>
-            <source media="(max-width: 600px)" srcset="<?=htmlspecialcharsbx($imageSrc)?>" type="image/webp">
-            <source media="(max-width: 1200px)" srcset="<?=htmlspecialcharsbx($imageSrc)?>" type="image/webp">
-            <img class="main-cataloge__img" alt="<?=htmlspecialcharsbx($name !== '' ? $name : 'Image')?>" src="<?=htmlspecialcharsbx($imageSrc)?>">
+            <source media="(max-width: 600px)" srcset="<?=htmlspecialcharsbx($imageSrc)?>" type="image/jpeg">
+            <source media="(max-width: 1200px)" srcset="<?=htmlspecialcharsbx($imageSrc)?>" type="image/jpeg">
+            <img class="main-cataloge__img"
+                 alt="<?=htmlspecialcharsbx($name !== '' ? $name : 'Image')?>"
+                 src="<?=htmlspecialcharsbx($imageSrc)?>"
+                 <?php if ($imageWidth > 0) { ?>width="<?=$imageWidth?>"<?php } ?>
+                 <?php if ($imageHeight > 0) { ?>height="<?=$imageHeight?>"<?php } ?>
+                 loading="lazy">
         </picture>
     </a>
     <div class="main-cataloge__item-content">

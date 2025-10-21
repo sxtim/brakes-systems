@@ -110,14 +110,26 @@ if (is_string($favoritePriceFormatted) && $favoritePriceFormatted !== '') {
                     <div class="swiper-wrapper main-swiper__wrapper gallery" data-fls-gallery="">
                         <?php
 
-                        foreach ($arResult['GALLERY'] as $val) {
+                        foreach ($arResult['GALLERY'] as $item) {
+                            $main = $item['main']['src'] ?? $item['original'] ?? '';
+                            $mainWidth = isset($item['main']['width']) ? (int)$item['main']['width'] : 0;
+                            $mainHeight = isset($item['main']['height']) ? (int)$item['main']['height'] : 0;
+                            if ($main === '') {
+                                continue;
+                            }
                         ?>
                             <div class="swiper-slide main-swiper__slide">
-                                <a class="main-swiper__gallery__image gallery__image" href="<?=$val?>">
+                                <a class="main-swiper__gallery__image gallery__image"
+                                   href="<?=$main?>"
+                                   data-src="<?=$main?>">
                                     <picture>
-                                        <source media="(max-width: 600px)" srcset="<?=$val?>" type="image/webp">
-                                        <source media="(max-width: 1200px)" srcset="<?=$val?>" type="image/webp">
-                                        <img class="main-swiper__img gallery__preview" alt="Img" src="<?=$val?>">
+                                        <source media="(max-width: 600px)" srcset="<?=$main?>" type="image/jpeg">
+                                        <source media="(max-width: 1200px)" srcset="<?=$main?>" type="image/jpeg">
+                                        <img class="main-swiper__img gallery__preview"
+                                             alt="Img"
+                                             src="<?=$main?>"
+                                             <?php if ($mainWidth > 0) { ?>width="<?=$mainWidth?>"<?php } ?>
+                                             <?php if ($mainHeight > 0) { ?>height="<?=$mainHeight?>"<?php } ?>>
                                     </picture>
                                 </a>
                             </div>
@@ -135,13 +147,23 @@ if (is_string($favoritePriceFormatted) && $favoritePriceFormatted !== '') {
                         <div class="thumbs-swiper__wrapper swiper-wrapper">
                             <?php
 
-                            foreach ($arResult['GALLERY'] as $val) {
+                            foreach ($arResult['GALLERY'] as $item) {
+                                $thumb = $item['thumb']['src'] ?? $item['main']['src'] ?? $item['original'] ?? '';
+                                if ($thumb === '') {
+                                    continue;
+                                }
+                                $thumbWidth = isset($item['thumb']['width']) ? (int)$item['thumb']['width'] : 0;
+                                $thumbHeight = isset($item['thumb']['height']) ? (int)$item['thumb']['height'] : 0;
                             ?>
                                 <div class="thumbs-swiper__slide swiper-slide">
                                     <picture>
-                                        <source media="(max-width: 600px)" srcset="<?=$val?>" type="image/webp">
-                                        <source media="(max-width: 1200px)" srcset="<?=$val?>" type="image/webp">
-                                        <img class="thumbs-swiper__img" alt="Img" src="<?=$val?>">
+                                        <source media="(max-width: 600px)" srcset="<?=$thumb?>" type="image/jpeg">
+                                        <source media="(max-width: 1200px)" srcset="<?=$thumb?>" type="image/jpeg">
+                                        <img class="thumbs-swiper__img"
+                                             alt="Img"
+                                             src="<?=$thumb?>"
+                                             <?php if ($thumbWidth > 0) { ?>width="<?=$thumbWidth?>"<?php } ?>
+                                             <?php if ($thumbHeight > 0) { ?>height="<?=$thumbHeight?>"<?php } ?>>
                                     </picture>
                                 </div>
                             <?php
@@ -277,6 +299,7 @@ if (is_string($favoritePriceFormatted) && $favoritePriceFormatted !== '') {
         switch ($prop['CODE']) {
             case 'VIDEO_LINK':
             case 'LINK_PHOTO':
+            case 'LINK_PHOTO_FILE':
             case 'CML2_TRAITS':
             case 'COLOR':
             case 'RECOMMENDED':

@@ -1,6 +1,7 @@
 <?php
 
 use App\Brakes\Helper\FavoritesManager;
+use App\Brakes\Helper\Image;
 
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
@@ -31,8 +32,37 @@ if (class_exists(FavoritesManager::class)) {
 }
 
 foreach ($arResult['ITEMS'] as $i => $item) {
-    if ($item['PROPERTIES']['LINK_PHOTO']['VALUE']) {
-        $arResult['ITEMS'][$i]['IMG'] = getPreviewImgCatalog($item['PROPERTIES']['LINK_PHOTO']['VALUE']);
+    $imageData = null;
+    $fileValues = $item['PROPERTIES']['LINK_PHOTO_FILE']['VALUE'] ?? [];
+
+    if (is_array($fileValues) && !empty($fileValues)) {
+        $fileId = (int)reset($fileValues);
+        if ($fileId > 0) {
+            $imageData = Image::resizeByPreset($fileId, Image::PRESET_CATALOG_TILE);
+        }
+    }
+
+    if ($imageData === null || empty($imageData['src'])) {
+        $source = $item['PROPERTIES']['LINK_PHOTO']['VALUE'] ?? '';
+        if (is_string($source) && $source !== '') {
+            $paths = array_filter(array_map('trim', explode(';', $source)));
+            if (!empty($paths)) {
+                $fallback = reset($paths);
+                if (is_string($fallback) && $fallback !== '') {
+                    $imageData = [
+                        'src' => $fallback,
+                        'width' => 0,
+                        'height' => 0,
+                        'cached' => false,
+                    ];
+                }
+            }
+        }
+    }
+
+    if ($imageData !== null) {
+        $arResult['ITEMS'][$i]['IMAGE'] = $imageData;
+        $arResult['ITEMS'][$i]['IMG'] = $imageData['src'] ?? '';
     }
 
     $productId = (int)$item['ID'];

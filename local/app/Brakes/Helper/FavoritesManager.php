@@ -1,6 +1,7 @@
 <?php
 namespace App\Brakes\Helper;
 
+use App\Brakes\Helper\Image;
 use App\Brakes\Pricing\Configurator;
 use Bitrix\Main\Application;
 use Bitrix\Main\Context;
@@ -201,6 +202,7 @@ class FavoritesManager
             'NAME',
             'DETAIL_PAGE_URL',
             'PROPERTY_LINK_PHOTO',
+            'PROPERTY_LINK_PHOTO_FILE',
             'PROPERTY_CML2_ARTICLE',
             'PROPERTY_MANUFACTURER',
             'PROPERTY_NUMBER_PISTONS',
@@ -264,7 +266,36 @@ class FavoritesManager
                 }
             }
 
-            $picture = getPreviewImgCatalog($fields['PROPERTY_LINK_PHOTO_VALUE'] ?? null);
+            $pictureData = null;
+
+            $fileValue = $properties['LINK_PHOTO_FILE']['VALUE'] ?? $fields['PROPERTY_LINK_PHOTO_FILE_VALUE'] ?? null;
+            if (is_array($fileValue)) {
+                $fileIds = array_values(array_filter(array_map(static fn($value) => (int)$value, $fileValue)));
+            } elseif ($fileValue !== null && $fileValue !== '') {
+                $fileIds = [(int)$fileValue];
+            } else {
+                $fileIds = [];
+            }
+
+            $fileId = $fileIds[0] ?? 0;
+            if ($fileId > 0) {
+                $pictureData = Image::resizeByPreset($fileId, Image::PRESET_CATALOG_TILE);
+            }
+
+            if ($pictureData === null || empty($pictureData['src'])) {
+                $fallback = getPreviewImgCatalog($fields['PROPERTY_LINK_PHOTO_VALUE'] ?? '');
+                if (is_string($fallback) && $fallback !== '') {
+                    $pictureData = [
+                        'src' => $fallback,
+                        'width' => 0,
+                        'height' => 0,
+                        'cached' => false,
+                    ];
+                }
+            }
+
+            $pictureSrc = is_array($pictureData) ? (string)($pictureData['src'] ?? '') : '';
+
             $optionsRaw = self::$currentItems[$id]['options'] ?? [];
             $optionsRaw = is_array($optionsRaw) ? $optionsRaw : [];
             $optionsUnwrapped = self::unwrapOptionsPayload($optionsRaw);
@@ -274,7 +305,8 @@ class FavoritesManager
                 'ID' => $id,
                 'NAME' => $name,
                 'URL' => $detailUrl,
-                'PICTURE' => $picture,
+                'PICTURE' => $pictureSrc,
+                'IMAGE' => $pictureData,
                 'DETAILS' => $details,
                 'COLORS' => $colors,
                 'PRICE' => null,
@@ -287,7 +319,8 @@ class FavoritesManager
                     'ID' => $id,
                     'NAME' => $name,
                     'DETAIL_PAGE_URL' => $detailUrl,
-                    'IMG' => $picture,
+                    'IMAGE' => $pictureData,
+                    'IMG' => $pictureSrc,
                     'DETAILS' => $details,
                     'COLORS' => $colors,
                     'SELECTED' => $selectedValues,
@@ -440,8 +473,23 @@ class FavoritesManager
                     ];
                 }
 
+                $imageData = [];
+                if (isset($card['IMAGE']) && is_array($card['IMAGE'])) {
+                    $imageData = $card['IMAGE'];
+                } elseif (isset($item['IMAGE']) && is_array($item['IMAGE'])) {
+                    $imageData = $item['IMAGE'];
+                }
+
+                if ($imageData !== []) {
+                    $card['IMAGE'] = $imageData;
+                }
+
                 if (!isset($card['IMG']) || $card['IMG'] === '') {
-                    $card['IMG'] = $item['PICTURE'] ?? '';
+                    if (!empty($imageData['src'])) {
+                        $card['IMG'] = $imageData['src'];
+                    } else {
+                        $card['IMG'] = $item['PICTURE'] ?? '';
+                    }
                 }
 
                 if ($partialPath !== null) {
@@ -610,7 +658,16 @@ class FavoritesManager
 
         $name = htmlspecialcharsbx($item['NAME'] ?? '');
         $url = htmlspecialcharsbx($item['URL'] ?? '#');
-        $pictureUrl = !empty($item['PICTURE']) ? htmlspecialcharsbx($item['PICTURE']) : '';
+
+        $imageData = [];
+        if (isset($item['IMAGE']) && is_array($item['IMAGE'])) {
+            $imageData = $item['IMAGE'];
+        }
+
+        $pictureUrlRaw = !empty($imageData['src']) ? (string)$imageData['src'] : (string)($item['PICTURE'] ?? '');
+        $pictureUrl = $pictureUrlRaw !== '' ? htmlspecialcharsbx($pictureUrlRaw) : '';
+        $pictureWidth = isset($imageData['width']) ? (int)$imageData['width'] : 0;
+        $pictureHeight = isset($imageData['height']) ? (int)$imageData['height'] : 0;
         $priceHtml = $item['PRICE_HTML'] ?? null;
         $priceText = $item['PRICE'] ?? null;
 
@@ -618,7 +675,12 @@ class FavoritesManager
         ?>
         <a class="favorit-box__item" data-fls-like-product="<?= $id ?>" href="<?= $url ?>">
             <div class="favorit-box__item-foto">
-                <img class="favorit-box__img" alt="<?= $name ?>" src="<?= $pictureUrl ?>">
+                <img class="favorit-box__img"
+                     alt="<?= $name ?>"
+                     src="<?= $pictureUrl ?>"
+                     <?php if ($pictureWidth > 0) { ?>width="<?= $pictureWidth ?>"<?php } ?>
+                     <?php if ($pictureHeight > 0) { ?>height="<?= $pictureHeight ?>"<?php } ?>
+                     loading="lazy">
             </div>
             <div class="favorit-box__inner">
                 <h3 class="favorit-box__item-title"><?= $name ?></h3>
