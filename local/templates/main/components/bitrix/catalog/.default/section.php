@@ -63,11 +63,36 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 $request = Application::getInstance()->getContext()->getRequest();
 $getData = $request->getQueryList()->toArray();
 
+$searchContext = $GLOBALS['CATALOG_SEARCH_CONTEXT'] ?? null;
+if (is_array($searchContext) && ($searchContext['query'] ?? '') !== ''): ?>
+    <div class="main__search-result">
+        <p class="main__search-query">
+            Результаты поиска по запросу: <?= htmlspecialcharsbx($searchContext['query']) ?>
+        </p>
+        <?php if (!empty($searchContext['ids']) && $searchContext['ids'] === [-1]): ?>
+            <p class="main__search-empty">По запросу «<?= htmlspecialcharsbx($searchContext['query']) ?>» ничего не найдено.</p>
+            <?php if (!empty($searchContext['sample'])): ?>
+                <ul class="main__search-suggestions">
+                    <?php foreach ($searchContext['sample'] as $sample): ?>
+                        <li>
+                            <a href="<?= htmlspecialcharsbx($sample['URL'] ?? '#') ?>">
+                                <?= htmlspecialcharsbx($sample['TITLE'] ?? ($sample['URL'] ?? '')) ?>
+                            </a>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
+
+<?php
 if ($getData['art_number']) {
     $GLOBALS[$arParams['FILTER_NAME']]['?PROPERTY_CML2_ARTICLE'] = $getData['art_number'];
 }
+?>
 
-$APPLICATION->IncludeComponent(
+<?php $APPLICATION->IncludeComponent(
     "bitrix:catalog.section",
     "",
     array(

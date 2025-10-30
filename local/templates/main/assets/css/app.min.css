@@ -1,5 +1,5 @@
 .favorites-popup-open, .favorites-popup-open body{overflow:hidden;}
-@charset "UTF-8";
+/* @charset "UTF-8"; */
 @font-face {
 	font-family: Montserrat;
 	font-display: swap;
@@ -2189,3 +2189,10 @@ body {
 }
 
 .main-cataloge__feature--favorite{display:flex;flex-direction:column;gap:.625rem;padding:.625rem 0;}
+
+.search-page__catalog-link{gap:.75rem;font-size:1.5rem}
+.search-page__catalog-link::before{content:"⟵";font-size:1.5rem;margin-right: 8px;}
+.search-page__catalog-link::after{content:"";}
+
+
+
