@@ -182,9 +182,10 @@ Asset::getInstance()->addString(
                         )
                     );?>
                 </div>
-                <form class="header__search" action="#">
+                <form class="header__search" action="/search/" method="get">
                     <button class="header__search-mobile search-mobile"
-                            id="header__search-mobile">
+                            id="header__search-mobile"
+                            type="button">
                         <img class="search-mobile__img"
                              src="<?= SITE_TEMPLATE_PATH ?>/assets/img/search-mobile.svg"
                              alt="Image">
@@ -192,9 +193,10 @@ Asset::getInstance()->addString(
                     </button>
                     <div class="header__search-box"
                          data-fls-dynamic=".header__bottom-container, 479.98, 0">
-                        <input class="header__search-input" type="text"
+                        <input class="header__search-input" type="text" name="q"
+                               value="<?= htmlspecialcharsbx((string)($_REQUEST['q'] ?? '')) ?>"
                                placeholder="Поиск">
-                        <button class="header__search-btn">
+                        <button class="header__search-btn" type="submit">
                             <svg class="header__search-icon">
                                 <use xlink:href="<?= SITE_TEMPLATE_PATH ?>/assets/img/spritemap.svg#sprite-search"></use>
                             </svg>
