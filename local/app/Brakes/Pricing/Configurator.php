@@ -28,11 +28,6 @@ class Configurator
         'electric_handbrake' => [
             'yes' => 50000.0,
         ],
-        'rotor_pattern' => [
-            'perforation_slots' => 30000.0,
-            'perforation' => 18000.0,
-            'slots' => 20000.0,
-        ],
     ];
 
     private const HL_TABLE_NAME = 'brakes_option_markups';

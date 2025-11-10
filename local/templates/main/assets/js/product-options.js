@@ -3,7 +3,7 @@ const PRICE_DECODE_HELPER = document.createElement("span");
 const pendingPriceTimers = new Map();
 const OPTION_DEFAULTS = Object.freeze({
   two_piece_disc_construction: "no",
-  rotor_pattern: "none",
+  rotor_pattern: "perforation",
   caliper_logo: "standard",
   electric_handbrake: "no",
 });
@@ -248,7 +248,7 @@ function handleOneClickBuyButtons(root = document) {
       let optionsString = "";
       const keyMap = {
         two_piece_disc_construction: "Двусоставная конструкция диска",
-        rotor_pattern: "Рисунок ротора",
+        rotor_pattern: "Тип ротора",
         caliper_logo: "Лого на суппорт",
         electric_handbrake: "Электроручник",
       };
@@ -351,7 +351,19 @@ function collectSelectedOptions(scope, defaults = null, reason = "manual") {
   }
 
   (scope instanceof Element ? scope : document).querySelectorAll(".spollers__item").forEach((spoller) => {
-    const selectedOption = spoller.querySelector(".main-cataloge__sublist-item.selected");
+    const optionItems = spoller.querySelectorAll(".main-cataloge__sublist-item");
+    if (optionItems.length === 0) {
+      return;
+    }
+
+    let selectedOption = spoller.querySelector(".main-cataloge__sublist-item.selected");
+    if (!selectedOption) {
+      selectedOption = optionItems[0];
+      if (selectedOption) {
+        selectedOption.classList.add("selected");
+      }
+    }
+
     if (!selectedOption) {
       return;
     }
@@ -370,11 +382,9 @@ function collectSelectedOptions(scope, defaults = null, reason = "manual") {
     if (featureTitle.includes("Двусоставная конструкция диска")) {
       englishKey = "two_piece_disc_construction";
       englishValue = optionText.toLowerCase() === "да" ? "yes" : "no";
-    } else if (featureTitle.includes("Рисунок ротора")) {
+    } else if (featureTitle.includes("Тип ротора") || featureTitle.includes("Рисунок ротора")) {
       englishKey = "rotor_pattern";
-      if (optionText.toUpperCase() === "НЕТ") {
-        englishValue = "none";
-      } else if (optionText.toUpperCase().includes("ПЕРФОРАЦИЯ") && optionText.toUpperCase().includes("НАСЕЧКИ")) {
+      if (optionText.toUpperCase().includes("ПЕРФОРАЦИЯ") && optionText.toUpperCase().includes("НАСЕЧКИ")) {
         englishValue = "perforation_slots";
       } else if (optionText.toUpperCase().includes("ПЕРФОРАЦИЯ")) {
         englishValue = "perforation";

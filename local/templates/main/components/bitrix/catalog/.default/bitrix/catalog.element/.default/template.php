@@ -9,7 +9,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 
 $defaultSelectedOptions = [
     'two_piece_disc_construction' => 'no',
-    'rotor_pattern' => 'none',
+    'rotor_pattern' => 'perforation',
     'caliper_logo' => 'standard',
     'electric_handbrake' => 'no',
 ];
@@ -43,12 +43,15 @@ if (class_exists(FavoritesManager::class)) {
 
 $twoPieceSelected = $favoriteSelectedOptions['two_piece_disc_construction'];
 $rotorSelected = $favoriteSelectedOptions['rotor_pattern'];
+$allowedRotorValues = ['perforation', 'slots', 'perforation_slots', 'perforation_and_notches'];
+if (!in_array($rotorSelected, $allowedRotorValues, true)) {
+    $rotorSelected = 'perforation';
+}
 $caliperSelected = $favoriteSelectedOptions['caliper_logo'];
 $handbrakeSelected = $favoriteSelectedOptions['electric_handbrake'];
 
 $twoPieceYesSelected = $twoPieceSelected === 'yes';
 $twoPieceNoSelected = $twoPieceSelected !== 'yes';
-$rotorNoneSelected = $rotorSelected === 'none';
 $rotorPerforationSelected = $rotorSelected === 'perforation';
 $rotorSlotsSelected = $rotorSelected === 'slots';
 $rotorComboSelected = in_array($rotorSelected, ['perforation_slots', 'perforation_and_notches'], true);
@@ -212,9 +215,8 @@ if (is_string($favoritePriceFormatted) && $favoritePriceFormatted !== '') {
                             </div>
                         </details>
                         <details class="spollers__item">
-                            <summary class="main-details__feature-item spollers__title">Рисунок ротора:</summary>
+                            <summary class="main-details__feature-item spollers__title">Тип ротора:</summary>
                             <div class="main-cataloge__sublist spollers__body">
-                                <div class="main-cataloge__sublist-item<?= $rotorNoneSelected ? ' selected' : '' ?>">НЕТ</div>
                                 <div class="main-cataloge__sublist-item<?= $rotorPerforationSelected ? ' selected' : '' ?>">ПЕРФОРАЦИЯ</div>
                                 <div class="main-cataloge__sublist-item<?= $rotorSlotsSelected ? ' selected' : '' ?>">НАСЕЧКИ</div>
                                 <div class="main-cataloge__sublist-item<?= $rotorComboSelected ? ' selected' : '' ?>">ПЕРФОРАЦИЯ + НАСЕЧКИ</div>

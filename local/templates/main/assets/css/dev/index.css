@@ -547,6 +547,7 @@
   position: relative;
   border-radius: 0;
   border: none;
+  cursor: pointer;
 }
 .main-cataloge__feature-item::before {
   display: none;

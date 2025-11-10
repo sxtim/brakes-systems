@@ -4,6 +4,6 @@
 /upload/
 /.htaccess
 .DS_Store
-dist
+/dist
 .section.php
 sync_config.jsonc

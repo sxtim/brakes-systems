@@ -57,7 +57,7 @@ if ($selectedOptions !== []) {
 
 $optionLabelMap = [
     'two_piece_disc_construction' => 'Двусоставная конструкция диска:',
-    'rotor_pattern' => 'Рисунок ротора:',
+    'rotor_pattern' => 'Тип ротора:',
     'caliper_logo' => 'Лого на суппорт:',
     'electric_handbrake' => 'Электроручник:',
 ];
@@ -103,17 +103,20 @@ $formatOptionValue = static function (string $key, ?string $value) use ($optionV
 };
 
 $hasSelectedValues = $selectedOptions !== [];
-$twoPieceSelected = $hasSelectedValues ? ($selectedOptions['two_piece_disc_construction'] ?? 'no') : null;
-$rotorSelected = $hasSelectedValues ? ($selectedOptions['rotor_pattern'] ?? null) : null;
+$twoPieceSelected = $hasSelectedValues ? ($selectedOptions['two_piece_disc_construction'] ?? 'no') : 'no';
+$rotorSelected = $hasSelectedValues ? ($selectedOptions['rotor_pattern'] ?? 'perforation') : 'perforation';
+$allowedRotorValues = ['perforation', 'slots', 'perforation_slots', 'perforation_and_notches'];
+if (!in_array($rotorSelected, $allowedRotorValues, true)) {
+    $rotorSelected = 'perforation';
+}
 $caliperSelected = $hasSelectedValues ? ($selectedOptions['caliper_logo'] ?? 'standard') : null;
-$handbrakeSelected = $hasSelectedValues ? ($selectedOptions['electric_handbrake'] ?? 'no') : null;
+$handbrakeSelected = $hasSelectedValues ? ($selectedOptions['electric_handbrake'] ?? 'no') : 'no';
 
 $twoPieceYesSelected = $twoPieceSelected === 'yes';
 $twoPieceNoSelected = $twoPieceSelected !== null && $twoPieceSelected !== 'yes';
-$rotorNoneSelected = $rotorSelected === 'none';
 $rotorPerforationSelected = $rotorSelected === 'perforation';
 $rotorSlotsSelected = $rotorSelected === 'slots';
-$rotorComboSelected = $rotorSelected === 'perforation_slots';
+$rotorComboSelected = in_array($rotorSelected, ['perforation_slots', 'perforation_and_notches'], true);
 $caliperStandardSelected = $caliperSelected === 'standard';
 $caliperSpecialSelected = in_array($caliperSelected, ['special', 'custom_logo'], true);
 $handbrakeYesSelected = $handbrakeSelected === 'yes';
@@ -202,9 +205,8 @@ $detailsOpenAttr = $expandFeatures ? ' open' : '';
                         </div>
                     </details>
                     <details class="spollers__item main-cataloge__feature-item--big"<?=$detailsOpenAttr?>>
-                        <summary class="main-cataloge__feature-item спollers__title">Рисунок ротора:</summary>
+                        <summary class="main-cataloge__feature-item спollers__title">Тип ротора:</summary>
                         <div class="main-cataloge__sublist спollers__body">
-                            <div class="main-cataloge__sublist-item<?=$rotorNoneSelected ? ' selected' : ''?>">НЕТ</div>
                             <div class="main-cataloge__sublist-item<?=$rotorPerforationSelected ? ' selected' : ''?>">ПЕРФОРАЦИЯ</div>
                             <div class="main-cataloge__sublist-item<?=$rotorSlotsSelected ? ' selected' : ''?>">НАСЕЧКИ</div>
                             <div class="main-cataloge__sublist-item<?=$rotorComboSelected ? ' selected' : ''?>">ПЕРФОРАЦИЯ + НАСЕЧКИ</div>
