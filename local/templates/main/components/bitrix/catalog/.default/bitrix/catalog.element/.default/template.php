@@ -101,6 +101,125 @@ $initialPriceFormatted = $basePriceFormatted;
 if (is_string($favoritePriceFormatted) && $favoritePriceFormatted !== '') {
     $initialPriceFormatted = htmlspecialcharsback($favoritePriceFormatted);
 }
+
+// Подготовка применяемости для вывода
+$splitValues = static function ($value): array {
+    $result = [];
+    if (is_string($value)) {
+        $parts = explode(';', $value);
+        $result = $parts;
+    } elseif (is_array($value)) {
+        $result = $value;
+    }
+    return array_values(array_filter(array_map('trim', $result), 'strlen'));
+};
+
+$markValues = $splitValues($arResult['PROPERTIES']['MARK']['VALUE'] ?? []);
+$modelValues = $splitValues($arResult['PROPERTIES']['MODEL']['VALUE'] ?? []);
+$bodyValues = $splitValues($arResult['PROPERTIES']['BODY']['VALUE'] ?? []);
+$dateStartValues = $splitValues($arResult['PROPERTIES']['DATE_RELEASE']['VALUE'] ?? []);
+$dateEndValues = $splitValues($arResult['PROPERTIES']['DATE_END']['VALUE'] ?? []);
+
+$applicabilityRows = [];
+$rowCount = min(count($markValues), count($modelValues), count($bodyValues));
+for ($i = 0; $i < $rowCount; $i++) {
+    $applicabilityRows[] = [
+        'MARK' => $markValues[$i] ?? '',
+        'MODEL' => $modelValues[$i] ?? '',
+        'BODY' => $bodyValues[$i] ?? '',
+        'DATE_RELEASE' => $dateStartValues[$i] ?? '',
+        'DATE_END' => $dateEndValues[$i] ?? '',
+    ];
+}
+
+$contextApplicability = null;
+$filteredApplicability = $applicabilityRows;
+if (!empty($applicabilityRows) && !empty($arResult['SECTION']['PATH']) && is_array($arResult['SECTION']['PATH'])) {
+    $path = array_values($arResult['SECTION']['PATH']);
+    $normalize = static function ($value): string {
+        return mb_strtolower(trim((string)$value));
+    };
+
+    $pathCount = count($path);
+    // Определяем бренд/модель/кузов по длине пути: 3+ уровня - последние три, 2 уровня - марка+модель, 1 - только марка
+    $brandName = $brandCode = $modelName = $modelCode = $bodyName = $bodyCode = '';
+    if ($pathCount >= 3) {
+        $brand = $path[$pathCount - 3];
+        $model = $path[$pathCount - 2];
+        $body  = $path[$pathCount - 1];
+    } elseif ($pathCount === 2) {
+        $brand = $path[0];
+        $model = $path[1];
+        $body  = [];
+    } else {
+        $brand = $path[0];
+        $model = [];
+        $body  = [];
+    }
+    $brandName = $brand['NAME'] ?? '';
+    $brandCode = $brand['CODE'] ?? '';
+    $modelName = $model['NAME'] ?? '';
+    $modelCode = $model['CODE'] ?? '';
+    $bodyName  = $body['NAME'] ?? '';
+    $bodyCode  = $body['CODE'] ?? '';
+
+    $brandNameN = $normalize($brandName);
+    $brandCodeN = $normalize($brandCode);
+    $modelNameN = $normalize($modelName);
+    $modelCodeN = $normalize($modelCode);
+    $bodyNameN  = $normalize($bodyName);
+    $bodyCodeN  = $normalize($bodyCode);
+
+    // Фильтрация в зависимости от уровня пути: 3+ (марка+модель+кузов), 2 (марка+модель), 1 (марка), иначе полный список
+    if ($pathCount >= 3) {
+        $filteredApplicability = array_values(array_filter($applicabilityRows, static function ($row) use ($normalize, $brandNameN, $modelNameN, $modelCodeN, $bodyNameN, $bodyCodeN) {
+            $markN  = $normalize($row['MARK']);
+            $modelN = $normalize($row['MODEL']);
+            $bodyN  = $normalize($row['BODY']);
+            return ($markN === $brandNameN)
+                && (($modelNameN !== '' && $modelN === $modelNameN) || ($modelCodeN !== '' && $modelN === $modelCodeN))
+                && (($bodyNameN !== '' && $bodyN === $bodyNameN) || ($bodyCodeN !== '' && $bodyN === $bodyCodeN));
+        }));
+        $contextApplicability = $filteredApplicability[0] ?? null;
+    } elseif ($pathCount === 2) {
+        $filteredApplicability = array_values(array_filter($applicabilityRows, static function ($row) use ($normalize, $brandNameN, $modelNameN, $modelCodeN) {
+            $markN  = $normalize($row['MARK']);
+            $modelN = $normalize($row['MODEL']);
+            return ($markN === $brandNameN)
+                && (($modelNameN !== '' && $modelN === $modelNameN) || ($modelCodeN !== '' && $modelN === $modelCodeN));
+        }));
+        // здесь показываем все модели бренда, контекст не нужен
+        $contextApplicability = null;
+    } elseif ($pathCount === 1) {
+        $filteredApplicability = array_values(array_filter($applicabilityRows, static function ($row) use ($normalize, $brandNameN) {
+            $markN  = $normalize($row['MARK']);
+            return ($markN === $brandNameN);
+        }));
+        $contextApplicability = null;
+    }
+}
+
+// Debug: выводим цепочку разделов/значения применяемости в HTML-комментарий
+$sectionPathInfo = [];
+if (!empty($arResult['SECTION']['PATH']) && is_array($arResult['SECTION']['PATH'])) {
+    foreach ($arResult['SECTION']['PATH'] as $sec) {
+        $sectionPathInfo[] = ($sec['NAME'] ?? '') . ' [' . ($sec['CODE'] ?? '') . ']';
+    }
+}
+$debugLine = date('c')
+    . ' element_id=' . (int)$arResult['ID']
+    . ' uri=' . ($_SERVER['REQUEST_URI'] ?? '')
+    . ' section_path=' . (empty($sectionPathInfo) ? 'no' : implode(' / ', $sectionPathInfo))
+    . ' brand=' . $brandName . '|' . $brandCode
+    . ' model=' . $modelName . '|' . $modelCode
+    . ' body=' . $bodyName . '|' . $bodyCode
+    . ' context_mark=' . ($contextApplicability['MARK'] ?? '')
+    . ' context_model=' . ($contextApplicability['MODEL'] ?? '')
+    . ' context_body=' . ($contextApplicability['BODY'] ?? '')
+    . ' marks=' . (is_array($markValues) ? implode(';', $markValues) : '')
+    . ' models=' . (is_array($modelValues) ? implode(';', $modelValues) : '')
+    . ' bodies=' . (is_array($bodyValues) ? implode(';', $bodyValues) : '');
+echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
 ?>
 <div class="main__overlay">
     <div class="main__content">
@@ -297,6 +416,7 @@ if (is_string($favoritePriceFormatted) && $favoritePriceFormatted !== '') {
 <div class="main__details details">
     <?php
 
+    $skipCodes = ['MARK', 'MODEL', 'BODY', 'DATE_RELEASE', 'DATE_END'];
     foreach ($arResult['PROPERTIES'] as $prop) {
         switch ($prop['CODE']) {
             case 'VIDEO_LINK':
@@ -309,6 +429,10 @@ if (is_string($favoritePriceFormatted) && $favoritePriceFormatted !== '') {
             case 'CUSTOM_DESCRIPTION':
             case 'DELIVERY':
                 continue(2);
+        }
+
+        if (in_array($prop['CODE'], $skipCodes, true)) {
+            continue;
         }
 
         if (!$prop['VALUE']) {
@@ -324,6 +448,67 @@ if (is_string($favoritePriceFormatted) && $favoritePriceFormatted !== '') {
 
     }
     ?>
+
+    <?php if ($contextApplicability): ?>
+        <div class="details-row">
+            <span class="details-label">Марка:</span>
+            <span class="details-dots"></span>
+            <span class="details-value"><?=htmlspecialcharsbx($contextApplicability['MARK'])?></span>
+        </div>
+        <div class="details-row">
+            <span class="details-label">Модель:</span>
+            <span class="details-dots"></span>
+            <span class="details-value"><?=htmlspecialcharsbx($contextApplicability['MODEL'])?></span>
+        </div>
+        <div class="details-row">
+            <span class="details-label">Кузов:</span>
+            <span class="details-dots"></span>
+            <span class="details-value"><?=htmlspecialcharsbx($contextApplicability['BODY'])?></span>
+        </div>
+        <?php if ($contextApplicability['DATE_RELEASE'] || $contextApplicability['DATE_END']): ?>
+            <div class="details-row">
+                <span class="details-label">Год начала выпуска:</span>
+                <span class="details-dots"></span>
+                <span class="details-value"><?=htmlspecialcharsbx($contextApplicability['DATE_RELEASE'])?></span>
+            </div>
+            <div class="details-row">
+                <span class="details-label">Год окончания выпуска:</span>
+                <span class="details-dots"></span>
+                <span class="details-value"><?=htmlspecialcharsbx($contextApplicability['DATE_END'])?></span>
+            </div>
+        <?php endif; ?>
+    <?php elseif (!empty($filteredApplicability)): ?>
+        <div class="details-row applicability-row">
+            <span class="details-label">Применяемость:</span>
+            <span class="details-dots"></span>
+            <span class="details-value">
+                <div class="applicability-table__wrapper">
+                    <table class="applicability-table">
+                        <thead>
+                        <tr>
+                            <th>Марка</th>
+                            <th>Модель</th>
+                            <th>Кузов</th>
+                            <th>Начало</th>
+                            <th>Окончание</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <?php foreach ($filteredApplicability as $row): ?>
+                            <tr>
+                                <td><?=htmlspecialcharsbx($row['MARK'])?></td>
+                                <td><?=htmlspecialcharsbx($row['MODEL'])?></td>
+                                <td><?=htmlspecialcharsbx($row['BODY'])?></td>
+                                <td><?=htmlspecialcharsbx($row['DATE_RELEASE'])?></td>
+                                <td><?=htmlspecialcharsbx($row['DATE_END'])?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </span>
+        </div>
+    <?php endif; ?>
 </div>
 <div data-fls-popup="speedBuy" aria-hidden="true" class="popup">
     <div data-fls-popup-wrapper="" class="popup__wrapper">

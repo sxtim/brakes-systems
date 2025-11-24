@@ -1267,3 +1267,38 @@ body:not(.lg-from-hash)
 		font-size: 4.3125rem;
 	}
 }
+.applicability-row {
+	align-items: flex-start;
+}
+.applicability-table__wrapper {
+	overflow-x: auto;
+	width: 100%;
+}
+.applicability-table {
+	width: 100%;
+	border-collapse: collapse;
+	/* font-size: 1.3rem; */
+	text-align: left;
+}
+.applicability-table th,
+.applicability-table td {
+	padding: 0.6rem;
+	border-bottom: 0.1rem solid #e4e5e7;
+	white-space: nowrap;
+}
+.applicability-table th {
+	font-weight: 700;
+}
+.applicability-table td {
+	/* font-weight: 400; */
+}
+@media (max-width: 48em) {
+	.applicability-table {
+		/* font-size: 1.2rem; */
+	}
+	.applicability-table th,
+	.applicability-table td {
+		padding: 0.4rem;
+	}
+}
+.details-row{display:flex;align-items:flex-end;padding:.1875rem 0}.details-dots{flex-grow:1;border-bottom:.1875rem dotted #c7c7c7;margin:0 .625rem;display:flex;min-width:1.25rem;width:100%;transform:translateY(.1875rem)}

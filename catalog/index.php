@@ -32,7 +32,7 @@ Array(
     "CACHE_TIME" => "36000000",
     "CACHE_FILTER" => "N",
     "CACHE_GROUPS" => "Y",
-    "USE_MAIN_ELEMENT_SECTION" => "Y",
+    "USE_MAIN_ELEMENT_SECTION" => "N",
     "SET_LAST_MODIFIED" => "N",
     "SET_TITLE" => "Y",
     "ADD_SECTIONS_CHAIN" => "Y",
@@ -135,7 +135,7 @@ Array(
     "DETAIL_OFFERS_PROPERTY_CODE" => array(
     ),
     "DETAIL_BACKGROUND_IMAGE" => "-",
-    "DETAIL_STRICT_SECTION_CHECK" => "Y",
+    "DETAIL_STRICT_SECTION_CHECK" => "N",
     "LINK_IBLOCK_TYPE" => "",
     "LINK_IBLOCK_ID" => "",
     "LINK_PROPERTY_SID" => "",

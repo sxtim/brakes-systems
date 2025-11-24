@@ -23,25 +23,54 @@ $rsData = CIBlockElement::GetList(
 $itemsData = [];
 $sectionsName = [];
 $sectionsData = [];
+$createdSections = 0;
+$elementsProcessed = 0;
+$combosProcessed = 0;
+$skippedLengthMismatch = 0;
+$elementSectionsLog = [];
 
 while ($data = $rsData->fetch()) {
-    if ( ! in_array($data['PROPERTY_MARK_VALUE'], $sectionsName)) {
-        $sectionsName[] = $data['PROPERTY_MARK_VALUE'];
+    $marks = array_values(array_filter(array_map('trim', explode(';', (string)$data['PROPERTY_MARK_VALUE'])), 'strlen'));
+    $models = array_values(array_filter(array_map('trim', explode(';', (string)$data['PROPERTY_MODEL_VALUE'])), 'strlen'));
+    $bodies = array_values(array_filter(array_map('trim', explode(';', (string)$data['PROPERTY_BODY_VALUE'])), 'strlen'));
+
+    if (count($marks) !== count($models) || count($marks) !== count($bodies)) {
+        $skippedLengthMismatch++;
+        continue;
     }
 
-    if ( ! in_array($data['PROPERTY_MODEL_VALUE'], $sectionsName)) {
-        $sectionsName[] = $data['PROPERTY_MODEL_VALUE'];
-    }
+    $elementsProcessed++;
 
-    if ( ! in_array($data['PROPERTY_BODY_VALUE'], $sectionsName)) {
-        $sectionsName[] = $data['PROPERTY_BODY_VALUE'];
-    }
+    foreach ($marks as $i => $mark) {
+        $model = $models[$i];
+        $body = $bodies[$i];
 
-    $itemsData[$data['ID']]['SECTION_1'] = $data['PROPERTY_MARK_VALUE'];
-    $itemsData[$data['ID']]['SECTION_2'] = $data['PROPERTY_MODEL_VALUE'];
-    $itemsData[$data['ID']]['SECTION_3'] = $data['PROPERTY_BODY_VALUE'];
-    $sectionsData[$data['PROPERTY_MARK_VALUE']][$data['PROPERTY_MODEL_VALUE']][$data['PROPERTY_BODY_VALUE']]
-        = true;
+        if ($mark === '' || $model === '' || $body === '') {
+            continue;
+        }
+
+        $combosProcessed++;
+
+        if ( ! in_array($mark, $sectionsName)) {
+            $sectionsName[] = $mark;
+        }
+
+        if ( ! in_array($model, $sectionsName)) {
+            $sectionsName[] = $model;
+        }
+
+        if ( ! in_array($body, $sectionsName)) {
+            $sectionsName[] = $body;
+        }
+
+        $itemsData[$data['ID']][] = [
+            'SECTION_1' => $mark,
+            'SECTION_2' => $model,
+            'SECTION_3' => $body,
+        ];
+
+        $sectionsData[$mark][$model][$body] = true;
+    }
 }
 
 $rsData = SectionTable::getList([
@@ -58,6 +87,7 @@ $rsData = SectionTable::getList([
 
 $sectionsDb = [];
 $sectionsDbIdName = [];
+$sectionsByParent = [];
 
 while ($data = $rsData->fetch()) {
     if ( ! in_array($data['NAME'], $sectionsName)) {
@@ -82,10 +112,15 @@ while ($data = $rsData->fetch()) {
     }
 
     $sectionsDbIdName[$data['ID']] = $data['NAME'];
+    $parentId = (int)$data['IBLOCK_SECTION_ID'];
+    if ($parentId === 0) {
+        $parentId = 0;
+    }
+    $sectionsByParent[$parentId][$data['NAME']] = $data['ID'];
 }
 
 foreach ($sectionsData as $lvl1 => $lvls2) {
-    if ( ! isset($sectionsDb[$lvl1])) {
+    if ( ! isset($sectionsByParent[0][$lvl1])) {
         $id = SectionTable::add([
             'IBLOCK_ID' => 1,
             'NAME'      => $lvl1,
@@ -93,24 +128,29 @@ foreach ($sectionsData as $lvl1 => $lvls2) {
             'ACTIVE'   => 'Y',
         ])->getId();
 
+        $createdSections++;
         $sectionsDb[$lvl1]['ID'] = $id;
         $sectionsDbIdName[$id] = $lvl1;
+        $sectionsByParent[0][$lvl1] = $id;
     }
 
     foreach ($lvls2 as $lvl2 => $lvls3) {
-        if (isset($sectionsDb[$lvl2][$sectionsDb[$lvl1]['ID']])) {
+        $parentId = $sectionsByParent[0][$lvl1];
+        if (isset($sectionsByParent[$parentId][$lvl2])) {
             continue;
         }
 
         $id = SectionTable::add([
             'IBLOCK_ID'         => 1,
             'NAME'              => $lvl2,
-            'IBLOCK_SECTION_ID' => $sectionsDb[$lvl1]['ID'],
+            'IBLOCK_SECTION_ID' => $parentId,
             'CODE' => CUtil::translit($lvl1 . $lvl2, 'ru'),
             'ACTIVE'   => 'Y',
         ])->getId();
 
+        $createdSections++;
         $sectionsDbIdName[$id] = $lvl2;
+        $sectionsByParent[$parentId][$lvl2] = $id;
 
         if ($sectionsDb[$lvl2]['ID']) {
             $sectionsDb[$lvl2]['IDS'][$sectionsDb[$lvl2]['ID']] = $sectionsDb[$lvl2]['IBLOCK_SECTION_ID'];
@@ -126,19 +166,25 @@ foreach ($sectionsData as $lvl1 => $lvls2) {
         $sectionsDb[$lvl2][$sectionsDb[$lvl1]['ID']] = $sectionsDb[$lvl1]['ID'];
 
         foreach ($lvls3 as $lvl3 => $true) {
-            if (isset($sectionsDb[$lvl3][$sectionsDb[$lvl2]['ID']])) {
+            $parentLvl2 = $sectionsByParent[$parentId][$lvl2] ?? null;
+            if (!$parentLvl2) {
+                continue;
+            }
+            if (isset($sectionsByParent[$parentLvl2][$lvl3])) {
                 continue;
             }
 
             $id = SectionTable::add([
                 'IBLOCK_ID'         => 1,
                 'NAME'              => $lvl3,
-                'IBLOCK_SECTION_ID' => $sectionsDb[$lvl2]['ID'] ?: array_search($sectionsDb[$lvl1]['ID'],  $sectionsDb[$lvl2]['IDS']),
+                'IBLOCK_SECTION_ID' => $parentLvl2,
                 'CODE' => CUtil::translit($lvl1 . $lvl2 . $lvl3, 'ru'),
                 'ACTIVE'   => 'Y',
             ])->getId();
 
+            $createdSections++;
             $sectionsDbIdName[$id] = $lvl3;
+            $sectionsByParent[$parentLvl2][$lvl3] = $id;
 
             if ($sectionsDb[$lvl3]['ID']) {
                 $sectionsDb[$lvl3]['IDS'][$sectionsDb[$lvl3]['ID']] = $sectionsDb[$lvl3]['IBLOCK_SECTION_ID'];
@@ -159,28 +205,32 @@ foreach ($sectionsData as $lvl1 => $lvls2) {
 
 foreach ($itemsData as $id => $item) {
     $el = new CIBlockElement();
+    $elementSectionIds = [];
 
-    if (isset($sectionsDb[$item['SECTION_3']]['IDS'])) {
-        if (isset($sectionsDb[$item['SECTION_2']]['IDS'])) {
-            $idLvl2 = array_search($sectionsDb[$item['SECTION_1']]['ID'], $sectionsDb[$item['SECTION_2']]['IDS']);
-        } else {
-            $idLvl2 = $sectionsDb[$item['SECTION_2']]['ID'];
+    foreach ($item as $combo) {
+        $lvl1Id = $sectionsByParent[0][$combo['SECTION_1']] ?? null;
+        $lvl2Id = $lvl1Id ? ($sectionsByParent[$lvl1Id][$combo['SECTION_2']] ?? null) : null;
+        $lvl3Id = $lvl2Id ? ($sectionsByParent[$lvl2Id][$combo['SECTION_3']] ?? null) : null;
+
+        if ($lvl3Id) {
+            $elementSectionIds[] = $lvl3Id;
         }
+    }
 
-        $idLvl3 = array_search($idLvl2, $sectionsDb[$item['SECTION_3']]['IDS']);
-
-        $result = $el->Update(
-            $id,
-            [
-                'IBLOCK_SECTION_ID' => $idLvl3,
-            ]
-        );
+    if ($elementSectionIds) {
+        CIBlockElement::SetElementSection($id, array_unique($elementSectionIds), true);
+        $elementSectionsLog[] = 'element_id=' . $id . ' sections=' . implode(',', $elementSectionIds);
     } else {
-        $result = $el->Update(
-            $id,
-            [
-                'IBLOCK_SECTION_ID' => $sectionsDb[$item['SECTION_3']]['ID'],
-            ]
-        );
+        $elementSectionsLog[] = 'element_id=' . $id . ' sections=none';
     }
 }
+
+$logLine = date('c')
+    . ' elements=' . $elementsProcessed
+    . ' combos=' . $combosProcessed
+    . ' sections_created=' . $createdSections
+    . ' skipped_mismatch=' . $skippedLengthMismatch
+    . PHP_EOL
+    . implode(PHP_EOL, $elementSectionsLog)
+    . PHP_EOL;
+file_put_contents($_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log', $logLine, FILE_APPEND);

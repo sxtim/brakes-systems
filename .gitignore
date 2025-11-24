@@ -7,3 +7,5 @@
 /dist
 .section.php
 sync_config.jsonc
+Readme.txt
+/logs
