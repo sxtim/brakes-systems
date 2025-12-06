@@ -392,10 +392,27 @@ function parseOptions(value) {
     return null;
 }
 
-function normalizeOptionsPayload(options) {
+function normalizeOptionsPayload(options, context = null) {
     const parsed = parseOptions(options);
+    let normalizedContext = null;
+
+    if (context && typeof context === "object") {
+        const sectionId = parseInt(context.section_id || context.sectionId || context.section, 10);
+        const sectionPath = typeof context.section_path === "string" ? context.section_path : context.sectionPath;
+        const ctx = {};
+        if (sectionId > 0) {
+            ctx.section_id = sectionId;
+        }
+        if (sectionPath && typeof sectionPath === "string" && sectionPath.trim() !== "") {
+            ctx.section_path = sectionPath.trim();
+        }
+        if (Object.keys(ctx).length > 0) {
+            normalizedContext = ctx;
+        }
+    }
+
     if (!parsed || typeof parsed !== "object") {
-        return { options: {} };
+        return normalizedContext ? { options: {}, context: normalizedContext } : { options: {} };
     }
 
     let source = parsed;
@@ -404,7 +421,7 @@ function normalizeOptionsPayload(options) {
     }
 
     if (!source || typeof source !== "object") {
-        return { options: {} };
+        return normalizedContext ? { options: {}, context: normalizedContext } : { options: {} };
     }
 
     const normalized = {};
@@ -427,16 +444,44 @@ function normalizeOptionsPayload(options) {
         normalized[normalizedKey] = String(rawValue).toLowerCase();
     });
 
-    return { options: normalized };
+    const payload = { options: normalized };
+    if (normalizedContext) {
+        payload.context = normalizedContext;
+    }
+    return payload;
 }
 
 function hasOptions(payload) {
-    return Boolean(payload && payload.options && Object.keys(payload.options).length > 0);
+    const hasContext = Boolean(payload && payload.context && Object.keys(payload.context).length > 0);
+    const hasOpt = Boolean(payload && payload.options && Object.keys(payload.options).length > 0);
+    return hasOpt || hasContext;
+}
+
+function extractContext(element) {
+    if (!element) {
+        return null;
+    }
+
+    const dataset = element.dataset || {};
+    const sectionId = parseInt(dataset.contextSectionId || 0, 10);
+    const sectionPath = dataset.contextPath ? String(dataset.contextPath) : "";
+
+    const context = {};
+    if (sectionId > 0) {
+        context.section_id = sectionId;
+    }
+    if (sectionPath && sectionPath.trim() !== "") {
+        context.section_path = sectionPath.trim();
+    }
+
+    return Object.keys(context).length ? context : null;
 }
 
 function extractOptionsData(element, productId) {
+    const context = extractContext(element);
+
     if (element) {
-        const direct = normalizeOptionsPayload(element.dataset?.options);
+        const direct = normalizeOptionsPayload(element.dataset?.options, context);
         if (hasOptions(direct)) {
             return direct;
         }
@@ -449,7 +494,7 @@ function extractOptionsData(element, productId) {
         if (container) {
             const button = container.querySelector("[data-fls-like-button]");
             if (button && button !== element) {
-                const parsed = normalizeOptionsPayload(button.dataset?.options);
+                const parsed = normalizeOptionsPayload(button.dataset?.options, extractContext(button) || context);
                 if (hasOptions(parsed)) {
                     return parsed;
                 }
@@ -458,13 +503,13 @@ function extractOptionsData(element, productId) {
     }
 
     if (productId && state.meta && state.meta[productId] && state.meta[productId].options) {
-        const metaPayload = normalizeOptionsPayload(state.meta[productId].options);
+        const metaPayload = normalizeOptionsPayload(state.meta[productId].options, state.meta[productId].context || null);
         if (hasOptions(metaPayload)) {
             return metaPayload;
         }
     }
 
-    return { options: {} };
+    return context ? { options: {}, context } : { options: {} };
 }
 
 function handleProductOptionsChanged(event) {

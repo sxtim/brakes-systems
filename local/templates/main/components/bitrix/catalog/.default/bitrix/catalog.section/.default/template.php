@@ -22,7 +22,20 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     </div>
     <div class="main-cataloge__body view-grid">
         <?php
-
+        $contextSectionId = (int)($arResult['ID'] ?? 0);
+        $contextSectionPath = '';
+        if ($contextSectionId > 0 && !empty($arParams['IBLOCK_ID'])) {
+            $navChain = \CIBlockSection::GetNavChain((int)$arParams['IBLOCK_ID'], $contextSectionId, ['ID', 'CODE']);
+            $codes = [];
+            while ($row = $navChain->Fetch()) {
+                if (!empty($row['CODE'])) {
+                    $codes[] = $row['CODE'];
+                }
+            }
+            if (!empty($codes)) {
+                $contextSectionPath = implode('/', $codes);
+            }
+        }
         $cardPartialPath = __DIR__ . '/partials/product-card.php';
 
         foreach ($arResult['ITEMS'] as $item) {
@@ -74,6 +87,8 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 'ID' => $item['ID'],
                 'NAME' => $item['NAME'],
                 'DETAIL_PAGE_URL' => $item['DETAIL_PAGE_URL'],
+                'CONTEXT_SECTION_ID' => $contextSectionId,
+                'CONTEXT_SECTION_PATH' => $contextSectionPath,
                 'IMAGE' => $item['IMAGE'] ?? null,
                 'IMG' => $item['IMG'] ?? '',
                 'PRICE_HTML' => $priceFormatted,

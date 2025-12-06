@@ -136,40 +136,39 @@ foreach ($sectionsData as $lvl1 => $lvls2) {
 
     foreach ($lvls2 as $lvl2 => $lvls3) {
         $parentId = $sectionsByParent[0][$lvl1];
-        if (isset($sectionsByParent[$parentId][$lvl2])) {
-            continue;
-        }
+        $parentLvl2 = $sectionsByParent[$parentId][$lvl2] ?? null;
 
-        $id = SectionTable::add([
-            'IBLOCK_ID'         => 1,
-            'NAME'              => $lvl2,
-            'IBLOCK_SECTION_ID' => $parentId,
-            'CODE' => CUtil::translit($lvl1 . $lvl2, 'ru'),
-            'ACTIVE'   => 'Y',
-        ])->getId();
+        // Создаем раздел модели, если его еще нет под текущей маркой
+        if (!$parentLvl2) {
+            $id = SectionTable::add([
+                'IBLOCK_ID'         => 1,
+                'NAME'              => $lvl2,
+                'IBLOCK_SECTION_ID' => $parentId,
+                'CODE'              => CUtil::translit($lvl1 . $lvl2, 'ru'),
+                'ACTIVE'            => 'Y',
+            ])->getId();
 
-        $createdSections++;
-        $sectionsDbIdName[$id] = $lvl2;
-        $sectionsByParent[$parentId][$lvl2] = $id;
+            $createdSections++;
+            $sectionsDbIdName[$id] = $lvl2;
+            $sectionsByParent[$parentId][$lvl2] = $id;
+            $parentLvl2 = $id;
 
-        if ($sectionsDb[$lvl2]['ID']) {
-            $sectionsDb[$lvl2]['IDS'][$sectionsDb[$lvl2]['ID']] = $sectionsDb[$lvl2]['IBLOCK_SECTION_ID'];
-            unset($sectionsDb[$lvl2]['ID']);
-            unset($sectionsDb[$lvl2]['IBLOCK_SECTION_ID']);
+            if ($sectionsDb[$lvl2]['ID']) {
+                $sectionsDb[$lvl2]['IDS'][$sectionsDb[$lvl2]['ID']] = $sectionsDb[$lvl2]['IBLOCK_SECTION_ID'];
+                unset($sectionsDb[$lvl2]['ID']);
+                unset($sectionsDb[$lvl2]['IBLOCK_SECTION_ID']);
 
-            $sectionsDb[$lvl2]['IDS'][$id] = $sectionsDb[$lvl1]['ID'];
-        } else {
-            $sectionsDb[$lvl2]['ID'] = $id;
-            $sectionsDb[$lvl2]['IBLOCK_SECTION_ID'] = $sectionsDb[$lvl1]['ID'];
-        }
-
-        $sectionsDb[$lvl2][$sectionsDb[$lvl1]['ID']] = $sectionsDb[$lvl1]['ID'];
-
-        foreach ($lvls3 as $lvl3 => $true) {
-            $parentLvl2 = $sectionsByParent[$parentId][$lvl2] ?? null;
-            if (!$parentLvl2) {
-                continue;
+                $sectionsDb[$lvl2]['IDS'][$id] = $sectionsDb[$lvl1]['ID'];
+            } else {
+                $sectionsDb[$lvl2]['ID'] = $id;
+                $sectionsDb[$lvl2]['IBLOCK_SECTION_ID'] = $sectionsDb[$lvl1]['ID'];
             }
+
+            $sectionsDb[$lvl2][$sectionsDb[$lvl1]['ID']] = $sectionsDb[$lvl1]['ID'];
+        }
+
+        // Для каждой комбинации кузова под этой моделью создаем недостающие разделы
+        foreach ($lvls3 as $lvl3 => $true) {
             if (isset($sectionsByParent[$parentLvl2][$lvl3])) {
                 continue;
             }
@@ -178,8 +177,8 @@ foreach ($sectionsData as $lvl1 => $lvls2) {
                 'IBLOCK_ID'         => 1,
                 'NAME'              => $lvl3,
                 'IBLOCK_SECTION_ID' => $parentLvl2,
-                'CODE' => CUtil::translit($lvl1 . $lvl2 . $lvl3, 'ru'),
-                'ACTIVE'   => 'Y',
+                'CODE'              => CUtil::translit($lvl1 . $lvl2 . $lvl3, 'ru'),
+                'ACTIVE'            => 'Y',
             ])->getId();
 
             $createdSections++;
@@ -218,7 +217,10 @@ foreach ($itemsData as $id => $item) {
     }
 
     if ($elementSectionIds) {
-        CIBlockElement::SetElementSection($id, array_unique($elementSectionIds), true);
+        $elementSectionIds = array_unique($elementSectionIds);
+        // Синхронизируем список разделов элемента с рассчитанными,
+        // не добавляя дубликаты и не оставляя старые "хвосты".
+        CIBlockElement::SetElementSection($id, $elementSectionIds);
         $elementSectionsLog[] = 'element_id=' . $id . ' sections=' . implode(',', $elementSectionIds);
     } else {
         $elementSectionsLog[] = 'element_id=' . $id . ' sections=none';

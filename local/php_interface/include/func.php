@@ -1,8 +1,8 @@
 <?php
 
-function getPreviewImgCatalog(string $photos): ?string
+function getPreviewImgCatalog(?string $photos): ?string
 {
-    if (!$photos) {
+    if ($photos === null || $photos === '') {
         return null;
     }
 

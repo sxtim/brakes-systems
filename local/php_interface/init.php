@@ -23,6 +23,7 @@ AddEventHandler('main', 'OnBeforeProlog', static function (): void {
     \App\Brakes\Helper\FavoritesManager::handleProlog();
 });
 
+/*
 AddEventHandler('iblock', 'OnAfterIBlockElementAdd', static function (array &$fields): void {
     if ((int)($fields['IBLOCK_ID'] ?? 0) !== \App\Brakes\Helper\ImageMigrator::IBLOCK_ID) {
         return;
@@ -52,3 +53,5 @@ AddEventHandler('iblock', 'OnAfterIBlockElementUpdate', static function (array &
 
     \App\Brakes\Helper\ImageMigrator::migrateElement($elementId);
 });
+*/
+

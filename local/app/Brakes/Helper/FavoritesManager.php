@@ -112,8 +112,8 @@ class FavoritesManager
         }
 
         self::ensureLoaded();
-        $normalizedOptions = self::normalizeOptions($options);
-        $itemState = self::makeItemState($normalizedOptions);
+        $normalizedPayload = self::normalizePayload($options);
+        $itemState = self::makeItemState($normalizedPayload);
 
         if (self::$isAuthorized) {
             $userId = self::getCurrentUserId();
@@ -125,7 +125,7 @@ class FavoritesManager
                 Favorites::removeProduct($userId, $productId);
                 unset(self::$currentItems[$productId]);
             } else {
-                Favorites::addProduct($userId, $productId, $normalizedOptions);
+                Favorites::addProduct($userId, $productId, $normalizedPayload);
                 self::$currentItems[$productId] = $itemState;
             }
         } else {
@@ -156,9 +156,10 @@ class FavoritesManager
             return false;
         }
 
-        $normalizedOptions = self::normalizeOptions($options);
-        $itemState = self::makeItemState($normalizedOptions);
+        $normalizedPayload = self::normalizePayload($options);
+        $itemState = self::makeItemState($normalizedPayload);
         self::$currentItems[$productId]['options'] = $itemState['options'];
+        self::$currentItems[$productId]['context'] = $itemState['context'];
         self::$currentItems[$productId]['optionsHash'] = $itemState['optionsHash'];
         self::$currentItems[$productId]['priceHash'] = null;
         self::$currentItems[$productId]['priceData'] = null;
@@ -170,7 +171,7 @@ class FavoritesManager
                 return false;
             }
 
-            Favorites::setProductOptions($userId, $productId, $normalizedOptions);
+            Favorites::setProductOptions($userId, $productId, $normalizedPayload);
         } else {
             self::setCookieFavorites(self::$currentItems);
         }
@@ -223,6 +224,9 @@ class FavoritesManager
 
             $name = $fields['~NAME'] ?? $fields['NAME'] ?? '';
             $detailUrl = $fields['DETAIL_PAGE_URL'] ?? '#';
+            $context = self::$currentItems[$id]['context'] ?? [];
+            $detailUrlContext = self::buildDetailUrlWithContext($fields, $context);
+            $contextLabel = self::buildContextLabel($context, (int)($fields['IBLOCK_ID'] ?? 0));
 
             $details = [
                 [
@@ -304,7 +308,8 @@ class FavoritesManager
             $elements[$id] = [
                 'ID' => $id,
                 'NAME' => $name,
-                'URL' => $detailUrl,
+                'URL' => $detailUrlContext ?: $detailUrl,
+                'CANONICAL_URL' => $detailUrl,
                 'PICTURE' => $pictureSrc,
                 'IMAGE' => $pictureData,
                 'DETAILS' => $details,
@@ -315,10 +320,16 @@ class FavoritesManager
                 'OPTIONS' => $optionsRaw,
                 'OPTIONS_UNWRAPPED' => $optionsUnwrapped,
                 'SELECTED_OPTIONS' => $selectedValues,
+                'CONTEXT' => $context,
+                'CONTEXT_LABEL' => $contextLabel,
+                'CONTEXT_URL' => $detailUrlContext ?: $detailUrl,
                 'CARD' => [
                     'ID' => $id,
                     'NAME' => $name,
-                    'DETAIL_PAGE_URL' => $detailUrl,
+                    'DETAIL_PAGE_URL' => $detailUrlContext ?: $detailUrl,
+                    'CONTEXT_LABEL' => $contextLabel,
+                    'CONTEXT_SECTION_ID' => isset($context['section_id']) ? (int)$context['section_id'] : 0,
+                    'CONTEXT_SECTION_PATH' => $context['section_path'] ?? '',
                     'IMAGE' => $pictureData,
                     'IMG' => $pictureSrc,
                     'DETAILS' => $details,
@@ -407,7 +418,8 @@ class FavoritesManager
             return null;
         }
 
-        $normalized = self::normalizeOptions($options);
+        $normalizedPayload = self::normalizePayload($options);
+        $normalized = ['options' => $normalizedPayload['options']];
 
         $price = self::calculatePrice($productId, $normalized);
 
@@ -416,6 +428,7 @@ class FavoritesManager
                 $payload = self::prepareOptionsPayload($normalized);
                 $hash = self::hashOptionsPayload($payload);
                 self::$currentItems[$productId]['options'] = $payload;
+                self::$currentItems[$productId]['context'] = $normalizedPayload['context'];
                 self::$currentItems[$productId]['optionsHash'] = $hash;
                 self::$currentItems[$productId]['priceData'] = $price;
                 self::$currentItems[$productId]['priceHash'] = $hash;
@@ -426,6 +439,7 @@ class FavoritesManager
                 $payload = self::prepareOptionsPayload($normalized);
                 $hash = self::hashOptionsPayload($payload);
                 self::$currentItems[$productId]['options'] = $payload;
+                self::$currentItems[$productId]['context'] = $normalizedPayload['context'];
                 self::$currentItems[$productId]['optionsHash'] = $hash;
                 self::$currentItems[$productId]['priceData'] = null;
                 self::$currentItems[$productId]['priceHash'] = null;
@@ -542,6 +556,7 @@ class FavoritesManager
             'options' => $optionsPayload,
             'optionsHash' => $optionsHash,
             'price' => $pricePublic,
+            'context' => self::$currentItems[$productId]['context'] ?? [],
         ];
     }
 
@@ -560,8 +575,8 @@ class FavoritesManager
 
             $items = [];
             foreach ($rows as $productId => $row) {
-                $normalizedOptions = self::normalizeOptions($row['OPTIONS'] ?? []);
-                $items[$productId] = self::makeItemState($normalizedOptions);
+                $normalizedPayload = self::normalizePayload($row['OPTIONS'] ?? []);
+                $items[$productId] = self::makeItemState($normalizedPayload);
             }
 
             self::$currentItems = $items;
@@ -603,6 +618,65 @@ class FavoritesManager
         $fullPath = $root . $partialRelative;
 
         return file_exists($fullPath) ? $fullPath : null;
+    }
+
+    private static function buildContextSectionPath(array $context, int $iblockId): string
+    {
+        $path = '';
+
+        if (!empty($context['section_path']) && is_string($context['section_path'])) {
+            $path = trim($context['section_path'], " \t\n\r\0\x0B/");
+        } elseif (!empty($context['section_id']) && $context['section_id'] > 0 && Loader::includeModule('iblock')) {
+            $nav = \CIBlockSection::GetNavChain($iblockId, (int)$context['section_id'], ['CODE']);
+            $codes = [];
+            while ($row = $nav->Fetch()) {
+                if (!empty($row['CODE'])) {
+                    $codes[] = $row['CODE'];
+                }
+            }
+            if (!empty($codes)) {
+                $path = implode('/', $codes);
+            }
+        }
+
+        return $path;
+    }
+
+    private static function buildContextLabel(array $context, int $iblockId): string
+    {
+        if (empty($context)) {
+            return '';
+        }
+
+        if (!empty($context['section_id']) && Loader::includeModule('iblock')) {
+            $nav = \CIBlockSection::GetNavChain($iblockId, (int)$context['section_id'], ['NAME']);
+            $names = [];
+            while ($row = $nav->Fetch()) {
+                if (!empty($row['NAME'])) {
+                    $names[] = $row['NAME'];
+                }
+            }
+            $names = array_slice($names, -3);
+            $names = array_values(array_filter($names, static fn($name) => is_string($name) && trim($name) !== ''));
+            return implode(' ', $names);
+        }
+
+        return '';
+    }
+
+    private static function buildDetailUrlWithContext(array $fields, array $context): string
+    {
+        $detailUrl = isset($fields['DETAIL_PAGE_URL']) ? (string)$fields['DETAIL_PAGE_URL'] : '#';
+        $sectionPath = self::buildContextSectionPath($context, (int)($fields['IBLOCK_ID'] ?? 0));
+
+        if ($sectionPath === '') {
+            return $detailUrl;
+        }
+
+        $fieldsWithContext = $fields;
+        $fieldsWithContext['SECTION_CODE_PATH'] = $sectionPath;
+
+        return \CIBlock::ReplaceDetailUrl($detailUrl, $fieldsWithContext, false, 'E');
     }
 
     private static function pruneMissingProducts(): void
@@ -784,7 +858,13 @@ class FavoritesManager
                     $options = $item['OPTIONS'];
                 }
 
-                $normalizedOptions = self::normalizeOptions($options);
+                $context = [];
+                if (isset($item['context']) && is_array($item['context'])) {
+                    $context = $item['context'];
+                }
+
+                $normalizedPayload = self::normalizePayload(['options' => $options, 'context' => $context]);
+                $normalizedOptions = ['options' => $normalizedPayload['options']];
                 $optionsHash = isset($item['optionsHash']) && is_string($item['optionsHash']) && $item['optionsHash'] !== ''
                     ? (string)$item['optionsHash']
                     : self::hashOptionsPayload($normalizedOptions);
@@ -793,6 +873,7 @@ class FavoritesManager
 
                 $normalized[$productId] = [
                     'options' => $normalizedOptions,
+                    'context' => $normalizedPayload['context'],
                     'optionsHash' => $optionsHash,
                     'pricePublic' => $pricePublic,
                     'priceHash' => $pricePublic !== null ? $optionsHash : null,
@@ -838,6 +919,7 @@ class FavoritesManager
                 'options' => $metaEntry['options'],
                 'optionsHash' => $metaEntry['optionsHash'],
                 'price' => $metaEntry['price'],
+                'context' => $data['context'] ?? [],
             ];
         }
 
@@ -930,12 +1012,16 @@ class FavoritesManager
         return $encoded !== false ? md5($encoded) : md5((string)microtime(true));
     }
 
-    private static function makeItemState(array $optionsPayload): array
+    private static function makeItemState(array $payload): array
     {
+        $optionsPayload = self::prepareOptionsPayload($payload['options'] ?? [], true);
+        $context = self::normalizeContext($payload['context'] ?? []);
+
         $hash = self::hashOptionsPayload($optionsPayload);
 
         return [
             'options' => $optionsPayload,
+            'context' => $context,
             'optionsHash' => $hash,
             'priceHash' => null,
             'priceData' => null,
@@ -1045,6 +1131,47 @@ class FavoritesManager
         $result = $map === [] ? [] : ['options' => $map];
 
         return $result;
+    }
+
+    private static function normalizePayload(array $payload): array
+    {
+        $options = [];
+        if (isset($payload['options']) && is_array($payload['options'])) {
+            $options = $payload['options'];
+        } elseif (!empty($payload) && !array_key_exists('options', $payload)) {
+            // backward compatibility: payload could be just options map
+            $options = $payload;
+        }
+
+        $context = self::normalizeContext($payload['context'] ?? []);
+
+        return [
+            'options' => self::prepareOptionsPayload($options, false),
+            'context' => $context,
+        ];
+    }
+
+    private static function normalizeContext($value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $sectionId = isset($value['section_id']) ? (int)$value['section_id'] : (isset($value['sectionId']) ? (int)$value['sectionId'] : 0);
+        $sectionPath = isset($value['section_path']) ? (string)$value['section_path'] : (isset($value['sectionPath']) ? (string)$value['sectionPath'] : '');
+
+        $context = [];
+        if ($sectionId > 0) {
+            $context['section_id'] = $sectionId;
+        }
+        if ($sectionPath !== '') {
+            $sectionPath = trim((string)$sectionPath, " \t\n\r\0\x0B/");
+            if ($sectionPath !== '') {
+                $context['section_path'] = $sectionPath;
+            }
+        }
+
+        return $context;
     }
 
     private static function lowercase(string $value): string

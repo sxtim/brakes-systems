@@ -2,6 +2,7 @@
 
 use App\Brakes\Helper\Storage;
 use Bitrix\Main\Application;
+use Bitrix\Main\Loader;
 use Bitrix\Main\Page\Asset;
 
 if ( ! defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
@@ -61,6 +62,77 @@ $path = implode('/', $path) . '/';
                             "SITE_ID" => "s1"
                         )
                     );?>
+                    <?php
+                    if (Loader::includeModule('iblock')) {
+                        $sectionId = (int)($arResult['VARIABLES']['SECTION_ID'] ?? 0);
+                        $sectionCodePath = (string)($arResult['VARIABLES']['SECTION_CODE_PATH'] ?? '');
+                        if ($sectionId <= 0 && $sectionCodePath !== '') {
+                            $sectionId = (int)\CIBlockFindTools::GetSectionID(false, $sectionCodePath, ['IBLOCK_ID' => $arParams['IBLOCK_ID']]);
+                        }
+
+                        $brandModelBody = [];
+                        if ($sectionId > 0) {
+                            $navChain = \CIBlockSection::GetNavChain($arParams['IBLOCK_ID'], $sectionId, ['ID', 'NAME']);
+                            $sectionNames = [];
+                            while ($row = $navChain->Fetch()) {
+                                if (!empty($row['NAME'])) {
+                                    $sectionNames[] = $row['NAME'];
+                                }
+                            }
+                            $brandModelBody = array_slice($sectionNames, -3);
+                        }
+
+                        if ($brandModelBody === []) {
+                            $elementFilter = ['IBLOCK_ID' => $arParams['IBLOCK_ID']];
+                            $elementId = (int)($arResult['VARIABLES']['ELEMENT_ID'] ?? 0);
+                            if ($elementId > 0) {
+                                $elementFilter['ID'] = $elementId;
+                            } elseif (!empty($arResult['VARIABLES']['ELEMENT_CODE'])) {
+                                $elementFilter['=CODE'] = $arResult['VARIABLES']['ELEMENT_CODE'];
+                            }
+
+                            if (isset($elementFilter['ID']) || isset($elementFilter['=CODE'])) {
+                                $row = \CIBlockElement::GetList(
+                                    [],
+                                    $elementFilter,
+                                    false,
+                                    ['nTopCount' => 1],
+                                    ['ID', 'PROPERTY_MARK', 'PROPERTY_MODEL', 'PROPERTY_BODY']
+                                )->Fetch();
+
+                                $split = static function ($value): array {
+                                    if (is_array($value)) {
+                                        return array_values(array_filter(array_map('trim', $value), 'strlen'));
+                                    }
+                                    if (is_string($value)) {
+                                        return array_values(array_filter(array_map('trim', explode(';', $value)), 'strlen'));
+                                    }
+
+                                    return [];
+                                };
+
+                                if ($row) {
+                                    $brandModelBody = [
+                                        $split($row['PROPERTY_MARK_VALUE'] ?? '')[0] ?? '',
+                                        $split($row['PROPERTY_MODEL_VALUE'] ?? '')[0] ?? '',
+                                        $split($row['PROPERTY_BODY_VALUE'] ?? '')[0] ?? '',
+                                    ];
+                                }
+                            }
+                        }
+
+                        $brandModelBody = array_values(array_filter($brandModelBody, static fn($value) => is_string($value) && $value !== ''));
+                        if ($brandModelBody !== []) {
+                            $currentTitle = (string)$APPLICATION->GetTitle(false);
+                            $suffix = implode(' ', $brandModelBody);
+                            if ($suffix !== '') {
+                                $newTitle = trim($currentTitle !== '' ? $currentTitle . ' — ' . $suffix : $suffix);
+                                $APPLICATION->SetTitle($newTitle);
+                                $APPLICATION->SetPageProperty('title', $newTitle);
+                            }
+                        }
+                    }
+                    ?>
                     <h1 class="main__title"><?=$APPLICATION->ShowTitle(false)?></h1>
                     <?php
 

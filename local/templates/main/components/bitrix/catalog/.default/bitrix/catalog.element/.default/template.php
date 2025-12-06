@@ -114,14 +114,69 @@ $splitValues = static function ($value): array {
     return array_values(array_filter(array_map('trim', $result), 'strlen'));
 };
 
+$formatDateShort = static function ($value): string {
+    if (!is_string($value)) {
+        return '';
+    }
+    $value = trim($value);
+    if ($value === '') {
+        return '';
+    }
+    $parts = explode(' ', $value);
+    return $parts[0];
+};
+
 $markValues = $splitValues($arResult['PROPERTIES']['MARK']['VALUE'] ?? []);
 $modelValues = $splitValues($arResult['PROPERTIES']['MODEL']['VALUE'] ?? []);
 $bodyValues = $splitValues($arResult['PROPERTIES']['BODY']['VALUE'] ?? []);
-$dateStartValues = $splitValues($arResult['PROPERTIES']['DATE_RELEASE']['VALUE'] ?? []);
-$dateEndValues = $splitValues($arResult['PROPERTIES']['DATE_END']['VALUE'] ?? []);
+
+// Годы выпуска: берём либо из профильных свойств, либо из CML2_TRAITS,
+// в зависимости от того, где данные полнее для текущего товара.
+$propDateStartRaw = $arResult['PROPERTIES']['DATE_RELEASE']['VALUE'] ?? null;
+$propDateEndRaw = $arResult['PROPERTIES']['DATE_END']['VALUE'] ?? null;
+$propDateStartValues = $splitValues($propDateStartRaw ?? []);
+$propDateEndValues = $splitValues($propDateEndRaw ?? []);
+
+$traitsDateStartRaw = null;
+$traitsDateEndRaw = null;
+if (!empty($arResult['PROPERTIES']['CML2_TRAITS']['VALUE']) && is_array($arResult['PROPERTIES']['CML2_TRAITS']['VALUE'])) {
+    $traitsValues = $arResult['PROPERTIES']['CML2_TRAITS']['VALUE'];
+    $traitsDesc = $arResult['PROPERTIES']['CML2_TRAITS']['DESCRIPTION'] ?? [];
+
+    foreach ($traitsValues as $k => $val) {
+        $name = $traitsDesc[$k] ?? '';
+        if ($name === 'Год начала выпуска') {
+            $traitsDateStartRaw = (string)$val;
+        } elseif ($name === 'Год окончания выпуска') {
+            $traitsDateEndRaw = (string)$val;
+        }
+    }
+}
+
+$traitsDateStartValues = $splitValues($traitsDateStartRaw ?? []);
+$traitsDateEndValues = $splitValues($traitsDateEndRaw ?? []);
 
 $applicabilityRows = [];
 $rowCount = min(count($markValues), count($modelValues), count($bodyValues));
+
+$useTraitsDates = false;
+if ($rowCount > 0) {
+    $propHasAll = count($propDateStartValues) >= $rowCount && count($propDateEndValues) >= $rowCount;
+    $traitsHasAll = count($traitsDateStartValues) >= $rowCount && count($traitsDateEndValues) >= $rowCount;
+
+    if ($traitsHasAll && !$propHasAll) {
+        $useTraitsDates = true;
+    } elseif ($traitsHasAll && $propHasAll) {
+        // если оба источника полные, можно оставить приоритет у отдельного свойства
+        $useTraitsDates = false;
+    } elseif (!$propHasAll && (count($traitsDateStartValues) > count($propDateStartValues) || count($traitsDateEndValues) > count($propDateEndValues))) {
+        $useTraitsDates = true;
+    }
+}
+
+$dateStartValues = $useTraitsDates ? $traitsDateStartValues : $propDateStartValues;
+$dateEndValues = $useTraitsDates ? $traitsDateEndValues : $propDateEndValues;
+
 for ($i = 0; $i < $rowCount; $i++) {
     $applicabilityRows[] = [
         'MARK' => $markValues[$i] ?? '',
@@ -133,6 +188,8 @@ for ($i = 0; $i < $rowCount; $i++) {
 }
 
 $contextApplicability = null;
+$contextSectionId = 0;
+$contextSectionPath = '';
 $filteredApplicability = $applicabilityRows;
 if (!empty($applicabilityRows) && !empty($arResult['SECTION']['PATH']) && is_array($arResult['SECTION']['PATH'])) {
     $path = array_values($arResult['SECTION']['PATH']);
@@ -169,6 +226,19 @@ if (!empty($applicabilityRows) && !empty($arResult['SECTION']['PATH']) && is_arr
     $modelCodeN = $normalize($modelCode);
     $bodyNameN  = $normalize($bodyName);
     $bodyCodeN  = $normalize($bodyCode);
+
+    $contextSectionId = 0;
+    $contextSectionPath = '';
+    if ($pathCount > 0) {
+        $contextSectionId = (int)($path[$pathCount - 1]['ID'] ?? 0);
+        $contextCodes = array_map(static function ($item) {
+            return isset($item['CODE']) ? (string)$item['CODE'] : '';
+        }, $path);
+        $contextCodes = array_values(array_filter($contextCodes, static fn($code) => $code !== ''));
+        if (!empty($contextCodes)) {
+            $contextSectionPath = implode('/', $contextCodes);
+        }
+    }
 
     // Фильтрация в зависимости от уровня пути: 3+ (марка+модель+кузов), 2 (марка+модель), 1 (марка), иначе полный список
     if ($pathCount >= 3) {
@@ -301,7 +371,7 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
             }
             ?>
         </div>
-        <div class="main__details main-details" data-fls-dynamic=".main__overlay, 1199.98">
+        <div class="main__details main-details" data-fls-dynamic=".main__overlay, 1199.98" data-fls-like-product="<?=$arResult['ID']?>"<?php if ($contextSectionId > 0) { ?> data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>>
             <div data-fls-dynamic=".main__media, 1199.98, 0" class="main-details__status">
                 <div class="main-details__status-item status-item--1 active">
                     <img class="main-details__status-icon" src="<?=SITE_TEMPLATE_PATH?>/assets/img/status-1.svg" alt="Image">
@@ -358,11 +428,11 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
                     </div>
                 </div>
             </div>
-            <div class="main-details__shoping" data-fls-like-product="<?=$arResult['ID']?>">
+            <div class="main-details__shoping" data-fls-like-product="<?=$arResult['ID']?>"<?php if ($contextSectionId > 0) { ?> data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>>
                 <button data-fls-addtocart-button="" class="main-details__shoping-btn" data-options='<?=$optionsAttr?>'>
                     <span class="main-details__shoping-text">В корзину</span>
                 </button>
-                <button data-fls-like-image="" data-fls-like-button="" data-product-id="<?=$arResult['ID']?>" data-options='<?=$optionsAttr?>' class="main-details__shoping-like"></button>
+                <button data-fls-like-image="" data-fls-like-button="" data-product-id="<?=$arResult['ID']?>" data-options='<?=$optionsAttr?>' <?php if ($contextSectionId > 0) { ?>data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?> class="main-details__shoping-like"></button>
             </div>
             <button data-fls-popup-link="speedBuy"
                     class="main-details__buy"
@@ -469,12 +539,12 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
             <div class="details-row">
                 <span class="details-label">Год начала выпуска:</span>
                 <span class="details-dots"></span>
-                <span class="details-value"><?=htmlspecialcharsbx($contextApplicability['DATE_RELEASE'])?></span>
+                <span class="details-value"><?=htmlspecialcharsbx($formatDateShort($contextApplicability['DATE_RELEASE'] ?? ''))?></span>
             </div>
             <div class="details-row">
                 <span class="details-label">Год окончания выпуска:</span>
                 <span class="details-dots"></span>
-                <span class="details-value"><?=htmlspecialcharsbx($contextApplicability['DATE_END'])?></span>
+                <span class="details-value"><?=htmlspecialcharsbx($formatDateShort($contextApplicability['DATE_END'] ?? ''))?></span>
             </div>
         <?php endif; ?>
     <?php elseif (!empty($filteredApplicability)): ?>
@@ -499,8 +569,8 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
                                 <td><?=htmlspecialcharsbx($row['MARK'])?></td>
                                 <td><?=htmlspecialcharsbx($row['MODEL'])?></td>
                                 <td><?=htmlspecialcharsbx($row['BODY'])?></td>
-                                <td><?=htmlspecialcharsbx($row['DATE_RELEASE'])?></td>
-                                <td><?=htmlspecialcharsbx($row['DATE_END'])?></td>
+                                <td><?=htmlspecialcharsbx($formatDateShort($row['DATE_RELEASE'] ?? ''))?></td>
+                                <td><?=htmlspecialcharsbx($formatDateShort($row['DATE_END'] ?? ''))?></td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>

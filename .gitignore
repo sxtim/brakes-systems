@@ -9,3 +9,5 @@
 sync_config.jsonc
 Readme.txt
 /logs
+/log
+*.log

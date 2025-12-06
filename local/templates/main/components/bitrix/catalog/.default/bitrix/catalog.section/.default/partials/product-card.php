@@ -21,12 +21,15 @@ $imageWidth = isset($imageData['width']) ? (int)$imageData['width'] : 0;
 $imageHeight = isset($imageData['height']) ? (int)$imageData['height'] : 0;
 $priceHtml = (string)($card['PRICE_HTML'] ?? '');
 $optionsAttr = (string)($card['OPTIONS_ATTR'] ?? '{}');
+$contextSectionId = isset($card['CONTEXT_SECTION_ID']) ? (int)$card['CONTEXT_SECTION_ID'] : 0;
+$contextSectionPath = (string)($card['CONTEXT_SECTION_PATH'] ?? '');
 $details = isset($card['DETAILS']) && is_array($card['DETAILS']) ? $card['DETAILS'] : [];
 $colors = isset($card['COLORS']) && is_array($card['COLORS']) ? $card['COLORS'] : [];
 $buy = isset($card['BUY']) && is_array($card['BUY']) ? $card['BUY'] : [];
 $selectedOptions = isset($card['SELECTED']) && is_array($card['SELECTED']) ? $card['SELECTED'] : [];
 $favoritesView = !empty($card['FAVORITES_VIEW']);
 $expandFeatures = !empty($card['EXPAND_FEATURES']);
+$contextLabel = isset($card['CONTEXT_LABEL']) ? (string)$card['CONTEXT_LABEL'] : '';
 
 $buyName = (string)($buy['NAME'] ?? $name);
 $buyUrl = (string)($buy['URL'] ?? $detailUrl);
@@ -124,7 +127,7 @@ $handbrakeNoSelected = $handbrakeSelected !== null && $handbrakeSelected !== 'ye
 $detailsOpenAttr = $expandFeatures ? ' open' : '';
 
 ?>
-<div class="main-cataloge__item" data-fls-like-product="<?=$id?>">
+<div class="main-cataloge__item" data-fls-like-product="<?=$id?>"<?php if ($contextSectionId > 0) { ?> data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>>
     <a class="main-cataloge__picture" href="<?=htmlspecialcharsbx($detailUrl)?>">
         <picture>
             <source media="(max-width: 600px)" srcset="<?=htmlspecialcharsbx($imageSrc)?>" type="image/jpeg">
@@ -145,10 +148,19 @@ $detailsOpenAttr = $expandFeatures ? ' open' : '';
                 data-fls-like-button=""
                 data-product-id="<?=$id?>"
                 data-options="<?=$optionsAttr?>"
+                <?php if ($contextSectionId > 0) { ?>data-context-section-id="<?=$contextSectionId?>"<?php } ?>
+                <?php if ($contextSectionPath !== '') { ?>data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>
                 class="main-cataloge__like main-details__shoping-like"></button>
         </div>
         <?php if ($details !== []) { ?>
             <div class="main-cataloge__details main__details details">
+                <?php if ($favoritesView && $contextLabel !== '') { ?>
+                    <div class="main-cataloge__details-row details-row">
+                        <span class="main-cataloge__details-label details-label">Для:</span>
+                        <span class="main-cataloge__details-dots details-dots"></span>
+                        <span class="main-cataloge__details-value details-value"><?=htmlspecialcharsbx($contextLabel)?></span>
+                    </div>
+                <?php } ?>
                 <?php foreach ($details as $detail) {
                     $label = (string)($detail['label'] ?? '');
                     $value = (string)($detail['value'] ?? '');
