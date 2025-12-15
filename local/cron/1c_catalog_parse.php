@@ -23,6 +23,7 @@ $rsData = CIBlockElement::GetList(
 $itemsData = [];
 $sectionsName = [];
 $sectionsData = [];
+$itemCategories = [];
 $createdSections = 0;
 $elementsProcessed = 0;
 $combosProcessed = 0;
@@ -33,6 +34,32 @@ while ($data = $rsData->fetch()) {
     $marks = array_values(array_filter(array_map('trim', explode(';', (string)$data['PROPERTY_MARK_VALUE'])), 'strlen'));
     $models = array_values(array_filter(array_map('trim', explode(';', (string)$data['PROPERTY_MODEL_VALUE'])), 'strlen'));
     $bodies = array_values(array_filter(array_map('trim', explode(';', (string)$data['PROPERTY_BODY_VALUE'])), 'strlen'));
+
+    // Категория товара (например, «Тормозные диски», «Колодки»).
+    // Берём из CML2_TRAITS с описанием "Категория товара", при отсутствии отправляем в "other".
+    $categoryName = null;
+    $propsRes = CIBlockElement::GetProperty(
+        1,
+        (int)$data['ID'],
+        ['sort' => 'asc'],
+        ['CODE' => 'CML2_TRAITS']
+    );
+    while ($prop = $propsRes->Fetch()) {
+        if (($prop['DESCRIPTION'] ?? '') === 'Категория товара') {
+            $value = trim((string)($prop['VALUE'] ?? ''));
+            if ($value !== '') {
+                $categoryName = $value;
+            }
+            break;
+        }
+    }
+    if ($categoryName === null || $categoryName === '') {
+        $categoryName = 'other';
+    }
+    $itemCategories[(int)$data['ID']] = $categoryName;
+    if ( ! in_array($categoryName, $sectionsName, true)) {
+        $sectionsName[] = $categoryName;
+    }
 
     if (count($marks) !== count($models) || count($marks) !== count($bodies)) {
         $skippedLengthMismatch++;
@@ -51,25 +78,26 @@ while ($data = $rsData->fetch()) {
 
         $combosProcessed++;
 
-        if ( ! in_array($mark, $sectionsName)) {
+        if ( ! in_array($mark, $sectionsName, true)) {
             $sectionsName[] = $mark;
         }
 
-        if ( ! in_array($model, $sectionsName)) {
+        if ( ! in_array($model, $sectionsName, true)) {
             $sectionsName[] = $model;
         }
 
-        if ( ! in_array($body, $sectionsName)) {
+        if ( ! in_array($body, $sectionsName, true)) {
             $sectionsName[] = $body;
         }
 
         $itemsData[$data['ID']][] = [
+            'CATEGORY' => $categoryName,
             'SECTION_1' => $mark,
             'SECTION_2' => $model,
             'SECTION_3' => $body,
         ];
 
-        $sectionsData[$mark][$model][$body] = true;
+        $sectionsData[$categoryName][$mark][$model][$body] = true;
     }
 }
 
@@ -90,10 +118,6 @@ $sectionsDbIdName = [];
 $sectionsByParent = [];
 
 while ($data = $rsData->fetch()) {
-    if ( ! in_array($data['NAME'], $sectionsName)) {
-        SectionTable::delete($data['ID']);
-    }
-
     if ($sectionsDb[$data['NAME']]['ID']) {
         $sectionsDb[$data['NAME']]['IDS'][$sectionsDb[$data['NAME']]['ID']] = $sectionsDb[$data['NAME']]['IBLOCK_SECTION_ID'];
 
@@ -119,85 +143,119 @@ while ($data = $rsData->fetch()) {
     $sectionsByParent[$parentId][$data['NAME']] = $data['ID'];
 }
 
-foreach ($sectionsData as $lvl1 => $lvls2) {
-    if ( ! isset($sectionsByParent[0][$lvl1])) {
+foreach ($sectionsData as $category => $marks) {
+    if ( ! isset($sectionsByParent[0][$category])) {
         $id = SectionTable::add([
             'IBLOCK_ID' => 1,
-            'NAME'      => $lvl1,
-            'CODE' => CUtil::translit($lvl1, 'ru'),
+            'NAME'      => $category,
+            'CODE' => CUtil::translit($category, 'ru'),
             'ACTIVE'   => 'Y',
         ])->getId();
 
         $createdSections++;
-        $sectionsDb[$lvl1]['ID'] = $id;
-        $sectionsDbIdName[$id] = $lvl1;
-        $sectionsByParent[0][$lvl1] = $id;
+        $sectionsDb[$category]['ID'] = $id;
+        $sectionsDbIdName[$id] = $category;
+        $sectionsByParent[0][$category] = $id;
     }
 
-    foreach ($lvls2 as $lvl2 => $lvls3) {
-        $parentId = $sectionsByParent[0][$lvl1];
-        $parentLvl2 = $sectionsByParent[$parentId][$lvl2] ?? null;
+    foreach ($marks as $mark => $models) {
+        $parentCategoryId = $sectionsByParent[0][$category];
+        $markId = $sectionsByParent[$parentCategoryId][$mark] ?? null;
 
-        // Создаем раздел модели, если его еще нет под текущей маркой
-        if (!$parentLvl2) {
+        // Создаем раздел марки под категорией, если его еще нет
+        if (!$markId) {
             $id = SectionTable::add([
                 'IBLOCK_ID'         => 1,
-                'NAME'              => $lvl2,
-                'IBLOCK_SECTION_ID' => $parentId,
-                'CODE'              => CUtil::translit($lvl1 . $lvl2, 'ru'),
+                'NAME'              => $mark,
+                'IBLOCK_SECTION_ID' => $parentCategoryId,
+                'CODE'              => CUtil::translit($category . '-' . $mark, 'ru'),
                 'ACTIVE'            => 'Y',
             ])->getId();
 
             $createdSections++;
-            $sectionsDbIdName[$id] = $lvl2;
-            $sectionsByParent[$parentId][$lvl2] = $id;
-            $parentLvl2 = $id;
+            $sectionsDbIdName[$id] = $mark;
+            $sectionsByParent[$parentCategoryId][$mark] = $id;
+            $markId = $id;
 
-            if ($sectionsDb[$lvl2]['ID']) {
-                $sectionsDb[$lvl2]['IDS'][$sectionsDb[$lvl2]['ID']] = $sectionsDb[$lvl2]['IBLOCK_SECTION_ID'];
-                unset($sectionsDb[$lvl2]['ID']);
-                unset($sectionsDb[$lvl2]['IBLOCK_SECTION_ID']);
+            if ($sectionsDb[$mark]['ID']) {
+                $sectionsDb[$mark]['IDS'][$sectionsDb[$mark]['ID']] = $sectionsDb[$mark]['IBLOCK_SECTION_ID'];
+                unset($sectionsDb[$mark]['ID']);
+                unset($sectionsDb[$mark]['IBLOCK_SECTION_ID']);
 
-                $sectionsDb[$lvl2]['IDS'][$id] = $sectionsDb[$lvl1]['ID'];
+                $sectionsDb[$mark]['IDS'][$id] = $sectionsDb[$category]['ID'];
             } else {
-                $sectionsDb[$lvl2]['ID'] = $id;
-                $sectionsDb[$lvl2]['IBLOCK_SECTION_ID'] = $sectionsDb[$lvl1]['ID'];
+                $sectionsDb[$mark]['ID'] = $id;
+                $sectionsDb[$mark]['IBLOCK_SECTION_ID'] = $sectionsDb[$category]['ID'];
             }
 
-            $sectionsDb[$lvl2][$sectionsDb[$lvl1]['ID']] = $sectionsDb[$lvl1]['ID'];
+            $sectionsDb[$mark][$sectionsDb[$category]['ID']] = $sectionsDb[$category]['ID'];
         }
 
-        // Для каждой комбинации кузова под этой моделью создаем недостающие разделы
-        foreach ($lvls3 as $lvl3 => $true) {
-            if (isset($sectionsByParent[$parentLvl2][$lvl3])) {
-                continue;
+        foreach ($models as $model => $bodies) {
+            $modelId = $sectionsByParent[$markId][$model] ?? null;
+
+            // Создаем раздел модели, если его еще нет под текущей маркой
+            if (!$modelId) {
+                $id = SectionTable::add([
+                    'IBLOCK_ID'         => 1,
+                    'NAME'              => $model,
+                    'IBLOCK_SECTION_ID' => $markId,
+                    'CODE'              => CUtil::translit($category . '-' . $mark . '-' . $model, 'ru'),
+                    'ACTIVE'            => 'Y',
+                ])->getId();
+
+                $createdSections++;
+                $sectionsDbIdName[$id] = $model;
+                $sectionsByParent[$markId][$model] = $id;
+                $modelId = $id;
+
+                if ($sectionsDb[$model]['ID']) {
+                    $sectionsDb[$model]['IDS'][$sectionsDb[$model]['ID']] = $sectionsDb[$model]['IBLOCK_SECTION_ID'];
+                    unset($sectionsDb[$model]['ID']);
+                    unset($sectionsDb[$model]['IBLOCK_SECTION_ID']);
+
+                    $sectionsDb[$model]['IDS'][$id] = $sectionsDb[$category]['ID'];
+                } else {
+                    $sectionsDb[$model]['ID'] = $id;
+                    $sectionsDb[$model]['IBLOCK_SECTION_ID'] = $sectionsDb[$category]['ID'];
+                }
+
+                $sectionsDb[$model][$sectionsDb[$mark]['ID']]
+                    = $sectionsDb[$mark]['ID'];
             }
 
-            $id = SectionTable::add([
-                'IBLOCK_ID'         => 1,
-                'NAME'              => $lvl3,
-                'IBLOCK_SECTION_ID' => $parentLvl2,
-                'CODE'              => CUtil::translit($lvl1 . $lvl2 . $lvl3, 'ru'),
-                'ACTIVE'            => 'Y',
-            ])->getId();
+            // Для каждой комбинации кузова под этой моделью создаем недостающие разделы
+            foreach ($bodies as $body => $true) {
+                if (isset($sectionsByParent[$modelId][$body])) {
+                    continue;
+                }
 
-            $createdSections++;
-            $sectionsDbIdName[$id] = $lvl3;
-            $sectionsByParent[$parentLvl2][$lvl3] = $id;
+                $id = SectionTable::add([
+                    'IBLOCK_ID'         => 1,
+                    'NAME'              => $body,
+                    'IBLOCK_SECTION_ID' => $modelId,
+                    'CODE'              => CUtil::translit($category . '-' . $mark . '-' . $model . '-' . $body, 'ru'),
+                    'ACTIVE'            => 'Y',
+                ])->getId();
 
-            if ($sectionsDb[$lvl3]['ID']) {
-                $sectionsDb[$lvl3]['IDS'][$sectionsDb[$lvl3]['ID']] = $sectionsDb[$lvl3]['IBLOCK_SECTION_ID'];
-                unset($sectionsDb[$lvl3]['ID']);
-                unset($sectionsDb[$lvl3]['IBLOCK_SECTION_ID']);
+                $createdSections++;
+                $sectionsDbIdName[$id] = $body;
+                $sectionsByParent[$modelId][$body] = $id;
 
-                $sectionsDb[$lvl3]['IDS'][$id] = $sectionsDb[$lvl1]['ID'];
-            } else {
-                $sectionsDb[$lvl3]['ID'] = $id;
-                $sectionsDb[$lvl3]['IBLOCK_SECTION_ID'] = $sectionsDb[$lvl1]['ID'];
+                if ($sectionsDb[$body]['ID']) {
+                    $sectionsDb[$body]['IDS'][$sectionsDb[$body]['ID']] = $sectionsDb[$body]['IBLOCK_SECTION_ID'];
+                    unset($sectionsDb[$body]['ID']);
+                    unset($sectionsDb[$body]['IBLOCK_SECTION_ID']);
+
+                    $sectionsDb[$body]['IDS'][$id] = $sectionsDb[$category]['ID'];
+                } else {
+                    $sectionsDb[$body]['ID'] = $id;
+                    $sectionsDb[$body]['IBLOCK_SECTION_ID'] = $sectionsDb[$category]['ID'];
+                }
+
+                $sectionsDb[$body][$sectionsDb[$model]['ID']]
+                    = $sectionsDb[$model]['ID'];
             }
-
-            $sectionsDb[$lvl3][$sectionsDb[$lvl2]['ID']]
-                = $sectionsDb[$lvl2]['ID'];
         }
     }
 }
@@ -207,12 +265,13 @@ foreach ($itemsData as $id => $item) {
     $elementSectionIds = [];
 
     foreach ($item as $combo) {
-        $lvl1Id = $sectionsByParent[0][$combo['SECTION_1']] ?? null;
-        $lvl2Id = $lvl1Id ? ($sectionsByParent[$lvl1Id][$combo['SECTION_2']] ?? null) : null;
-        $lvl3Id = $lvl2Id ? ($sectionsByParent[$lvl2Id][$combo['SECTION_3']] ?? null) : null;
+        $categoryId = $sectionsByParent[0][$combo['CATEGORY']] ?? null;
+        $markId = $categoryId ? ($sectionsByParent[$categoryId][$combo['SECTION_1']] ?? null) : null;
+        $modelId = $markId ? ($sectionsByParent[$markId][$combo['SECTION_2']] ?? null) : null;
+        $bodyId  = $modelId ? ($sectionsByParent[$modelId][$combo['SECTION_3']] ?? null) : null;
 
-        if ($lvl3Id) {
-            $elementSectionIds[] = $lvl3Id;
+        if ($bodyId) {
+            $elementSectionIds[] = $bodyId;
         }
     }
 
