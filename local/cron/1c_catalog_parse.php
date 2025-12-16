@@ -24,6 +24,7 @@ $itemsData = [];
 $sectionsName = [];
 $sectionsData = [];
 $itemCategories = [];
+$orphanElements = [];
 $createdSections = 0;
 $elementsProcessed = 0;
 $combosProcessed = 0;
@@ -31,6 +32,7 @@ $skippedLengthMismatch = 0;
 $elementSectionsLog = [];
 
 while ($data = $rsData->fetch()) {
+    $elementId = (int)$data['ID'];
     $marks = array_values(array_filter(array_map('trim', explode(';', (string)$data['PROPERTY_MARK_VALUE'])), 'strlen'));
     $models = array_values(array_filter(array_map('trim', explode(';', (string)$data['PROPERTY_MODEL_VALUE'])), 'strlen'));
     $bodies = array_values(array_filter(array_map('trim', explode(';', (string)$data['PROPERTY_BODY_VALUE'])), 'strlen'));
@@ -56,17 +58,19 @@ while ($data = $rsData->fetch()) {
     if ($categoryName === null || $categoryName === '') {
         $categoryName = 'other';
     }
-    $itemCategories[(int)$data['ID']] = $categoryName;
+    $itemCategories[$elementId] = $categoryName;
     if ( ! in_array($categoryName, $sectionsName, true)) {
         $sectionsName[] = $categoryName;
     }
 
     if (count($marks) !== count($models) || count($marks) !== count($bodies)) {
         $skippedLengthMismatch++;
+        $orphanElements[$elementId] = 'length_mismatch';
         continue;
     }
 
     $elementsProcessed++;
+    $hasValidCombo = false;
 
     foreach ($marks as $i => $mark) {
         $model = $models[$i];
@@ -77,6 +81,7 @@ while ($data = $rsData->fetch()) {
         }
 
         $combosProcessed++;
+        $hasValidCombo = true;
 
         if ( ! in_array($mark, $sectionsName, true)) {
             $sectionsName[] = $mark;
@@ -90,7 +95,7 @@ while ($data = $rsData->fetch()) {
             $sectionsName[] = $body;
         }
 
-        $itemsData[$data['ID']][] = [
+        $itemsData[$elementId][] = [
             'CATEGORY' => $categoryName,
             'SECTION_1' => $mark,
             'SECTION_2' => $model,
@@ -98,6 +103,10 @@ while ($data = $rsData->fetch()) {
         ];
 
         $sectionsData[$categoryName][$mark][$model][$body] = true;
+    }
+
+    if (!$hasValidCombo) {
+        $orphanElements[$elementId] = 'empty_values';
     }
 }
 
@@ -282,14 +291,34 @@ foreach ($itemsData as $id => $item) {
         CIBlockElement::SetElementSection($id, $elementSectionIds);
         $elementSectionsLog[] = 'element_id=' . $id . ' sections=' . implode(',', $elementSectionIds);
     } else {
+        $orphanElements[(int)$id] = $orphanElements[(int)$id] ?? 'no_sections';
         $elementSectionsLog[] = 'element_id=' . $id . ' sections=none';
     }
+}
+
+$otherSectionId = $sectionsByParent[0]['other'] ?? null;
+if (!$otherSectionId) {
+    $otherSectionId = SectionTable::add([
+        'IBLOCK_ID' => 1,
+        'NAME'      => 'other',
+        'CODE'      => 'other',
+        'ACTIVE'    => 'Y',
+    ])->getId();
+    $createdSections++;
+    $sectionsDbIdName[$otherSectionId] = 'other';
+    $sectionsByParent[0]['other'] = $otherSectionId;
+}
+
+foreach ($orphanElements as $elementId => $reason) {
+    CIBlockElement::SetElementSection((int)$elementId, [(int)$otherSectionId]);
+    $elementSectionsLog[] = 'element_id=' . (int)$elementId . ' sections=' . (int)$otherSectionId . ' fallback=other reason=' . $reason;
 }
 
 $logLine = date('c')
     . ' elements=' . $elementsProcessed
     . ' combos=' . $combosProcessed
     . ' sections_created=' . $createdSections
+    . ' orphans=' . count($orphanElements)
     . ' skipped_mismatch=' . $skippedLengthMismatch
     . PHP_EOL
     . implode(PHP_EOL, $elementSectionsLog)
