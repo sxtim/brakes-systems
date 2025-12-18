@@ -283,7 +283,23 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         . PHP_EOL
         . implode(PHP_EOL, $elementSectionsLog)
         . PHP_EOL;
-    file_put_contents($logPath, $logLine, FILE_APPEND);
+    $logDir = dirname($logPath);
+    if (!is_dir($logDir)) {
+        @mkdir($logDir, 0775, true);
+    }
+
+    if (!file_exists($logPath)) {
+        @touch($logPath);
+    }
+
+    if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+        @chmod($logPath, 0666);
+    }
+
+    $written = @file_put_contents($logPath, $logLine, FILE_APPEND | LOCK_EX);
+    if ($written === false) {
+        error_log('1c_catalog_parse: failed to append log to ' . $logPath);
+    }
 
     return [
         'elementsProcessed' => $elementsProcessed,

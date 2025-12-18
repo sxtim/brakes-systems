@@ -9,13 +9,14 @@ if (
     && (($_REQUEST['type'] ?? '') === 'catalog')
     && (($_REQUEST['mode'] ?? '') === 'deactivate')
 ) {
-    $logPath = $_SERVER['DOCUMENT_ROOT'] . '/local/cron/1c_exchange_guard.log';
+    $logPath = $_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log';
     $logLine = date('c')
+        . ' src=1c_exchange_guard'
         . ' ip=' . ($_SERVER['REMOTE_ADDR'] ?? '-')
         . ' qs=' . ($_SERVER['QUERY_STRING'] ?? '-')
         . ' ua=' . ($_SERVER['HTTP_USER_AGENT'] ?? '-')
         . PHP_EOL;
-    @file_put_contents($logPath, $logLine, FILE_APPEND);
+    @file_put_contents($logPath, $logLine, FILE_APPEND | LOCK_EX);
 
     header('Content-Type: text/plain; charset=windows-1251');
     echo "success\n";

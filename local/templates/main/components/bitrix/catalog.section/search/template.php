@@ -13,6 +13,25 @@ $context = $arResult['SEARCH_CONTEXT'] ?? [
 $query = trim((string)$context['query']);
 $items = $arResult['ITEMS'] ?? [];
 $cardPartialPath = $_SERVER['DOCUMENT_ROOT'] . '/local/templates/main/components/bitrix/catalog/.default/bitrix/catalog.section/.default/partials/product-card.php';
+
+$appendQueryParam = static function (string $url, string $param, string $value): string {
+    if ($url === '' || $param === '') {
+        return $url;
+    }
+
+    $parts = parse_url($url);
+    $path = $parts['path'] ?? $url;
+    $query = $parts['query'] ?? '';
+    $fragment = isset($parts['fragment']) ? ('#' . $parts['fragment']) : '';
+
+    parse_str($query, $params);
+    if (!isset($params[$param]) || (string)$params[$param] === '') {
+        $params[$param] = $value;
+    }
+
+    $newQuery = http_build_query($params);
+    return $path . ($newQuery !== '' ? ('?' . $newQuery) : '') . $fragment;
+};
 ?>
 <div class="search-page">
     <div class="search-page__container">
@@ -78,7 +97,7 @@ $cardPartialPath = $_SERVER['DOCUMENT_ROOT'] . '/local/templates/main/components
                         $cardData = [
                             'ID' => $item['ID'],
                             'NAME' => $item['NAME'],
-                            'DETAIL_PAGE_URL' => $item['DETAIL_PAGE_URL'],
+                            'DETAIL_PAGE_URL' => $appendQueryParam((string)($item['DETAIL_PAGE_URL'] ?? ''), 'from', 'search'),
                             'IMAGE' => $item['IMAGE'] ?? null,
                             'IMG' => $item['IMG'] ?? '',
                             'PRICE_HTML' => $priceFormatted,
@@ -89,7 +108,7 @@ $cardPartialPath = $_SERVER['DOCUMENT_ROOT'] . '/local/templates/main/components
                             'EXPAND_FEATURES' => false,
                             'BUY' => [
                                 'NAME' => $item['NAME'],
-                                'URL' => $item['DETAIL_PAGE_URL'],
+                                'URL' => $appendQueryParam((string)($item['DETAIL_PAGE_URL'] ?? ''), 'from', 'search'),
                             ],
                         ];
 

@@ -1,44 +1,81 @@
 <?php
 
 use Bitrix\Main\Application;
+use Bitrix\Main\Loader;
 
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
+}
+
+$sectionDepth = 0;
+$isBodyContext = false;
+$iblockId = (int)($arParams['IBLOCK_ID'] ?? 0);
+$sectionId = (int)($arResult['VARIABLES']['SECTION_ID'] ?? 0);
+$sectionCodePath = (string)($arResult['VARIABLES']['SECTION_CODE_PATH'] ?? '');
+$iblockModuleLoaded = $iblockId > 0 && Loader::includeModule('iblock');
+
+if ($iblockModuleLoaded && $sectionId <= 0 && $sectionCodePath !== '') {
+    $sectionId = (int)\CIBlockFindTools::GetSectionIDByCodePath($iblockId, $sectionCodePath);
+}
+
+if ($iblockModuleLoaded && $sectionId > 0) {
+    $sectionRow = \CIBlockSection::GetList(
+        [],
+        ['IBLOCK_ID' => $iblockId, 'ID' => $sectionId],
+        false,
+        ['ID', 'DEPTH_LEVEL']
+    )->Fetch();
+    $sectionDepth = (int)($sectionRow['DEPTH_LEVEL'] ?? 0);
+}
+
+$isBodyContext = $sectionDepth >= 4;
+
+$contextPrompt = 'Выберите автомобиль, чтобы увидеть товары и проверить применяемость.';
+if ($sectionDepth === 0) {
+    $contextPrompt = 'Выберите категорию, марку, модель и поколение, чтобы увидеть товары и проверить применяемость.';
+} elseif ($sectionDepth === 1) {
+    $contextPrompt = 'Выберите марку, модель и поколение, чтобы увидеть товары и проверить применяемость.';
+} elseif ($sectionDepth === 2) {
+    $contextPrompt = 'Выберите модель и поколение, чтобы увидеть товары и проверить применяемость.';
+} elseif ($sectionDepth === 3) {
+    $contextPrompt = 'Выберите поколение, чтобы увидеть товары и проверить применяемость.';
 }
 ?>
 <main class="page">
     <div class="page__container">
         <?
-        $APPLICATION->IncludeComponent(
-            "bitrix:catalog.smart.filter",
-            "sidebar",
-            array(
-                "IBLOCK_TYPE" => $arParams["IBLOCK_TYPE"],
-                "IBLOCK_ID" => $arParams["IBLOCK_ID"],
-                "SECTION_CODE" => $arResult['VARIABLES']['SECTION_CODE'],
-                "FILTER_NAME" => $arParams["FILTER_NAME"],
-                "PRICE_CODE" => "",
-                "CACHE_TYPE" => $arParams["CACHE_TYPE"],
-                "CACHE_TIME" => $arParams["CACHE_TIME"],
-                "CACHE_GROUPS" => $arParams["CACHE_GROUPS"],
-                "SAVE_IN_SESSION" => "N",
-                "FILTER_VIEW_MODE" => $arParams["FILTER_VIEW_MODE"],
-                "XML_EXPORT" => "N",
-                "SECTION_TITLE" => "NAME",
-                "SECTION_DESCRIPTION" => "DESCRIPTION",
-                'HIDE_NOT_AVAILABLE' => $arParams["HIDE_NOT_AVAILABLE"],
-                "TEMPLATE_THEME" => $arParams["TEMPLATE_THEME"],
-                'CONVERT_CURRENCY' => $arParams['CONVERT_CURRENCY'],
-                'CURRENCY_ID' => $arParams['CURRENCY_ID'],
-                "SEF_MODE" => 'N',
-                "SEF_RULE" => $arResult["FOLDER"].$arResult["URL_TEMPLATES"]["smart_filter"],
-                "SMART_FILTER_PATH" => $arResult["VARIABLES"]["SMART_FILTER_PATH"],
-                "PAGER_PARAMS_NAME" => $arParams["PAGER_PARAMS_NAME"],
-                "INSTANT_RELOAD" => $arParams["INSTANT_RELOAD"],
-            ),
-            $component,
-            array('HIDE_ICONS' => 'Y')
-        );
+        if ($isBodyContext) {
+            $APPLICATION->IncludeComponent(
+                "bitrix:catalog.smart.filter",
+                "sidebar",
+                array(
+                    "IBLOCK_TYPE" => $arParams["IBLOCK_TYPE"],
+                    "IBLOCK_ID" => $arParams["IBLOCK_ID"],
+                    "SECTION_CODE" => $arResult['VARIABLES']['SECTION_CODE'],
+                    "FILTER_NAME" => $arParams["FILTER_NAME"],
+                    "PRICE_CODE" => "",
+                    "CACHE_TYPE" => $arParams["CACHE_TYPE"],
+                    "CACHE_TIME" => $arParams["CACHE_TIME"],
+                    "CACHE_GROUPS" => $arParams["CACHE_GROUPS"],
+                    "SAVE_IN_SESSION" => "N",
+                    "FILTER_VIEW_MODE" => $arParams["FILTER_VIEW_MODE"],
+                    "XML_EXPORT" => "N",
+                    "SECTION_TITLE" => "NAME",
+                    "SECTION_DESCRIPTION" => "DESCRIPTION",
+                    'HIDE_NOT_AVAILABLE' => $arParams["HIDE_NOT_AVAILABLE"],
+                    "TEMPLATE_THEME" => $arParams["TEMPLATE_THEME"],
+                    'CONVERT_CURRENCY' => $arParams['CONVERT_CURRENCY'],
+                    'CURRENCY_ID' => $arParams['CURRENCY_ID'],
+                    "SEF_MODE" => 'N',
+                    "SEF_RULE" => $arResult["FOLDER"].$arResult["URL_TEMPLATES"]["smart_filter"],
+                    "SMART_FILTER_PATH" => $arResult["VARIABLES"]["SMART_FILTER_PATH"],
+                    "PAGER_PARAMS_NAME" => $arParams["PAGER_PARAMS_NAME"],
+                    "INSTANT_RELOAD" => $arParams["INSTANT_RELOAD"],
+                ),
+                $component,
+                array('HIDE_ICONS' => 'Y')
+            );
+        }
         ?>
         <div class="page__main">
             <div class="main__inner">
@@ -55,19 +92,21 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                     "",
                     [
                         "IBLOCK_ID" => 1,
-                        "SECTION" => $arResult["VARIABLES"]["SECTION_CODE"],
+                        "SECTION" => ($arResult["VARIABLES"]["SECTION_CODE_PATH"] ?? '') ?: ($arResult["VARIABLES"]["SECTION_CODE"] ?? ''),
+                        "SECTION_ID" => (int)($arResult["VARIABLES"]["SECTION_ID"] ?? 0),
                     ]
                 ); ?>
                 <?php
 
-                $request = Application::getInstance()->getContext()->getRequest();
-                $getData = $request->getQueryList()->toArray();
+                if ($isBodyContext) {
+                    $request = Application::getInstance()->getContext()->getRequest();
+                    $getData = $request->getQueryList()->toArray();
 
-                if ($getData['art_number']) {
-                    $GLOBALS[$arParams['FILTER_NAME']]['?PROPERTY_CML2_ARTICLE'] = $getData['art_number'];
-                }
+                    if (!empty($getData['art_number'])) {
+                        $GLOBALS[$arParams['FILTER_NAME']]['?PROPERTY_CML2_ARTICLE'] = $getData['art_number'];
+                    }
 
-                $APPLICATION->IncludeComponent(
+                    $APPLICATION->IncludeComponent(
                     "bitrix:catalog.section",
                     "",
                     array(
@@ -196,5 +235,9 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                     ),
                     $component
                 );
+                } else {
+                    ?>
+                    <p class="main__catalog-prompt"><?= htmlspecialcharsbx($contextPrompt) ?></p>
+                    <?php
+                }
                 ?>
-

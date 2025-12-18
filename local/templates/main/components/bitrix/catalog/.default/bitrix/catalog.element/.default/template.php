@@ -123,7 +123,11 @@ $formatDateShort = static function ($value): string {
         return '';
     }
     $parts = explode(' ', $value);
-    return $parts[0];
+    $date = $parts[0];
+    if ($date === '01.01.0001' || $date === '0001-01-01') {
+        return '';
+    }
+    return $date;
 };
 
 $markValues = $splitValues($arResult['PROPERTIES']['MARK']['VALUE'] ?? []);
@@ -267,6 +271,14 @@ if (!empty($applicabilityRows) && !empty($arResult['SECTION']['PATH']) && is_arr
         }));
         $contextApplicability = null;
     }
+}
+
+// If the user came from global search, treat it as "no auto context":
+// show full applicability instead of assuming the section-path is the user's selection.
+$from = (string)($_GET['from'] ?? '');
+if ($from === 'search') {
+    $contextApplicability = null;
+    $filteredApplicability = $applicabilityRows;
 }
 
 // Debug: выводим цепочку разделов/значения применяемости в HTML-комментарий
@@ -539,12 +551,12 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
             <div class="details-row">
                 <span class="details-label">Год начала выпуска:</span>
                 <span class="details-dots"></span>
-                <span class="details-value"><?=htmlspecialcharsbx($formatDateShort($contextApplicability['DATE_RELEASE'] ?? ''))?></span>
+                <span class="details-value"><?=htmlspecialcharsbx($formatDateShort($contextApplicability['DATE_RELEASE'] ?? '') ?: '—')?></span>
             </div>
             <div class="details-row">
                 <span class="details-label">Год окончания выпуска:</span>
                 <span class="details-dots"></span>
-                <span class="details-value"><?=htmlspecialcharsbx($formatDateShort($contextApplicability['DATE_END'] ?? ''))?></span>
+                <span class="details-value"><?=htmlspecialcharsbx($formatDateShort($contextApplicability['DATE_END'] ?? '') ?: '—')?></span>
             </div>
         <?php endif; ?>
     <?php elseif (!empty($filteredApplicability)): ?>
@@ -569,8 +581,8 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
                                 <td><?=htmlspecialcharsbx($row['MARK'])?></td>
                                 <td><?=htmlspecialcharsbx($row['MODEL'])?></td>
                                 <td><?=htmlspecialcharsbx($row['BODY'])?></td>
-                                <td><?=htmlspecialcharsbx($formatDateShort($row['DATE_RELEASE'] ?? ''))?></td>
-                                <td><?=htmlspecialcharsbx($formatDateShort($row['DATE_END'] ?? ''))?></td>
+                                <td><?=htmlspecialcharsbx($formatDateShort($row['DATE_RELEASE'] ?? '') ?: '—')?></td>
+                                <td><?=htmlspecialcharsbx($formatDateShort($row['DATE_END'] ?? '') ?: '—')?></td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>
