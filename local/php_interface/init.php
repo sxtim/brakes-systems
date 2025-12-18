@@ -1,5 +1,27 @@
 <?php
 
+// Защита от массовой деактивации при 1С-обмене (mode=deactivate&timestamp=...),
+// т.к. у нас есть собственное дерево разделов "категория → марка → модель → кузов",
+// которого нет в 1С, и оно может быть случайно "погашено" стандартным механизмом.
+if (
+    !empty($_SERVER['SCRIPT_NAME'])
+    && substr((string)$_SERVER['SCRIPT_NAME'], -strlen('/bitrix/admin/1c_exchange.php')) === '/bitrix/admin/1c_exchange.php'
+    && (($_REQUEST['type'] ?? '') === 'catalog')
+    && (($_REQUEST['mode'] ?? '') === 'deactivate')
+) {
+    $logPath = $_SERVER['DOCUMENT_ROOT'] . '/local/cron/1c_exchange_guard.log';
+    $logLine = date('c')
+        . ' ip=' . ($_SERVER['REMOTE_ADDR'] ?? '-')
+        . ' qs=' . ($_SERVER['QUERY_STRING'] ?? '-')
+        . ' ua=' . ($_SERVER['HTTP_USER_AGENT'] ?? '-')
+        . PHP_EOL;
+    @file_put_contents($logPath, $logLine, FILE_APPEND);
+
+    header('Content-Type: text/plain; charset=windows-1251');
+    echo "success\n";
+    exit;
+}
+
 if (!\Bitrix\Main\Loader::includeModule('pull'))
 {
     \Bitrix\Main\Config\Option::set('main', 'use_pull', 'N');
@@ -21,6 +43,23 @@ require_once __DIR__ . '/include/events.php';
 
 AddEventHandler('main', 'OnBeforeProlog', static function (): void {
     \App\Brakes\Helper\FavoritesManager::handleProlog();
+});
+
+// После завершения 1С-импорта пересобираем привязки и активируем используемые ветки разделов.
+AddEventHandler('catalog', 'OnCompleteCatalogImport1C', static function (array $params = [], string $absFileName = ''): void {
+    if (!\Bitrix\Main\Loader::includeModule('iblock')) {
+        return;
+    }
+
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/local/cron/1c_catalog_parse.php';
+    if (function_exists('brakes_1c_catalog_parse_run')) {
+        brakes_1c_catalog_parse_run([
+            'iblockId' => 1,
+            'reactivate' => true,
+            'logPath' => $_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log',
+            'logPrefix' => 'OnCompleteCatalogImport1C',
+        ]);
+    }
 });
 
 /*
@@ -54,4 +93,3 @@ AddEventHandler('iblock', 'OnAfterIBlockElementUpdate', static function (array &
     \App\Brakes\Helper\ImageMigrator::migrateElement($elementId);
 });
 */
-
