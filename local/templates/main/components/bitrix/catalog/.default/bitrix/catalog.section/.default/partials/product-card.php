@@ -126,6 +126,18 @@ $handbrakeYesSelected = $handbrakeSelected === 'yes';
 $handbrakeNoSelected = $handbrakeSelected !== null && $handbrakeSelected !== 'yes';
 $detailsOpenAttr = $expandFeatures ? ' open' : '';
 
+$fromParam = '';
+if ($detailUrl !== '') {
+    $parts = parse_url($detailUrl);
+    if (is_array($parts) && !empty($parts['query'])) {
+        parse_str((string)$parts['query'], $queryParams);
+        if (is_array($queryParams) && isset($queryParams['from'])) {
+            $fromParam = (string)$queryParams['from'];
+        }
+    }
+}
+$isFromSearch = $fromParam === 'search';
+
 ?>
 <div class="main-cataloge__item" data-fls-like-product="<?=$id?>"<?php if ($contextSectionId > 0) { ?> data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>>
     <a class="main-cataloge__picture" href="<?=htmlspecialcharsbx($detailUrl)?>">
@@ -141,17 +153,19 @@ $detailsOpenAttr = $expandFeatures ? ' open' : '';
         </picture>
     </a>
     <div class="main-cataloge__item-content">
-        <div class="main-cataloge__item-top">
-            <h3 class="main-cataloge__item-title"><a href="<?=htmlspecialcharsbx($detailUrl)?>"><?=htmlspecialcharsbx($name)?></a></h3>
-            <button
-                data-fls-like-image=""
-                data-fls-like-button=""
-                data-product-id="<?=$id?>"
-                data-options="<?=$optionsAttr?>"
-                <?php if ($contextSectionId > 0) { ?>data-context-section-id="<?=$contextSectionId?>"<?php } ?>
-                <?php if ($contextSectionPath !== '') { ?>data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>
-                class="main-cataloge__like main-details__shoping-like"></button>
-        </div>
+	        <div class="main-cataloge__item-top">
+	            <h3 class="main-cataloge__item-title"><a href="<?=htmlspecialcharsbx($detailUrl)?>"><?=htmlspecialcharsbx($name)?></a></h3>
+                <?php if ($favoritesView): ?>
+                    <button
+                        data-fls-like-image=""
+                        data-fls-like-button=""
+                        data-product-id="<?=$id?>"
+                        data-options="<?=$optionsAttr?>"
+                        <?php if ($contextSectionId > 0) { ?>data-context-section-id="<?=$contextSectionId?>"<?php } ?>
+                        <?php if ($contextSectionPath !== '') { ?>data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>
+                        class="main-cataloge__like main-details__shoping-like"></button>
+                <?php endif; ?>
+	        </div>
         <?php if ($details !== []) { ?>
             <div class="main-cataloge__details main__details details">
                 <?php if ($favoritesView && $contextLabel !== '') { ?>
@@ -241,22 +255,22 @@ $detailsOpenAttr = $expandFeatures ? ' open' : '';
                 </div>
             <?php } ?>
             <div class="main-cataloge__price"><?=$priceHtml?></div>
-            <div class="main-cataloge__bottom-controls">
-                <button
-                    data-fls-popup-link="speedBuy"
-                    class="main-cataloge__buy"
-                    data-product-name="<?=htmlspecialcharsbx($buyName)?>"
-                    data-product-url="<?=htmlspecialcharsbx($buyUrl)?>"
-                    data-options='<?=$optionsAttr?>'>Купить в один клик</button>
-                <button
-                    data-fls-addtocart-button=""
-                    class="main-cataloge__shoping-btn"
-                    data-add-basket
-                    data-options="<?=$optionsAttr?>">
-                    <span class="main-cataloge__shoping-text">В корзину</span>
-                    <img class="main-cataloge__shoping-img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/shopping-icon.svg" alt="Img">
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+	            <div class="main-cataloge__bottom-controls">
+                    <?php if ($isFromSearch): ?>
+                        <a class="main-cataloge__shoping-btn" href="<?=htmlspecialcharsbx($detailUrl)?>">
+                            <span class="main-cataloge__shoping-text">Открыть товар</span>
+                        </a>
+                    <?php else: ?>
+                        <button
+                            data-fls-addtocart-button=""
+                            class="main-cataloge__shoping-btn"
+                            data-add-basket
+                            data-options="<?=$optionsAttr?>">
+                            <span class="main-cataloge__shoping-text">В корзину</span>
+                            <img class="main-cataloge__shoping-img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/shopping-icon.svg" alt="Img">
+                        </button>
+                    <?php endif; ?>
+	            </div>
+	        </div>
+	    </div>
+	</div>

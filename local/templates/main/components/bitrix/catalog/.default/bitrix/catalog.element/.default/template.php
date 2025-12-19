@@ -276,10 +276,13 @@ if (!empty($applicabilityRows) && !empty($arResult['SECTION']['PATH']) && is_arr
 // If the user came from global search, treat it as "no auto context":
 // show full applicability instead of assuming the section-path is the user's selection.
 $from = (string)($_GET['from'] ?? '');
-if ($from === 'search') {
+$isFromSearch = $from === 'search';
+if ($isFromSearch) {
     $contextApplicability = null;
     $filteredApplicability = $applicabilityRows;
 }
+
+$actionsAllowed = !$isFromSearch && $contextApplicability !== null;
 
 // Debug: выводим цепочку разделов/значения применяемости в HTML-комментарий
 $sectionPathInfo = [];
@@ -440,18 +443,30 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
                     </div>
                 </div>
             </div>
-            <div class="main-details__shoping" data-fls-like-product="<?=$arResult['ID']?>"<?php if ($contextSectionId > 0) { ?> data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>>
-                <button data-fls-addtocart-button="" class="main-details__shoping-btn" data-options='<?=$optionsAttr?>'>
-                    <span class="main-details__shoping-text">В корзину</span>
-                </button>
-                <button data-fls-like-image="" data-fls-like-button="" data-product-id="<?=$arResult['ID']?>" data-options='<?=$optionsAttr?>' <?php if ($contextSectionId > 0) { ?>data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?> class="main-details__shoping-like"></button>
-            </div>
-            <button data-fls-popup-link="speedBuy"
-                    class="main-details__buy"
-                    href="#"
-                    data-product-name="<?= $arResult['NAME'] ?>"
-                    data-product-url="<?= $arResult['DETAIL_PAGE_URL'] ?>"
-                    data-options='<?=$optionsAttr?>'>Купить в один клик</button>
+            <?php if ($actionsAllowed): ?>
+                <div class="main-details__shoping" data-fls-like-product="<?=$arResult['ID']?>"<?php if ($contextSectionId > 0) { ?> data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>>
+                    <button data-fls-addtocart-button="" class="main-details__shoping-btn" data-options='<?=$optionsAttr?>'>
+                        <span class="main-details__shoping-text">В корзину</span>
+                    </button>
+                    <button data-fls-like-image="" data-fls-like-button="" data-product-id="<?=$arResult['ID']?>" data-options='<?=$optionsAttr?>' <?php if ($contextSectionId > 0) { ?>data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?> class="main-details__shoping-like"></button>
+                </div>
+                <button data-fls-popup-link="speedBuy"
+                        class="main-details__buy"
+                        href="#"
+                        data-product-name="<?= $arResult['NAME'] ?>"
+                        data-product-url="<?= $arResult['DETAIL_PAGE_URL'] ?>"
+                        data-options='<?=$optionsAttr?>'>Купить в один клик</button>
+            <?php else: ?>
+                <div class="main-details__shoping">
+                    <button type="button" class="main-details__shoping-btn" disabled>
+                        <span class="main-details__shoping-text">В корзину</span>
+                    </button>
+                </div>
+                <div class="main-details__context-hint">
+                    Чтобы купить или добавить в избранное, выберите автомобиль (поколение) в каталоге.
+                    <a href="/catalog/">Подобрать по авто</a>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>

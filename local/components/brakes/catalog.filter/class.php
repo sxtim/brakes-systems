@@ -1,6 +1,7 @@
 <?php
 
 use Bitrix\Iblock\Model\Section;
+use Bitrix\Main\Loader;
 
 class CatalogFilterComponent extends \CBitrixComponent
 {
@@ -9,6 +10,8 @@ class CatalogFilterComponent extends \CBitrixComponent
         $iblockId = (int)($this->arParams['IBLOCK_ID'] ?? 0);
         $currentSectionCodeOrPath = trim((string)($this->arParams['SECTION'] ?? ''), " \t\n\r\0\x0B/");
         $currentSectionId = (int)($this->arParams['SECTION_ID'] ?? 0);
+
+        $iblockModuleLoaded = $iblockId > 0 && Loader::includeModule('iblock');
 
         $this->arResult['CATEGORIES'] = [];
         $this->arResult['MARKS'] = [];
@@ -39,14 +42,19 @@ class CatalogFilterComponent extends \CBitrixComponent
         $entitySections = Section::compileEntityByIblock($iblockId);
 
         $mapRow = static function (array $row): array {
-            $row['SECTION_PAGE_URL'] = CIBlock::ReplaceDetailUrl(
+            $row['SECTION_PAGE_URL'] = \CIBlock::ReplaceDetailUrl(
                 $row['SECTION_PAGE_URL'] ?? '',
                 $row,
                 false,
                 'S'
             );
 
-            $row['UF_SVG'] = CFile::GetPath($row['UF_SVG'] ?? null);
+            $ufSvg = $row['UF_SVG'] ?? null;
+            if (is_string($ufSvg) && $ufSvg !== '' && $ufSvg[0] === '/') {
+                $row['UF_SVG'] = $ufSvg;
+            } else {
+                $row['UF_SVG'] = (string)\CFile::GetPath((int)$ufSvg);
+            }
 
             return $row;
         };
@@ -75,36 +83,10 @@ class CatalogFilterComponent extends \CBitrixComponent
         );
 
         $currentSection = null;
-        if ($currentSectionId <= 0 && $currentSectionCodeOrPath !== '') {
-            $segments = array_values(array_filter(explode('/', $currentSectionCodeOrPath), 'strlen'));
-            $parentId = 0;
-            foreach ($segments as $index => $code) {
-                $filter = [
-                    'IBLOCK_ID' => $iblockId,
-                    'ACTIVE' => 'Y',
-                    '=CODE' => $code,
-                ];
-                if ($index === 0) {
-                    $filter['DEPTH_LEVEL'] = 1;
-                } else {
-                    $filter['IBLOCK_SECTION_ID'] = $parentId;
-                }
-
-                $row = $entitySections::getRow([
-                    'filter' => $filter,
-                    'select' => ['ID'],
-                ]);
-
-                if (!is_array($row) || empty($row['ID'])) {
-                    $parentId = 0;
-                    break;
-                }
-
-                $parentId = (int)$row['ID'];
-            }
-
-            if ($parentId > 0) {
-                $currentSectionId = $parentId;
+        if ($iblockModuleLoaded && $currentSectionId <= 0 && $currentSectionCodeOrPath !== '') {
+            $resolvedSectionId = (int)\CIBlockFindTools::GetSectionIDByCodePath($iblockId, $currentSectionCodeOrPath);
+            if ($resolvedSectionId > 0) {
+                $currentSectionId = $resolvedSectionId;
             }
         }
 
@@ -113,21 +95,6 @@ class CatalogFilterComponent extends \CBitrixComponent
                 'filter' => [
                     'ID' => $currentSectionId,
                 ],
-                'select' => [
-                    'ID',
-                    'CODE',
-                    'DEPTH_LEVEL',
-                    'IBLOCK_SECTION_ID',
-                ],
-            ]);
-        } elseif ($currentSectionCodeOrPath !== '') {
-            $code = array_values(array_filter(explode('/', $currentSectionCodeOrPath), 'strlen'));
-            $code = $code !== [] ? (string)end($code) : $currentSectionCodeOrPath;
-            $currentSection = $entitySections::getRow([
-                'filter' => [
-                    '=CODE' => $code,
-                ],
-                'order' => ['ID' => 'DESC'],
                 'select' => [
                     'ID',
                     'CODE',
@@ -190,6 +157,7 @@ class CatalogFilterComponent extends \CBitrixComponent
                 [
                     'IBLOCK_ID' => $iblockId,
                     'ACTIVE' => 'Y',
+                    'DEPTH_LEVEL' => 2,
                     'IBLOCK_SECTION_ID' => $categoryId,
                 ],
                 $select,
@@ -203,6 +171,7 @@ class CatalogFilterComponent extends \CBitrixComponent
                 [
                     'IBLOCK_ID' => $iblockId,
                     'ACTIVE' => 'Y',
+                    'DEPTH_LEVEL' => 3,
                     'IBLOCK_SECTION_ID' => $markId,
                 ],
                 $select,
@@ -216,6 +185,7 @@ class CatalogFilterComponent extends \CBitrixComponent
                 [
                     'IBLOCK_ID' => $iblockId,
                     'ACTIVE' => 'Y',
+                    'DEPTH_LEVEL' => 4,
                     'IBLOCK_SECTION_ID' => $modelId,
                 ],
                 $select,

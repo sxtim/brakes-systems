@@ -45,6 +45,9 @@ $appendQueryParam = static function (string $url, string $param, string $value):
             </h1>
             <a class="search-page__catalog-link" href="/catalog/">Вернуться в каталог</a>
         </div>
+        <p class="main__catalog-prompt">
+            Чтобы купить/добавить в избранное/оформить «в 1 клик», сначала выберите автомобиль (поколение) в каталоге.
+        </p>
         <div class="main__cataloge main-cataloge">
             <?php if (!empty($items)): ?>
                 <div class="main-cataloge__body view-grid">

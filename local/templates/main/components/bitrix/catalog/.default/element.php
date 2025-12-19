@@ -13,6 +13,7 @@ Asset::getInstance()->addString('<script type="module" crossorigin="" src="' . S
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/product-page.min.css');
 
 $request = Application::getInstance()->getContext()->getRequest();
+$isFromSearch = ((string)$request->getQuery('from') === 'search');
 $path = $request->getRequestedPageDirectory();
 $path = explode('/', $path);
 unset($path[array_key_last($path)]);
@@ -56,83 +57,76 @@ $path = implode('/', $path) . '/';
             ?>
             <div class="page__main">
                 <div class="main__inner">
-                    <?php $APPLICATION->IncludeComponent("bitrix:breadcrumb","",Array(
-                            "START_FROM" => "0",
-                            "PATH" => "",
-                            "SITE_ID" => "s1"
-                        )
-                    );?>
-                    <?php
-                    if (Loader::includeModule('iblock')) {
-                        $sectionId = (int)($arResult['VARIABLES']['SECTION_ID'] ?? 0);
-                        $sectionCodePath = (string)($arResult['VARIABLES']['SECTION_CODE_PATH'] ?? '');
-                        if ($sectionId <= 0 && $sectionCodePath !== '') {
-                            $sectionId = (int)\CIBlockFindTools::GetSectionID(false, $sectionCodePath, ['IBLOCK_ID' => $arParams['IBLOCK_ID']]);
-                        }
+<?php
+$baseTitle = '';
+if (Loader::includeModule('iblock')) {
+    // Получаем название товара (если есть ID или CODE)
+    $elementId = (int)($arResult['VARIABLES']['ELEMENT_ID'] ?? 0);
+    $elementCode = (string)($arResult['VARIABLES']['ELEMENT_CODE'] ?? '');
+    if ($elementId > 0 || $elementCode !== '') {
+        $filter = ['IBLOCK_ID' => $arParams['IBLOCK_ID']];
+        if ($elementId > 0) {
+            $filter['ID'] = $elementId;
+        } else {
+            $filter['=CODE'] = $elementCode;
+        }
+        $row = \CIBlockElement::GetList([], $filter, false, ['nTopCount' => 1], ['ID', 'NAME'])->Fetch();
+        if (is_array($row) && !empty($row['NAME'])) {
+            $baseTitle = (string)$row['NAME'];
+        }
+    }
 
-                        $brandModelBody = [];
-                        if ($sectionId > 0) {
-                            $navChain = \CIBlockSection::GetNavChain($arParams['IBLOCK_ID'], $sectionId, ['ID', 'NAME']);
-                            $sectionNames = [];
-                            while ($row = $navChain->Fetch()) {
-                                if (!empty($row['NAME'])) {
-                                    $sectionNames[] = $row['NAME'];
-                                }
-                            }
-                            $brandModelBody = array_slice($sectionNames, -3);
-                        }
+    // Собираем цепочку разделов (если есть)
+    $brandModelBody = [];
+    $sectionId = (int)($arResult['VARIABLES']['SECTION_ID'] ?? 0);
+    $sectionCodePath = (string)($arResult['VARIABLES']['SECTION_CODE_PATH'] ?? '');
+    if ($sectionId <= 0 && $sectionCodePath !== '') {
+        $sectionId = (int)\CIBlockFindTools::GetSectionID(false, $sectionCodePath, ['IBLOCK_ID' => $arParams['IBLOCK_ID']]);
+    }
+    if ($sectionId > 0) {
+        $navChain = \CIBlockSection::GetNavChain($arParams['IBLOCK_ID'], $sectionId, ['ID', 'NAME']);
+        $sectionNames = [];
+        while ($row = $navChain->Fetch()) {
+            if (!empty($row['NAME'])) {
+                $sectionNames[] = $row['NAME'];
+            }
+        }
+        $sectionDepth = count($sectionNames);
+        if ($sectionDepth >= 4) {
+            $brandModelBody = array_slice($sectionNames, -3);
+        }
+    }
+    $brandModelBody = array_values(array_filter($brandModelBody, static fn($value) => is_string($value) && $value !== ''));
+}
 
-                        if ($brandModelBody === []) {
-                            $elementFilter = ['IBLOCK_ID' => $arParams['IBLOCK_ID']];
-                            $elementId = (int)($arResult['VARIABLES']['ELEMENT_ID'] ?? 0);
-                            if ($elementId > 0) {
-                                $elementFilter['ID'] = $elementId;
-                            } elseif (!empty($arResult['VARIABLES']['ELEMENT_CODE'])) {
-                                $elementFilter['=CODE'] = $arResult['VARIABLES']['ELEMENT_CODE'];
-                            }
+if ($baseTitle === '') {
+    $baseTitle = (string)$APPLICATION->GetTitle(false);
+}
 
-                            if (isset($elementFilter['ID']) || isset($elementFilter['=CODE'])) {
-                                $row = \CIBlockElement::GetList(
-                                    [],
-                                    $elementFilter,
-                                    false,
-                                    ['nTopCount' => 1],
-                                    ['ID', 'PROPERTY_MARK', 'PROPERTY_MODEL', 'PROPERTY_BODY']
-                                )->Fetch();
-
-                                $split = static function ($value): array {
-                                    if (is_array($value)) {
-                                        return array_values(array_filter(array_map('trim', $value), 'strlen'));
-                                    }
-                                    if (is_string($value)) {
-                                        return array_values(array_filter(array_map('trim', explode(';', $value)), 'strlen'));
-                                    }
-
-                                    return [];
-                                };
-
-                                if ($row) {
-                                    $brandModelBody = [
-                                        $split($row['PROPERTY_MARK_VALUE'] ?? '')[0] ?? '',
-                                        $split($row['PROPERTY_MODEL_VALUE'] ?? '')[0] ?? '',
-                                        $split($row['PROPERTY_BODY_VALUE'] ?? '')[0] ?? '',
-                                    ];
-                                }
-                            }
-                        }
-
-                        $brandModelBody = array_values(array_filter($brandModelBody, static fn($value) => is_string($value) && $value !== ''));
-                        if ($brandModelBody !== []) {
-                            $currentTitle = (string)$APPLICATION->GetTitle(false);
-                            $suffix = implode(' ', $brandModelBody);
-                            if ($suffix !== '') {
-                                $newTitle = trim($currentTitle !== '' ? $currentTitle . ' — ' . $suffix : $suffix);
-                                $APPLICATION->SetTitle($newTitle);
-                                $APPLICATION->SetPageProperty('title', $newTitle);
-                            }
-                        }
-                    }
-                    ?>
+$newTitle = trim($baseTitle);
+if (!$isFromSearch && !empty($brandModelBody)) {
+    $suffix = implode(' ', $brandModelBody);
+    if ($suffix !== '') {
+        $newTitle = trim(($newTitle !== '' ? $newTitle : $baseTitle) . ' — ' . $suffix);
+    }
+}
+if ($newTitle !== '') {
+    $APPLICATION->SetTitle($newTitle);
+    $APPLICATION->SetPageProperty('title', $newTitle);
+}
+?>
+<?php if ($isFromSearch): ?>
+    <div class="main__breadcrumbs">
+        <a href="/">Главная</a> › <a href="/catalog/">Каталог</a> › <span><?=htmlspecialcharsbx($baseTitle)?></span>
+    </div>
+<?php else: ?>
+    <?php $APPLICATION->IncludeComponent("bitrix:breadcrumb","",Array(
+            "START_FROM" => "0",
+            "PATH" => "",
+            "SITE_ID" => "s1"
+        )
+    );?>
+<?php endif; ?>
                     <h1 class="main__title"><?=$APPLICATION->ShowTitle(false)?></h1>
                     <?php
 
@@ -157,7 +151,8 @@ $path = implode('/', $path) . '/';
                         'CACHE_TYPE'                 => $arParams['CACHE_TYPE'],
                         'CACHE_TIME'                 => $arParams['CACHE_TIME'],
                         'CACHE_GROUPS'               => $arParams['CACHE_GROUPS'],
-                        'SET_TITLE'                  => $arParams['SET_TITLE'],
+                        // отключаем установку тайтла внутри компонента, чтобы не перетирать наш суффикс
+                        'SET_TITLE'                  => 'N',
                         'SET_LAST_MODIFIED'          => $arParams['SET_LAST_MODIFIED'],
                         'MESSAGE_404'                => $arParams['~MESSAGE_404'],
                         'SET_STATUS_404'             => $arParams['SET_STATUS_404'],

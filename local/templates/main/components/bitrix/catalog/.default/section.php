@@ -87,19 +87,31 @@ if ($sectionDepth === 0) {
                 );?>
                 <h1 class="main__title"><?=$APPLICATION->ShowTitle(false)?></h1>
                 <?php
+                $request = Application::getInstance()->getContext()->getRequest();
+                $from = (string)$request->getQuery('from');
+                $isSearchContext = ($from === 'search');
+                $isElementView = !empty($arResult['VARIABLES']['ELEMENT_CODE']) || !empty($arResult['VARIABLES']['ELEMENT_ID']);
+
+                $filterSection = (($arResult["VARIABLES"]["SECTION_CODE_PATH"] ?? '') ?: ($arResult["VARIABLES"]["SECTION_CODE"] ?? ''));
+                $filterSectionId = (int)($arResult["VARIABLES"]["SECTION_ID"] ?? 0);
+                if ($isSearchContext && $isElementView) {
+                    $segments = array_values(array_filter(explode('/', trim((string)$filterSection, '/')), 'strlen'));
+                    $filterSection = (string)($segments[0] ?? '');
+                    $filterSectionId = 0;
+                }
+
                 $APPLICATION->IncludeComponent(
                     "brakes:catalog.filter",
                     "",
                     [
                         "IBLOCK_ID" => 1,
-                        "SECTION" => ($arResult["VARIABLES"]["SECTION_CODE_PATH"] ?? '') ?: ($arResult["VARIABLES"]["SECTION_CODE"] ?? ''),
-                        "SECTION_ID" => (int)($arResult["VARIABLES"]["SECTION_ID"] ?? 0),
+                        "SECTION" => $filterSection,
+                        "SECTION_ID" => $filterSectionId,
                     ]
                 ); ?>
 <?php
 
 if ($isBodyContext) {
-    $request = Application::getInstance()->getContext()->getRequest();
     $getData = $request->getQueryList()->toArray();
 
 $searchContext = $GLOBALS['CATALOG_SEARCH_CONTEXT'] ?? null;
