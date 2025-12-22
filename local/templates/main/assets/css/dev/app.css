@@ -1220,7 +1220,7 @@ body {
   transition: all 0.2s linear;
   overflow-y: auto;
   height: calc(100dvh - 9.0625rem);
-  z-index: 2;
+  z-index: 60;
   overflow-x: hidden;
 }
 .favorit-box.active {

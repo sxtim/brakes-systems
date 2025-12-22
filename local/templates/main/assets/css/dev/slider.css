@@ -39,6 +39,12 @@
 .swiper-button-lock {
   display: none !important;
 }
+.watched-slider__prev.swiper-button-lock,
+.watched-slider__next.swiper-button-lock {
+  display: block !important;
+  pointer-events: none;
+  opacity: 0.5;
+}
 
 .main-swiper {
   height: 25.1875rem;

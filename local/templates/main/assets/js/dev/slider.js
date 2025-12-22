@@ -5170,45 +5170,30 @@ function initSliders() {
   if (document.querySelector(".watched-slider__slider")) {
     new Swiper(".watched-slider__slider", {
       // <- Вказуємо склас потрібного слайдера
-      modules: [Navigation, Grid],
+      modules: [Navigation],
       observer: true,
       observeParents: true,
       speed: 800,
+      watchOverflow: true,
       navigation: {
         prevEl: ".watched-slider__prev",
         nextEl: ".watched-slider__next"
       },
-      slidesPerView: 2,
-      spaceBetween: 25,
-      grid: {
-        rows: 2,
-        fill: "row"
-      },
+      slidesPerView: 1,
+      spaceBetween: 20,
       // Брейкпоінти
       breakpoints: {
         768: {
           slidesPerView: 2,
           spaceBetween: 25,
-          grid: {
-            rows: 1,
-            fill: "row"
-          }
         },
         992: {
           slidesPerView: 3,
           spaceBetween: 40,
-          grid: {
-            rows: 1,
-            fill: "row"
-          }
         },
         1440: {
           slidesPerView: 4,
           spaceBetween: 60,
-          grid: {
-            rows: 1,
-            fill: "row"
-          }
         }
       }
     });
