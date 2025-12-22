@@ -421,5 +421,7 @@ if ($newTitle !== '') {
 
             $APPLICATION->includeComponent('brakes:catalog.viewed', '')
             ?>
+                </div>
+            </div>
         </div>
     </main>

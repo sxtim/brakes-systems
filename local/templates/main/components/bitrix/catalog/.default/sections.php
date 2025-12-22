@@ -40,9 +40,11 @@ if ($sectionDepth === 0) {
 } elseif ($sectionDepth === 3) {
     $contextPrompt = 'Выберите поколение, чтобы увидеть товары и проверить применяемость.';
 }
+
+$pageContainerClass = 'page__container' . ($isBodyContext ? '' : ' page__container--single');
 ?>
 <main class="page">
-    <div class="page__container">
+    <div class="<?= $pageContainerClass ?>">
         <?
         if ($isBodyContext) {
             $APPLICATION->IncludeComponent(
@@ -241,3 +243,7 @@ if ($sectionDepth === 0) {
                     <?php
                 }
                 ?>
+            </div>
+        </div>
+    </div>
+</main>

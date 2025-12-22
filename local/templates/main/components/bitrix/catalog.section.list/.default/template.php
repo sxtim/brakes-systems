@@ -13,7 +13,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 if ($item['DEPTH_LEVEL'] == 1) {
             ?>
                     <li class="menu__item">
-                        <div data-fls-spollers="576,max"
+                        <div data-fls-spollers="99999,max"
                              class="spollers">
                             <details class="menu-spollers__item spollers__item">
                                 <summary
@@ -33,7 +33,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                                 ?>
                                     <div class="menu-spollers__body spollers__body">
                                         <!-- -------------------------------------------------- -->
-                                        <div data-fls-spollers="1920,max"
+                                        <div data-fls-spollers="99999,max"
                                              class="spollers">
                                 <?php
 
