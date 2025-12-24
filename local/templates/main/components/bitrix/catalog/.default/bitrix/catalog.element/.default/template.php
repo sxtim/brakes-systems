@@ -576,34 +576,34 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
 
     if ($isPadsCategory) {
         ?>
-        <div class="details-row">
-            <span class="details-label">Бренд:</span>
-            <span class="details-dots"></span>
-            <span class="details-value"><?=htmlspecialcharsbx($brandValue !== '' ? $brandValue : '—')?></span>
-        </div>
-        <div class="details-row">
-            <span class="details-label">Тип:</span>
-            <span class="details-dots"></span>
-            <span class="details-value"><?=htmlspecialcharsbx($axisValue !== '' ? $axisValue : '—')?></span>
-        </div>
-        <div class="details-row">
-            <span class="details-label">Оригинальный номер детали:</span>
-            <span class="details-dots"></span>
-            <span class="details-value">
-                <?php if (!empty($oemNumbers)): ?>
-                    <a href="#oem-numbers">Посмотреть</a>
-                <?php else: ?>
+	        <div class="details-row">
+	            <span class="details-label">Бренд:</span>
+	            <span class="details-dots-wrap"><span class="details-dots"></span></span>
+	            <span class="details-value"><?=htmlspecialcharsbx($brandValue !== '' ? $brandValue : '—')?></span>
+	        </div>
+	        <div class="details-row">
+	            <span class="details-label">Тип:</span>
+	            <span class="details-dots-wrap"><span class="details-dots"></span></span>
+	            <span class="details-value"><?=htmlspecialcharsbx($axisValue !== '' ? $axisValue : '—')?></span>
+	        </div>
+	        <div class="details-row">
+	            <span class="details-label">Оригинальный номер детали:</span>
+	            <span class="details-dots-wrap"><span class="details-dots"></span></span>
+	            <span class="details-value">
+	                <?php if (!empty($oemNumbers)): ?>
+	                    <a href="#oem-numbers">Посмотреть</a>
+	                <?php else: ?>
                     —
                 <?php endif; ?>
             </span>
         </div>
-        <?php if (!empty($crossRows)): ?>
-            <div class="details-row" id="oem-numbers">
-                <span class="details-label">Оригинальные номера:</span>
-                <span class="details-dots"></span>
-                <span class="details-value">
-                    <div class="applicability-table__wrapper">
-                        <table class="applicability-table">
+	        <?php if (!empty($crossRows)): ?>
+	            <div class="details-row" id="oem-numbers">
+	                <span class="details-label">Оригинальные номера:</span>
+	                <span class="details-dots-wrap"><span class="details-dots"></span></span>
+	                <span class="details-value">
+	                    <div class="applicability-table__wrapper">
+	                        <table class="applicability-table">
                             <thead>
                             <tr>
                                 <th>Номер</th>
@@ -648,51 +648,51 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
                 continue;
             }
             ?>
-            <div class="details-row">
-                <span class="details-label"><?=$prop['NAME']?>:</span>
-                <span class="details-dots"></span>
-                <span class="details-value"><?=$prop['VALUE']?></span>
-            </div>
-            <?php
-        }
+	            <div class="details-row">
+	                <span class="details-label"><?=$prop['NAME']?>:</span>
+	                <span class="details-dots-wrap"><span class="details-dots"></span></span>
+	                <span class="details-value"><?=$prop['VALUE']?></span>
+	            </div>
+	            <?php
+	        }
     }
     ?>
 
-    <?php if ($contextApplicability): ?>
-        <div class="details-row">
-            <span class="details-label">Марка:</span>
-            <span class="details-dots"></span>
-            <span class="details-value"><?=htmlspecialcharsbx($contextApplicability['MARK'])?></span>
-        </div>
-        <div class="details-row">
-            <span class="details-label">Модель:</span>
-            <span class="details-dots"></span>
-            <span class="details-value"><?=htmlspecialcharsbx($contextApplicability['MODEL'])?></span>
-        </div>
-        <div class="details-row">
-            <span class="details-label">Кузов:</span>
-            <span class="details-dots"></span>
-            <span class="details-value"><?=htmlspecialcharsbx($contextApplicability['BODY'])?></span>
-        </div>
-        <?php if ($contextApplicability['DATE_RELEASE'] || $contextApplicability['DATE_END']): ?>
-            <div class="details-row">
-                <span class="details-label">Год начала выпуска:</span>
-                <span class="details-dots"></span>
-                <span class="details-value"><?=htmlspecialcharsbx($formatDateShort($contextApplicability['DATE_RELEASE'] ?? '') ?: '—')?></span>
-            </div>
-            <div class="details-row">
-                <span class="details-label">Год окончания выпуска:</span>
-                <span class="details-dots"></span>
-                <span class="details-value"><?=htmlspecialcharsbx($formatDateShort($contextApplicability['DATE_END'] ?? '') ?: '—')?></span>
-            </div>
-        <?php endif; ?>
-    <?php elseif (!empty($filteredApplicability)): ?>
-        <div class="details-row applicability-row">
-            <span class="details-label">Применяемость:</span>
-            <span class="details-dots"></span>
-            <span class="details-value">
-                <div class="applicability-table__wrapper">
-                    <table class="applicability-table">
+	    <?php if ($contextApplicability): ?>
+	        <div class="details-row">
+	            <span class="details-label">Марка:</span>
+	            <span class="details-dots-wrap"><span class="details-dots"></span></span>
+	            <span class="details-value"><?=htmlspecialcharsbx($contextApplicability['MARK'])?></span>
+	        </div>
+	        <div class="details-row">
+	            <span class="details-label">Модель:</span>
+	            <span class="details-dots-wrap"><span class="details-dots"></span></span>
+	            <span class="details-value"><?=htmlspecialcharsbx($contextApplicability['MODEL'])?></span>
+	        </div>
+	        <div class="details-row">
+	            <span class="details-label">Кузов:</span>
+	            <span class="details-dots-wrap"><span class="details-dots"></span></span>
+	            <span class="details-value"><?=htmlspecialcharsbx($contextApplicability['BODY'])?></span>
+	        </div>
+	        <?php if ($contextApplicability['DATE_RELEASE'] || $contextApplicability['DATE_END']): ?>
+	            <div class="details-row">
+	                <span class="details-label">Год начала выпуска:</span>
+	                <span class="details-dots-wrap"><span class="details-dots"></span></span>
+	                <span class="details-value"><?=htmlspecialcharsbx($formatDateShort($contextApplicability['DATE_RELEASE'] ?? '') ?: '—')?></span>
+	            </div>
+	            <div class="details-row">
+	                <span class="details-label">Год окончания выпуска:</span>
+	                <span class="details-dots-wrap"><span class="details-dots"></span></span>
+	                <span class="details-value"><?=htmlspecialcharsbx($formatDateShort($contextApplicability['DATE_END'] ?? '') ?: '—')?></span>
+	            </div>
+	        <?php endif; ?>
+	    <?php elseif (!empty($filteredApplicability)): ?>
+	        <div class="details-row applicability-row">
+	            <span class="details-label">Применяемость:</span>
+	            <span class="details-dots-wrap"><span class="details-dots"></span></span>
+	            <span class="details-value">
+	                <div class="applicability-table__wrapper">
+	                    <table class="applicability-table">
                         <thead>
                         <tr>
                             <th>Марка</th>

@@ -1066,14 +1066,20 @@ body:not(.lg-from-hash) .lg-outer.lg-start-zoom .lg-item:not(.lg-zoomable).lg-co
   color: #404040;
 }
 
-.details-dots {
+.details-dots-wrap {
   flex-grow: 1;
-  border-bottom: 0.1875rem dotted #C7C7C7;
   margin: 0 0.625rem;
   display: flex;
+  align-items: flex-end;
   min-width: 1.25rem;
+}
+
+.details-dots {
+  border-bottom: 0.1875rem dotted #C7C7C7;
+  display: block;
   width: 100%;
-  transform: translateY(-0.1875rem);
+  height: 1em;
+  transform: none;
 }
 
 .details-value {

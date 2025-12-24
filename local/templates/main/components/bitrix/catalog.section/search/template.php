@@ -65,24 +65,49 @@ $appendQueryParam = static function (string $url, string $param, string $value):
                         $optionsJson = $item['FAVORITES_OPTIONS_JSON'] ?? '{}';
                         $optionsAttr = htmlspecialcharsbx($optionsJson);
 
-                        $details = [
-                            [
-                                'label' => 'Артикул',
-                                'value' => $item['PROPERTIES']['CML2_ARTICLE']['VALUE'] ?? '',
-                            ],
-                            [
-                                'label' => 'Производитель:',
-                                'value' => $item['PROPERTIES']['MANUFACTURER']['VALUE'] ?? '',
-                            ],
-                            [
-                                'label' => 'Кол-во поршней:',
-                                'value' => $item['PROPERTIES']['NUMBER_PISTONS']['VALUE'] ?? '',
-                            ],
-                            [
-                                'label' => 'Ось:',
-                                'value' => $item['PROPERTIES']['INSTALLATION_AXIS']['VALUE'] ?? '',
-                            ],
-                        ];
+                        $detailUrlRaw = (string)($item['DETAIL_PAGE_URL'] ?? '');
+                        $isPadsCategory = $detailUrlRaw !== '' && strpos($detailUrlRaw, '/tormoznye_kolodki/') !== false;
+
+                        if ($isPadsCategory) {
+                            $brand = (string)($item['PROPERTIES']['CML2_MANUFACTURER']['VALUE'] ?? '');
+                            if ($brand === '') {
+                                $brand = (string)($item['PROPERTIES']['MANUFACTURER']['VALUE'] ?? '');
+                            }
+
+                            $details = [
+                                [
+                                    'label' => 'Артикул',
+                                    'value' => $item['PROPERTIES']['CML2_ARTICLE']['VALUE'] ?? '',
+                                ],
+                                [
+                                    'label' => 'Бренд',
+                                    'value' => $brand,
+                                ],
+                                [
+                                    'label' => 'Тип',
+                                    'value' => $item['PROPERTIES']['INSTALLATION_AXIS']['VALUE'] ?? '',
+                                ],
+                            ];
+                        } else {
+                            $details = [
+                                [
+                                    'label' => 'Артикул',
+                                    'value' => $item['PROPERTIES']['CML2_ARTICLE']['VALUE'] ?? '',
+                                ],
+                                [
+                                    'label' => 'Производитель:',
+                                    'value' => $item['PROPERTIES']['MANUFACTURER']['VALUE'] ?? '',
+                                ],
+                                [
+                                    'label' => 'Кол-во поршней:',
+                                    'value' => $item['PROPERTIES']['NUMBER_PISTONS']['VALUE'] ?? '',
+                                ],
+                                [
+                                    'label' => 'Ось:',
+                                    'value' => $item['PROPERTIES']['INSTALLATION_AXIS']['VALUE'] ?? '',
+                                ],
+                            ];
+                        }
 
                         $colors = [];
                         if (!empty($item['DISPLAY_PROPERTIES']['COLOR']['VALUE']) && is_array($item['DISPLAY_PROPERTIES']['COLOR']['VALUE'])) {
