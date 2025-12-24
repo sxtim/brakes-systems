@@ -181,6 +181,10 @@ $isFromSearch = $fromParam === 'search';
                     if ($label === '' && $value === '') {
                         continue;
                     }
+
+                    if ($value === '') {
+                        $value = '—';
+                    }
                 ?>
                     <div class="main-cataloge__details-row details-row">
                         <?php if ($label !== '') { ?>
@@ -207,7 +211,8 @@ $isFromSearch = $fromParam === 'search';
                 </div>
             </div>
         <?php } ?>
-        <div class="main-cataloge__info">
+    </div>
+    <div class="main-cataloge__info">
             <?php if ($favoritesView) { ?>
                 <div class="main-cataloge__feature main-cataloge__feature--favorite">
                     <?php foreach ($optionLabelMap as $optionKey => $label) {
@@ -272,5 +277,4 @@ $isFromSearch = $fromParam === 'search';
                     <?php endif; ?>
 	            </div>
 	        </div>
-	    </div>
 	</div>

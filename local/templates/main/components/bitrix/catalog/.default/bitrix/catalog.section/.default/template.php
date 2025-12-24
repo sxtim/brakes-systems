@@ -36,6 +36,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 $contextSectionPath = implode('/', $codes);
             }
         }
+        $isPadsCategory = $contextSectionPath !== '' && strpos($contextSectionPath, 'tormoznye_kolodki') === 0;
         $cardPartialPath = __DIR__ . '/partials/product-card.php';
 
         foreach ($arResult['ITEMS'] as $item) {
@@ -51,24 +52,47 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
             $optionsJson = $item['FAVORITES_OPTIONS_JSON'] ?? '{}';
             $optionsAttr = htmlspecialcharsbx($optionsJson);
 
-            $details = [
-                [
-                    'label' => 'Артикул',
-                    'value' => $item['PROPERTIES']['CML2_ARTICLE']['VALUE'] ?? '',
-                ],
-                [
-                    'label' => 'Производитель:',
-                    'value' => $item['PROPERTIES']['MANUFACTURER']['VALUE'] ?? '',
-                ],
-                [
-                    'label' => 'Кол-во поршней:',
-                    'value' => $item['PROPERTIES']['NUMBER_PISTONS']['VALUE'] ?? '',
-                ],
-                [
-                    'label' => 'Ось:',
-                    'value' => $item['PROPERTIES']['INSTALLATION_AXIS']['VALUE'] ?? '',
-                ],
-            ];
+            $details = [];
+            if ($isPadsCategory) {
+                $brand = (string)($item['PROPERTIES']['CML2_MANUFACTURER']['VALUE'] ?? '');
+                if ($brand === '') {
+                    $brand = (string)($item['PROPERTIES']['MANUFACTURER']['VALUE'] ?? '');
+                }
+
+                $details = [
+                    [
+                        'label' => 'Артикул',
+                        'value' => $item['PROPERTIES']['CML2_ARTICLE']['VALUE'] ?? '',
+                    ],
+                    [
+                        'label' => 'Бренд',
+                        'value' => $brand,
+                    ],
+                    [
+                        'label' => 'Тип',
+                        'value' => $item['PROPERTIES']['INSTALLATION_AXIS']['VALUE'] ?? '',
+                    ],
+                ];
+            } else {
+                $details = [
+                    [
+                        'label' => 'Артикул',
+                        'value' => $item['PROPERTIES']['CML2_ARTICLE']['VALUE'] ?? '',
+                    ],
+                    [
+                        'label' => 'Производитель:',
+                        'value' => $item['PROPERTIES']['MANUFACTURER']['VALUE'] ?? '',
+                    ],
+                    [
+                        'label' => 'Кол-во поршней:',
+                        'value' => $item['PROPERTIES']['NUMBER_PISTONS']['VALUE'] ?? '',
+                    ],
+                    [
+                        'label' => 'Ось:',
+                        'value' => $item['PROPERTIES']['INSTALLATION_AXIS']['VALUE'] ?? '',
+                    ],
+                ];
+            }
 
             $colors = [];
             if (!empty($item['DISPLAY_PROPERTIES']['COLOR']['VALUE']) && is_array($item['DISPLAY_PROPERTIES']['COLOR']['VALUE'])) {

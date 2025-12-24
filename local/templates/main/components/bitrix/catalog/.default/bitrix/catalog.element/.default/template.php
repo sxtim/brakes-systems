@@ -284,6 +284,67 @@ if ($isFromSearch) {
 
 $actionsAllowed = !$isFromSearch && $contextApplicability !== null;
 
+$traitsMap = [];
+if (!empty($arResult['PROPERTIES']['CML2_TRAITS']['VALUE']) && is_array($arResult['PROPERTIES']['CML2_TRAITS']['VALUE'])) {
+    $traitsValues = $arResult['PROPERTIES']['CML2_TRAITS']['VALUE'];
+    $traitsDesc = $arResult['PROPERTIES']['CML2_TRAITS']['DESCRIPTION'] ?? [];
+    foreach ($traitsValues as $k => $val) {
+        $name = $traitsDesc[$k] ?? '';
+        if (is_string($name) && $name !== '') {
+            $traitsMap[$name] = (string)$val;
+        }
+    }
+}
+
+$crossNumbersRaw = trim((string)($traitsMap['Кросс номера'] ?? ''));
+$crossRows = [];
+if ($crossNumbersRaw !== '') {
+    $pairs = array_values(array_filter(array_map('trim', explode(';', $crossNumbersRaw)), 'strlen'));
+    foreach ($pairs as $pair) {
+        $number = $pair;
+        $brand = '';
+        if (strpos($pair, '|') !== false) {
+            [$number, $brand] = array_pad(explode('|', $pair, 2), 2, '');
+        }
+        $number = trim((string)$number);
+        $brand = trim((string)$brand);
+        if ($number === '') {
+            continue;
+        }
+        $crossRows[] = [
+            'NUMBER' => $number,
+            'BRAND' => $brand,
+        ];
+    }
+}
+
+$oemNumbers = [];
+$oemPropValue = $arResult['PROPERTIES']['OEM_NUMBERS']['VALUE'] ?? null;
+if (is_string($oemPropValue)) {
+    $oemNumbers = array_values(array_filter([trim($oemPropValue)], 'strlen'));
+} elseif (is_array($oemPropValue)) {
+    $oemNumbers = array_values(array_filter(array_map('trim', $oemPropValue), 'strlen'));
+}
+if (empty($oemNumbers) && !empty($crossRows)) {
+    $oemNumbers = array_values(array_unique(array_map(static fn(array $row) => (string)$row['NUMBER'], $crossRows)));
+}
+
+$isPadsCategory = false;
+if (!empty($arResult['SECTION']['PATH']) && is_array($arResult['SECTION']['PATH'])) {
+    foreach ($arResult['SECTION']['PATH'] as $section) {
+        if (($section['CODE'] ?? '') === 'tormoznye_kolodki') {
+            $isPadsCategory = true;
+            break;
+        }
+    }
+}
+
+$brandValue = trim((string)($arResult['PROPERTIES']['CML2_MANUFACTURER']['VALUE'] ?? ''));
+if ($brandValue === '') {
+    $brandValue = trim((string)($arResult['PROPERTIES']['MANUFACTURER']['VALUE'] ?? ''));
+}
+$axisValue = trim((string)($arResult['PROPERTIES']['INSTALLATION_AXIS']['VALUE'] ?? ''));
+
 // Debug: выводим цепочку разделов/значения применяемости в HTML-комментарий
 $sectionPathInfo = [];
 if (!empty($arResult['SECTION']['PATH']) && is_array($arResult['SECTION']['PATH'])) {
@@ -513,36 +574,87 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
 <div class="main__details details">
     <?php
 
-    $skipCodes = ['MARK', 'MODEL', 'BODY', 'DATE_RELEASE', 'DATE_END'];
-    foreach ($arResult['PROPERTIES'] as $prop) {
-        switch ($prop['CODE']) {
-            case 'VIDEO_LINK':
-            case 'LINK_PHOTO':
-            case 'LINK_PHOTO_FILE':
-            case 'CML2_TRAITS':
-            case 'COLOR':
-            case 'RECOMMENDED':
-            case 'CML2_BASE_UNIT':
-            case 'CUSTOM_DESCRIPTION':
-            case 'DELIVERY':
-                continue(2);
-        }
-
-        if (in_array($prop['CODE'], $skipCodes, true)) {
-            continue;
-        }
-
-        if (!$prop['VALUE']) {
-            continue;
-        }
-    ?>
+    if ($isPadsCategory) {
+        ?>
         <div class="details-row">
-            <span class="details-label"><?=$prop['NAME']?>:</span>
+            <span class="details-label">Бренд:</span>
             <span class="details-dots"></span>
-            <span class="details-value"><?=$prop['VALUE']?></span>
+            <span class="details-value"><?=htmlspecialcharsbx($brandValue !== '' ? $brandValue : '—')?></span>
         </div>
-    <?php
+        <div class="details-row">
+            <span class="details-label">Тип:</span>
+            <span class="details-dots"></span>
+            <span class="details-value"><?=htmlspecialcharsbx($axisValue !== '' ? $axisValue : '—')?></span>
+        </div>
+        <div class="details-row">
+            <span class="details-label">Оригинальный номер детали:</span>
+            <span class="details-dots"></span>
+            <span class="details-value">
+                <?php if (!empty($oemNumbers)): ?>
+                    <a href="#oem-numbers">Посмотреть</a>
+                <?php else: ?>
+                    —
+                <?php endif; ?>
+            </span>
+        </div>
+        <?php if (!empty($crossRows)): ?>
+            <div class="details-row" id="oem-numbers">
+                <span class="details-label">Оригинальные номера:</span>
+                <span class="details-dots"></span>
+                <span class="details-value">
+                    <div class="applicability-table__wrapper">
+                        <table class="applicability-table">
+                            <thead>
+                            <tr>
+                                <th>Номер</th>
+                                <th>Бренд</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($crossRows as $row): ?>
+                                <tr>
+                                    <td><?=htmlspecialcharsbx($row['NUMBER'])?></td>
+                                    <td><?=htmlspecialcharsbx($row['BRAND'] !== '' ? $row['BRAND'] : '—')?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </span>
+            </div>
+        <?php endif; ?>
+        <?php
+    } else {
+        $skipCodes = ['MARK', 'MODEL', 'BODY', 'DATE_RELEASE', 'DATE_END'];
+        foreach ($arResult['PROPERTIES'] as $prop) {
+            switch ($prop['CODE']) {
+                case 'VIDEO_LINK':
+                case 'LINK_PHOTO':
+                case 'LINK_PHOTO_FILE':
+                case 'CML2_TRAITS':
+                case 'COLOR':
+                case 'RECOMMENDED':
+                case 'CML2_BASE_UNIT':
+                case 'CUSTOM_DESCRIPTION':
+                case 'DELIVERY':
+                    continue(2);
+            }
 
+            if (in_array($prop['CODE'], $skipCodes, true)) {
+                continue;
+            }
+
+            if (!$prop['VALUE']) {
+                continue;
+            }
+            ?>
+            <div class="details-row">
+                <span class="details-label"><?=$prop['NAME']?>:</span>
+                <span class="details-dots"></span>
+                <span class="details-value"><?=$prop['VALUE']?></span>
+            </div>
+            <?php
+        }
     }
     ?>
 

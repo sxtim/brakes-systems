@@ -11,14 +11,67 @@ function brakes_1c_catalog_parse_run(array $options = []): array
 
     $iblockId = (int)($options['iblockId'] ?? 1);
     $reactivate = (bool)($options['reactivate'] ?? false);
+    $syncOemNumbers = (bool)($options['syncOemNumbers'] ?? true);
     $logPath = (string)($options['logPath'] ?? ($_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log'));
     $logPrefix = (string)($options['logPrefix'] ?? 'cron');
+    $oemPropertyCode = (string)($options['oemPropertyCode'] ?? 'OEM_NUMBERS');
+    $oemPropertyName = (string)($options['oemPropertyName'] ?? 'Оригинальные номера');
 
     if (!defined('B_PROLOG_INCLUDED')) {
         require_once $_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/prolog_before.php';
     }
 
     Loader::includeModule('iblock');
+
+    $ensureOemProperty = static function (int $iblockId, string $code, string $name): void {
+        $existing = CIBlockProperty::GetList([], ['IBLOCK_ID' => $iblockId, '=CODE' => $code])->Fetch();
+        if (!$existing) {
+            $fields = [
+                'NAME' => $name,
+                'ACTIVE' => 'Y',
+                'SORT' => 500,
+                'CODE' => $code,
+                // В 1С-обмене значение <Ид> в <ЗначенияСвойств> сопоставляется с XML_ID свойства в Битриксе.
+                // Поэтому фиксируем XML_ID равным коду свойства, чтобы 1С могла передавать <Ид>OEM_NUMBERS</Ид>.
+                'XML_ID' => $code,
+                'PROPERTY_TYPE' => 'S',
+                'IBLOCK_ID' => $iblockId,
+                'MULTIPLE' => 'Y',
+                'FILTRABLE' => 'N',
+                'SEARCHABLE' => 'Y',
+            ];
+
+            $ibp = new CIBlockProperty();
+            $propertyId = (int)$ibp->Add($fields);
+            if ($propertyId <= 0) {
+                $error = method_exists($ibp, 'LAST_ERROR') ? (string)$ibp->LAST_ERROR : 'Unknown error';
+                throw new RuntimeException('Failed to create property ' . $code . ': ' . $error);
+            }
+        } elseif (is_array($existing) && empty($existing['XML_ID'])) {
+            $ibp = new CIBlockProperty();
+            $ibp->Update((int)$existing['ID'], ['XML_ID' => $code]);
+        }
+    };
+
+    $extractCrossNumbers = static function (string $raw): array {
+        $result = [];
+        foreach (array_values(array_filter(array_map('trim', explode(';', $raw)), 'strlen')) as $pair) {
+            $number = $pair;
+            if (strpos($pair, '|') !== false) {
+                [$number] = explode('|', $pair, 2);
+            }
+            $number = trim((string)$number);
+            if ($number === '') {
+                continue;
+            }
+            $result[$number] = true;
+        }
+        return array_keys($result);
+    };
+
+    if ($syncOemNumbers) {
+        $ensureOemProperty($iblockId, $oemPropertyCode, $oemPropertyName);
+    }
 
     $rsData = CIBlockElement::GetList(
         arFilter: [
@@ -43,6 +96,10 @@ function brakes_1c_catalog_parse_run(array $options = []): array
     $elementSectionsLog = [];
     $sectionsToActivate = [];
     $elementsToActivate = [];
+    $oemUpdated = 0;
+    $oemSkippedMissingCross = 0;
+    $oemSkippedUnchanged = 0;
+    $oemErrors = 0;
 
     while ($data = $rsData->fetch()) {
         $elementId = (int)$data['ID'];
@@ -55,6 +112,7 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         $bodies = array_values(array_filter(array_map('trim', explode(';', (string)$data['PROPERTY_BODY_VALUE'])), 'strlen'));
 
         $categoryName = null;
+        $crossRaw = null;
         $propsRes = CIBlockElement::GetProperty(
             $iblockId,
             (int)$data['ID'],
@@ -62,16 +120,65 @@ function brakes_1c_catalog_parse_run(array $options = []): array
             ['CODE' => 'CML2_TRAITS']
         );
         while ($prop = $propsRes->Fetch()) {
-            if (($prop['DESCRIPTION'] ?? '') === 'Категория товара') {
+            $desc = (string)($prop['DESCRIPTION'] ?? '');
+            if ($desc === 'Категория товара') {
                 $value = trim((string)($prop['VALUE'] ?? ''));
                 if ($value !== '') {
                     $categoryName = $value;
                 }
+            } elseif ($syncOemNumbers && $desc === 'Кросс номера') {
+                $value = trim((string)($prop['VALUE'] ?? ''));
+                if ($value !== '') {
+                    $crossRaw = $value;
+                }
+            }
+
+            if ($categoryName !== null && (!$syncOemNumbers || $crossRaw !== null)) {
                 break;
             }
         }
         if ($categoryName === null || $categoryName === '') {
             $categoryName = 'other';
+        }
+
+        if ($syncOemNumbers) {
+            if ($crossRaw === null || $crossRaw === '') {
+                $oemSkippedMissingCross++;
+            } else {
+                try {
+                    $incoming = $extractCrossNumbers($crossRaw);
+                    sort($incoming);
+
+                    $existing = [];
+                    $existingRes = CIBlockElement::GetProperty(
+                        $iblockId,
+                        $elementId,
+                        ['sort' => 'asc'],
+                        ['CODE' => $oemPropertyCode]
+                    );
+                    while ($p = $existingRes->Fetch()) {
+                        $val = trim((string)($p['VALUE'] ?? ''));
+                        if ($val !== '') {
+                            $existing[$val] = true;
+                        }
+                    }
+                    $existing = array_keys($existing);
+                    sort($existing);
+
+                    if ($existing === $incoming) {
+                        $oemSkippedUnchanged++;
+                    } else {
+                        CIBlockElement::SetPropertyValuesEx(
+                            $elementId,
+                            $iblockId,
+                            [$oemPropertyCode => $incoming]
+                        );
+                        $oemUpdated++;
+                    }
+                } catch (\Throwable $exception) {
+                    $oemErrors++;
+                }
+            }
         }
 
         if (count($marks) !== count($models) || count($marks) !== count($bodies)) {
@@ -280,6 +387,11 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         . ' sections_reactivated=' . $sectionsActivated
         . ' orphans=' . count($orphanElements)
         . ' skipped_mismatch=' . $skippedLengthMismatch
+        . ' oem_enabled=' . ($syncOemNumbers ? '1' : '0')
+        . ' oem_updated=' . $oemUpdated
+        . ' oem_skipped_no_cross=' . $oemSkippedMissingCross
+        . ' oem_skipped_unchanged=' . $oemSkippedUnchanged
+        . ' oem_errors=' . $oemErrors
         . PHP_EOL
         . implode(PHP_EOL, $elementSectionsLog)
         . PHP_EOL;
@@ -308,6 +420,14 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         'sectionsActivated' => $sectionsActivated,
         'orphans' => count($orphanElements),
         'skippedLengthMismatch' => $skippedLengthMismatch,
+        'oem' => [
+            'enabled' => $syncOemNumbers,
+            'propertyCode' => $oemPropertyCode,
+            'updated' => $oemUpdated,
+            'skippedMissingCross' => $oemSkippedMissingCross,
+            'skippedUnchanged' => $oemSkippedUnchanged,
+            'errors' => $oemErrors,
+        ],
     ];
 }
 

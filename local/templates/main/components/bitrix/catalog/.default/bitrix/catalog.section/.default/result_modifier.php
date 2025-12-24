@@ -60,6 +60,56 @@ foreach ($arResult['ITEMS'] as $i => $item) {
         }
     }
 
+    // Fallback: если LINK_PHOTO_FILE / LINK_PHOTO пустые, пробуем штатные источники:
+    // MORE_PHOTO → DETAIL_PICTURE → PREVIEW_PICTURE.
+    if ($imageData === null || empty($imageData['src'])) {
+        $fallbackFileId = 0;
+
+        $morePhotoValues = $item['PROPERTIES']['MORE_PHOTO']['VALUE'] ?? null;
+        if (is_array($morePhotoValues) && !empty($morePhotoValues)) {
+            $fallbackFileId = (int)reset($morePhotoValues);
+        } elseif (is_scalar($morePhotoValues) && (int)$morePhotoValues > 0) {
+            $fallbackFileId = (int)$morePhotoValues;
+        } else {
+            // На случай если свойство не попало в выборку компонента
+            $iblockId = (int)($arParams['IBLOCK_ID'] ?? 0);
+            $elementId = (int)($item['ID'] ?? 0);
+            if ($iblockId > 0 && $elementId > 0) {
+                $res = \CIBlockElement::GetProperty(
+                    $iblockId,
+                    $elementId,
+                    ['sort' => 'asc', 'id' => 'asc'],
+                    ['CODE' => 'MORE_PHOTO']
+                );
+                if ($row = $res->Fetch()) {
+                    $fallbackFileId = (int)($row['VALUE'] ?? 0);
+                }
+            }
+        }
+
+        if ($fallbackFileId <= 0) {
+            $detailPicture = $item['DETAIL_PICTURE'] ?? null;
+            if (is_array($detailPicture) && isset($detailPicture['ID'])) {
+                $fallbackFileId = (int)$detailPicture['ID'];
+            } elseif (is_scalar($detailPicture) && (int)$detailPicture > 0) {
+                $fallbackFileId = (int)$detailPicture;
+            }
+        }
+
+        if ($fallbackFileId <= 0) {
+            $previewPicture = $item['PREVIEW_PICTURE'] ?? null;
+            if (is_array($previewPicture) && isset($previewPicture['ID'])) {
+                $fallbackFileId = (int)$previewPicture['ID'];
+            } elseif (is_scalar($previewPicture) && (int)$previewPicture > 0) {
+                $fallbackFileId = (int)$previewPicture;
+            }
+        }
+
+        if ($fallbackFileId > 0) {
+            $imageData = Image::resizeByPreset($fallbackFileId, Image::PRESET_CATALOG_TILE);
+        }
+    }
+
     if ($imageData !== null) {
         $arResult['ITEMS'][$i]['IMAGE'] = $imageData;
         $arResult['ITEMS'][$i]['IMG'] = $imageData['src'] ?? '';
