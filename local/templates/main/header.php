@@ -156,7 +156,7 @@ Asset::getInstance()->addString(
                     <?$APPLICATION->IncludeComponent(
                         "bitrix:catalog.section.list",
                         "",
-                        Array(
+	                        Array(
                             "ADDITIONAL_COUNT_ELEMENTS_FILTER" => "additionalCountFilter",
                             "VIEW_MODE" => "TEXT",
                             "SHOW_PARENT_NAME" => "Y",
@@ -168,10 +168,10 @@ Asset::getInstance()->addString(
                             "COUNT_ELEMENTS" => "Y",
                             "COUNT_ELEMENTS_FILTER" => "CNT_ACTIVE",
                             "HIDE_SECTIONS_WITH_ZERO_COUNT_ELEMENTS" => "N",
-                            "TOP_DEPTH" => "3",
-                            "SECTION_FIELDS" => "",
-                            "SECTION_USER_FIELDS" => "",
-                            "ADD_SECTIONS_CHAIN" => "Y",
+	                            "TOP_DEPTH" => "4",
+	                            "SECTION_FIELDS" => "",
+	                            "SECTION_USER_FIELDS" => "",
+	                            "ADD_SECTIONS_CHAIN" => "Y",
                             "CACHE_TYPE" => "A",
                             "CACHE_TIME" => "36000000",
                             "CACHE_NOTES" => "",

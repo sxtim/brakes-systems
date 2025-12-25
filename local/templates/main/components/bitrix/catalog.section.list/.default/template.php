@@ -3,122 +3,116 @@
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
+
+$buildTree = static function (array $flatSections): array {
+    $tree = [];
+    $stack = [];
+
+    foreach ($flatSections as $section) {
+        $depth = (int)($section['DEPTH_LEVEL'] ?? 0);
+        if ($depth < 1) {
+            continue;
+        }
+
+        $node = [
+            'DEPTH_LEVEL' => $depth,
+            'NAME' => (string)($section['NAME'] ?? ''),
+            'CODE' => (string)($section['CODE'] ?? ''),
+            'SECTION_PAGE_URL' => (string)($section['SECTION_PAGE_URL'] ?? ''),
+            'SVG' => (string)($section['SVG'] ?? ''),
+            'CHILDREN' => [],
+        ];
+
+        while (count($stack) >= $depth) {
+            array_pop($stack);
+        }
+
+        if (empty($stack)) {
+            $tree[] = $node;
+            $stack = [];
+            $stack[] = &$tree[count($tree) - 1];
+            continue;
+        }
+
+        $parentIndex = count($stack) - 1;
+        $parent = &$stack[$parentIndex];
+        $parent['CHILDREN'][] = $node;
+        $stack[] = &$parent['CHILDREN'][count($parent['CHILDREN']) - 1];
+    }
+
+    return $tree;
+};
+
+$sectionsTree = $buildTree(is_array($arResult['SECTIONS'] ?? null) ? $arResult['SECTIONS'] : []);
 ?>
 <nav class="menu__body">
     <div class="menu__container">
         <ul class="menu__list">
-            <?php
-
-            foreach ($arResult['SECTIONS'] as $i => $item) {
-                if ($item['DEPTH_LEVEL'] == 1) {
-            ?>
-                    <li class="menu__item">
-                        <div data-fls-spollers="99999,max"
-                             class="spollers">
-                            <details class="menu-spollers__item spollers__item">
-                                <summary
-                                        class="menu-spollers__title spollers__title">
-                                    <div class="spollers__icon-box">
-                                        <img class="spollers__title-icon"
-                                             src="<?=$item['SVG']?>"
-                                             alt="Image">
+            <?php foreach ($sectionsTree as $category): ?>
+                <li class="menu__item">
+                    <div data-fls-spollers="99999,max" class="spollers">
+                        <details class="menu-spollers__item spollers__item">
+                            <summary class="menu-spollers__title spollers__title">
+                                <div class="spollers__icon-box">
+                                    <img class="spollers__title-icon"
+                                         src="<?= htmlspecialcharsbx($category['SVG']) ?>"
+                                         alt="Image">
+                                </div>
+                                <p class="spollers__title-text">
+                                    <?= htmlspecialcharsbx($category['NAME']) ?>
+                                </p>
+                            </summary>
+                            <?php if (!empty($category['CHILDREN'])): ?>
+                                <div class="menu-spollers__body spollers__body">
+                                    <div data-fls-spollers="99999,max" class="spollers">
+                                        <?php foreach ($category['CHILDREN'] as $brand): ?>
+                                            <details class="submenu-spollers__item spollers__item">
+                                                <summary class="submenu-spollers__title spollers__title">
+                                                    <?= htmlspecialcharsbx($brand['NAME']) ?>
+                                                </summary>
+                                                <?php if (!empty($brand['CHILDREN'])): ?>
+                                                    <div class="submenu-spollers__body spollers__body">
+                                                        <ul class="submenu-spollers__list">
+                                                            <?php foreach ($brand['CHILDREN'] as $model): ?>
+                                                                <?php if (!empty($model['CHILDREN'])): ?>
+                                                                    <li class="submenu-spollers__li">
+                                                                        <details class="submenu-spollers__item spollers__item">
+                                                                            <summary class="submenu-spollers__title spollers__title">
+                                                                                <?= htmlspecialcharsbx($model['NAME']) ?>
+                                                                            </summary>
+                                                                            <div class="submenu-spollers__body spollers__body">
+                                                                                <ul class="submenu-spollers__list">
+                                                                                    <?php foreach ($model['CHILDREN'] as $body): ?>
+                                                                                        <li class="submenu-spollers__li">
+                                                                                            <a href="<?= htmlspecialcharsbx($body['SECTION_PAGE_URL']) ?>">
+                                                                                                <?= htmlspecialcharsbx($body['NAME']) ?>
+                                                                                            </a>
+                                                                                        </li>
+                                                                                    <?php endforeach; ?>
+                                                                                </ul>
+                                                                            </div>
+                                                                        </details>
+                                                                    </li>
+                                                                <?php else: ?>
+                                                                    <li class="submenu-spollers__li">
+                                                                        <a href="<?= htmlspecialcharsbx($model['SECTION_PAGE_URL']) ?>">
+                                                                            <?= htmlspecialcharsbx($model['NAME']) ?>
+                                                                        </a>
+                                                                    </li>
+                                                                <?php endif; ?>
+                                                            <?php endforeach; ?>
+                                                        </ul>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </details>
+                                        <?php endforeach; ?>
                                     </div>
-                                    <p class="spollers__title-text">
-                                        <?=$item['NAME']?>
-                                    </p>
-                                </summary>
-                                <?php
-
-                                if ($arResult['SECTIONS'][$i + 1]['DEPTH_LEVEL'] > $item['DEPTH_LEVEL']) {
-                                ?>
-                                    <div class="menu-spollers__body spollers__body">
-                                        <!-- -------------------------------------------------- -->
-                                        <div data-fls-spollers="99999,max"
-                                             class="spollers">
-                                <?php
-
-                                }
-                                ?>
-                <?php
-
-                } elseif ($item['DEPTH_LEVEL'] == 2) {
-                ?>
-                    <details
-                            class="submenu-spollers__item spollers__item">
-                        <summary class="submenu-spollers__title spollers__title">
-                            <?=$item['NAME']?>
-                        </summary>
-                            <?php
-
-                            if ($arResult['SECTIONS'][$i + 1]['DEPTH_LEVEL'] > $item['DEPTH_LEVEL']) {
-                            ?>
-                                <div class="submenu-spollers__body spollers__body">
-                                    <ul class="submenu-spollers__list">
-                            <?php
-
-                            }
-                            ?>
-                    <?php
-
-                    if ($arResult['SECTIONS'][$i + 1]['DEPTH_LEVEL'] < $item['DEPTH_LEVEL']) {
-                    ?>
-                    </details>
-                        </div>
-                        </div>
+                                </div>
+                            <?php endif; ?>
                         </details>
-                        </div>
-                        </li>
-                    <?php
-
-                    }
-                    ?>
-                <?php
-
-                } elseif ($item['DEPTH_LEVEL'] == 3) {
-
-                ?>
-                    <li class="submenu-spollers__li">
-                        <a href="<?=$item['SECTION_PAGE_URL']?>" class="">
-                            <?=$item['NAME']?>
-                        </a>
-                    </li>
-
-                    <?php
-
-                    if ($arResult['SECTIONS'][$i + 1]['DEPTH_LEVEL'] < $item['DEPTH_LEVEL']) {
-                    ?>
-                            </ul>
-                        </div>
-                        </details>
-                        <?php
-
-                        if (
-                            $arResult['SECTIONS'][$i + 1]['DEPTH_LEVEL'] == 1
-                            || !isset($arResult['SECTIONS'][$i + 1])
-                        ) {
-                        ?>
-                            </div>
-                            </div>
-                            </details>
-                            </div>
-                            </li>
-                        <?php
-
-                        }
-                        ?>
-                    <?php
-
-                    }
-                    ?>
-
-                    <?php
-
-                    }
-                    ?>
-            <?php
-
-            }
-            ?>
+                    </div>
+                </li>
+            <?php endforeach; ?>
         </ul>
     </div>
 </nav>
