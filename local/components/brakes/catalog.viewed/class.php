@@ -57,6 +57,7 @@ class CatalogViewedComponent extends \CBitrixComponent
         $select = [
             'ID',
             'IBLOCK_ID',
+            'CODE',
             'NAME',
             'DETAIL_PAGE_URL',
             'PROPERTY_LINK_PHOTO',
@@ -80,8 +81,23 @@ class CatalogViewedComponent extends \CBitrixComponent
             }
 
             $name = (string)($fields['~NAME'] ?? $fields['NAME'] ?? '');
-            $detailUrl = (string)($fields['DETAIL_PAGE_URL'] ?? '#');
-            $detailUrl = \CIBlock::ReplaceDetailUrl($detailUrl, $fields, false, 'E');
+            $elementCode = (string)($fields['CODE'] ?? '');
+            $categoryCode = '';
+            if ($categoryValue === 'Тормозные колодки') {
+                $categoryCode = 'tormoznye_kolodki';
+            } elseif ($categoryValue === 'Тормозные диски') {
+                $categoryCode = 'tormoznye_diski';
+            } elseif ($categoryValue === 'Тормозные системы') {
+                $categoryCode = 'tormoznye_sistemy';
+            }
+
+            $detailUrl = '';
+            if ($categoryCode !== '' && $elementCode !== '') {
+                $detailUrl = '/catalog/' . $categoryCode . '/' . $elementCode . '/';
+            } else {
+                $detailUrl = (string)($fields['DETAIL_PAGE_URL'] ?? '#');
+                $detailUrl = \CIBlock::ReplaceDetailUrl($detailUrl, $fields, false, 'E');
+            }
             $detailUrl = $appendQueryParam($detailUrl, 'from', 'viewed');
 
             $categoryValue = '';

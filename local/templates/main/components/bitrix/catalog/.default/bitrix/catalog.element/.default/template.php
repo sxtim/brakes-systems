@@ -273,16 +273,16 @@ if (!empty($applicabilityRows) && !empty($arResult['SECTION']['PATH']) && is_arr
     }
 }
 
-// If the user came from global search, treat it as "no auto context":
+// If the user came from global search (or from "viewed"), treat it as "no auto context":
 // show full applicability instead of assuming the section-path is the user's selection.
 $from = (string)($_GET['from'] ?? '');
-$isFromSearch = $from === 'search';
-if ($isFromSearch) {
+$isNeutralFrom = ($from === 'search' || $from === 'viewed');
+if ($isNeutralFrom) {
     $contextApplicability = null;
     $filteredApplicability = $applicabilityRows;
 }
 
-$actionsAllowed = !$isFromSearch && $contextApplicability !== null;
+$actionsAllowed = !$isNeutralFrom && $contextApplicability !== null;
 
 $traitsMap = [];
 if (!empty($arResult['PROPERTIES']['CML2_TRAITS']['VALUE']) && is_array($arResult['PROPERTIES']['CML2_TRAITS']['VALUE'])) {
