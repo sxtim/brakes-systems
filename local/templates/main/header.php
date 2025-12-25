@@ -30,6 +30,7 @@ Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/app.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/slider.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/index.min.css');
+Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/catalog-tabs.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/other-page.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/popup.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/contacts-page.min.css');

@@ -4,30 +4,29 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
 ?>
+<?php if (!empty($arResult['CATEGORIES'])): ?>
+    <nav class="catalog-tabs" aria-label="Категории каталога">
+        <div class="catalog-tabs__inner">
+            <?php foreach ($arResult['CATEGORIES'] as $item): ?>
+                <a
+                    href="<?= htmlspecialcharsbx($item['SECTION_PAGE_URL'] ?? '') ?>"
+                    class="catalog-tabs__tab<?php if (($arResult['CATEGORY_SELECT_ID'] ?? 0) == (int)($item['ID'] ?? 0)) { echo ' is-active'; } ?>"
+                >
+                    <?= htmlspecialcharsbx($item['NAME'] ?? '') ?>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </nav>
+<?php endif; ?>
+
+<?php
+$hasAutoBlocks = !empty($arResult['MARKS']) || !empty($arResult['MODELS']) || !empty($arResult['BODIES']);
+?>
+<?php if ($hasAutoBlocks): ?>
 <div data-fls-spollers="" class="choose-auto__spollers spollers">
     <details class="choose-auto__spollers-item spollers__item" open data-fls-spollers-open>
         <summary class="choose-auto__spollers-title spollers__title">Выберите автомобиль</summary>
         <div class="choose-auto__spollers-body spollers__body">
-            <?php if (!empty($arResult['CATEGORIES'])): ?>
-                <div class="choose-auto__spollers-block">
-                    <h3 class="choose-auto__block-title">Категория</h3>
-                    <div class="choose-auto__block-row">
-                        <div class="selector-row">
-                            <div class="selector-row__wrapper swiper-wrapper">
-                                <?php foreach ($arResult['CATEGORIES'] as $item): ?>
-                                    <a href="<?=$item['SECTION_PAGE_URL']?>"
-                                       class="selector-row__slide-2 swiper-slide<?php if (($arResult['CATEGORY_SELECT_ID'] ?? 0) == $item['ID']) {echo ' active';}?>">
-                                        <div class="selector-item-2">
-                                            <div class="selector-icon"><?=$item['NAME']?></div>
-                                        </div>
-                                    </a>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            <?php endif; ?>
-
             <?php if (!empty($arResult['MARKS'])): ?>
                 <div class="choose-auto__spollers-block">
                     <h3 class="choose-auto__block-title">Марка</h3>
@@ -142,3 +141,4 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
         </div>
     </details>
 </div>
+<?php endif; ?>
