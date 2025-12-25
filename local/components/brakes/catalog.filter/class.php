@@ -71,16 +71,22 @@ class CatalogFilterComponent extends \CBitrixComponent
             return $items;
         };
 
-        $this->arResult['CATEGORIES'] = $fetchSections(
-            $entitySections,
-            [
-                'IBLOCK_ID' => $iblockId,
-                'ACTIVE' => 'Y',
-                'DEPTH_LEVEL' => 1,
-            ],
-            $select,
-            $mapRow
-        );
+	        $this->arResult['CATEGORIES'] = $fetchSections(
+	            $entitySections,
+	            [
+	                'IBLOCK_ID' => $iblockId,
+	                'ACTIVE' => 'Y',
+	                'DEPTH_LEVEL' => 1,
+	                '!=CODE' => 'other',
+	            ],
+	            $select,
+	            $mapRow
+	        );
+	        // Safety: hide technical "other" category in UI even if filter is ignored by ORM.
+	        $this->arResult['CATEGORIES'] = array_values(array_filter(
+	            $this->arResult['CATEGORIES'],
+	            static fn(array $section): bool => ((string)($section['CODE'] ?? '')) !== 'other'
+	        ));
 
         $currentSection = null;
         if ($iblockModuleLoaded && $currentSectionId <= 0 && $currentSectionCodeOrPath !== '') {

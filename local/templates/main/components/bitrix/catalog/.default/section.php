@@ -29,6 +29,11 @@ if ($iblockModuleLoaded && $sectionId > 0) {
 }
 
 $isBodyContext = $sectionDepth >= 4;
+$categoryCode = '';
+if ($sectionCodePath !== '') {
+    $parts = array_values(array_filter(explode('/', trim($sectionCodePath, '/')), 'strlen'));
+    $categoryCode = (string)($parts[0] ?? '');
+}
 
 $contextPrompt = 'Выберите автомобиль, чтобы увидеть товары и проверить применяемость.';
 if ($sectionDepth === 0) {
@@ -47,16 +52,19 @@ $pageContainerClass = 'page__container' . ($isBodyContext ? '' : ' page__contain
     <div class="<?= $pageContainerClass ?>">
         <?
         if ($isBodyContext) {
-            $APPLICATION->IncludeComponent(
-                "bitrix:catalog.smart.filter",
-                "sidebar",
-                array(
-                    "IBLOCK_TYPE" => $arParams["IBLOCK_TYPE"],
-                    "IBLOCK_ID" => $arParams["IBLOCK_ID"],
-                    "SECTION_CODE" => $arResult['VARIABLES']['SECTION_CODE'],
-                    "FILTER_NAME" => $arParams["FILTER_NAME"],
-                    "PRICE_CODE" => "",
-                    "CACHE_TYPE" => $arParams["CACHE_TYPE"],
+	            $APPLICATION->IncludeComponent(
+	                "bitrix:catalog.smart.filter",
+	                "sidebar",
+	                array(
+	                    "IBLOCK_TYPE" => $arParams["IBLOCK_TYPE"],
+	                    "IBLOCK_ID" => $arParams["IBLOCK_ID"],
+	                    "SECTION_ID" => $sectionId,
+	                    "SECTION_CODE" => $arResult['VARIABLES']['SECTION_CODE'],
+	                    "SECTION_CODE_PATH" => $sectionCodePath,
+	                    "CATEGORY_CODE" => $categoryCode,
+	                    "FILTER_NAME" => $arParams["FILTER_NAME"],
+	                    "PRICE_CODE" => "",
+	                    "CACHE_TYPE" => $arParams["CACHE_TYPE"],
                     "CACHE_TIME" => $arParams["CACHE_TIME"],
                     "CACHE_GROUPS" => $arParams["CACHE_GROUPS"],
                     "SAVE_IN_SESSION" => "N",

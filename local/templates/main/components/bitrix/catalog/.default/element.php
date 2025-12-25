@@ -55,21 +55,31 @@ $path = explode('/', $path);
 unset($path[array_key_last($path)]);
 unset($path[array_key_last($path)]);
 $path = implode('/', $path) . '/';
+
+$categoryCodeForFilter = '';
+$sectionCodePathForFilter = (string)($arResult['VARIABLES']['SECTION_CODE_PATH'] ?? '');
+if ($sectionCodePathForFilter !== '') {
+    $parts = array_values(array_filter(explode('/', trim($sectionCodePathForFilter, '/')), 'strlen'));
+    $categoryCodeForFilter = (string)($parts[0] ?? '');
+}
 ?>
-    <main class="page">
-        <div class="page__container">
-            <?
-            $APPLICATION->IncludeComponent(
-                "bitrix:catalog.smart.filter",
-                "sidebar",
-                array(
-                    "CUSTOM_FOLDER" => $path,
-                    "IBLOCK_TYPE" => $arParams["IBLOCK_TYPE"],
-                    "IBLOCK_ID" => $arParams["IBLOCK_ID"],
-                    "SECTION_CODE" => $arResult['VARIABLES']['SECTION_CODE'],
-                    "FILTER_NAME" => $arParams["FILTER_NAME"],
-                    "PRICE_CODE" => "",
-                    "CACHE_TYPE" => $arParams["CACHE_TYPE"],
+	    <main class="page">
+	        <div class="page__container">
+	            <?
+	            $APPLICATION->IncludeComponent(
+	                "bitrix:catalog.smart.filter",
+	                "sidebar",
+	                array(
+	                    "CUSTOM_FOLDER" => $path,
+	                    "IBLOCK_TYPE" => $arParams["IBLOCK_TYPE"],
+	                    "IBLOCK_ID" => $arParams["IBLOCK_ID"],
+	                    "SECTION_ID" => (int)($arResult['VARIABLES']['SECTION_ID'] ?? 0),
+	                    "SECTION_CODE" => $arResult['VARIABLES']['SECTION_CODE'],
+	                    "SECTION_CODE_PATH" => $sectionCodePathForFilter,
+	                    "CATEGORY_CODE" => $categoryCodeForFilter,
+	                    "FILTER_NAME" => $arParams["FILTER_NAME"],
+	                    "PRICE_CODE" => "",
+	                    "CACHE_TYPE" => $arParams["CACHE_TYPE"],
                     "CACHE_TIME" => $arParams["CACHE_TIME"],
                     "CACHE_GROUPS" => $arParams["CACHE_GROUPS"],
                     "SAVE_IN_SESSION" => "N",

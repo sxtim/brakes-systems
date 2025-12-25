@@ -62,16 +62,16 @@ $sectionsTree = $buildTree(is_array($arResult['SECTIONS'] ?? null) ? $arResult['
                                     <?= htmlspecialcharsbx($category['NAME']) ?>
                                 </p>
                             </summary>
-                            <?php if (!empty($category['CHILDREN'])): ?>
-                                <div class="menu-spollers__body spollers__body">
+                            <div class="menu-spollers__body spollers__body">
+                                <?php if (!empty($category['CHILDREN'])): ?>
                                     <div data-fls-spollers="99999,max" class="spollers">
                                         <?php foreach ($category['CHILDREN'] as $brand): ?>
                                             <details class="submenu-spollers__item spollers__item">
                                                 <summary class="submenu-spollers__title spollers__title">
                                                     <?= htmlspecialcharsbx($brand['NAME']) ?>
                                                 </summary>
-                                                <?php if (!empty($brand['CHILDREN'])): ?>
-                                                    <div class="submenu-spollers__body spollers__body">
+                                                <div class="submenu-spollers__body spollers__body">
+                                                    <?php if (!empty($brand['CHILDREN'])): ?>
                                                         <ul class="submenu-spollers__list">
                                                             <?php foreach ($brand['CHILDREN'] as $model): ?>
                                                                 <?php if (!empty($model['CHILDREN'])): ?>
@@ -102,13 +102,13 @@ $sectionsTree = $buildTree(is_array($arResult['SECTIONS'] ?? null) ? $arResult['
                                                                 <?php endif; ?>
                                                             <?php endforeach; ?>
                                                         </ul>
-                                                    </div>
-                                                <?php endif; ?>
+                                                    <?php endif; ?>
+                                                </div>
                                             </details>
                                         <?php endforeach; ?>
                                     </div>
-                                </div>
-                            <?php endif; ?>
+                                <?php endif; ?>
+                            </div>
                         </details>
                     </div>
                 </li>
