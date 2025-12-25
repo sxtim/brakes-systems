@@ -9,6 +9,25 @@ class CatalogViewedComponent extends \CBitrixComponent
 {
     public function executeComponent(): void
     {
+        $appendQueryParam = static function (string $url, string $param, string $value): string {
+            if ($url === '' || $param === '') {
+                return $url;
+            }
+
+            $parts = parse_url($url);
+            $path = $parts['path'] ?? $url;
+            $query = $parts['query'] ?? '';
+            $fragment = isset($parts['fragment']) ? ('#' . $parts['fragment']) : '';
+
+            parse_str($query, $params);
+            if (!isset($params[$param]) || (string)$params[$param] === '') {
+                $params[$param] = $value;
+            }
+
+            $newQuery = http_build_query($params);
+            return $path . ($newQuery !== '' ? ('?' . $newQuery) : '') . $fragment;
+        };
+
         $session = Application::getInstance()->getSession();
         $ids = $session->get('CATALOG_ITEM_VIEWED');
 
@@ -43,6 +62,7 @@ class CatalogViewedComponent extends \CBitrixComponent
             'PROPERTY_LINK_PHOTO',
             'PROPERTY_LINK_PHOTO_FILE',
             'PROPERTY_CML2_ARTICLE',
+            'PROPERTY_CML2_MANUFACTURER',
             'PROPERTY_MANUFACTURER',
             'PROPERTY_NUMBER_PISTONS',
             'PROPERTY_INSTALLATION_AXIS',
@@ -62,25 +82,67 @@ class CatalogViewedComponent extends \CBitrixComponent
             $name = (string)($fields['~NAME'] ?? $fields['NAME'] ?? '');
             $detailUrl = (string)($fields['DETAIL_PAGE_URL'] ?? '#');
             $detailUrl = \CIBlock::ReplaceDetailUrl($detailUrl, $fields, false, 'E');
+            $detailUrl = $appendQueryParam($detailUrl, 'from', 'viewed');
 
-            $details = [
-                [
-                    'label' => 'Артикул',
-                    'value' => (string)($properties['CML2_ARTICLE']['VALUE'] ?? ''),
-                ],
-                [
-                    'label' => 'Производитель:',
-                    'value' => (string)($properties['MANUFACTURER']['VALUE'] ?? ''),
-                ],
-                [
-                    'label' => 'Кол-во поршней:',
-                    'value' => (string)($properties['NUMBER_PISTONS']['VALUE'] ?? ''),
-                ],
-                [
-                    'label' => 'Ось:',
-                    'value' => (string)($properties['INSTALLATION_AXIS']['VALUE'] ?? ''),
-                ],
-            ];
+            $categoryValue = '';
+            if (!empty($properties['CML2_TRAITS']['VALUE']) && is_array($properties['CML2_TRAITS']['VALUE'])) {
+                $traitsValues = $properties['CML2_TRAITS']['VALUE'];
+                $traitsDesc = $properties['CML2_TRAITS']['DESCRIPTION'] ?? [];
+                foreach ($traitsValues as $k => $val) {
+                    $nameDesc = $traitsDesc[$k] ?? '';
+                    if ($nameDesc === 'Категория товара') {
+                        $categoryValue = trim((string)$val);
+                        break;
+                    }
+                }
+            }
+
+            $isPadsCategory = $categoryValue === 'Тормозные колодки';
+            $isDiscsCategory = $categoryValue === 'Тормозные диски';
+            $isShortCardCategory = $isPadsCategory || $isDiscsCategory;
+
+            $articleValue = (string)($properties['CML2_ARTICLE']['VALUE'] ?? '');
+            $manufacturerValue = (string)($properties['CML2_MANUFACTURER']['VALUE'] ?? '');
+            if ($manufacturerValue === '') {
+                $manufacturerValue = (string)($properties['MANUFACTURER']['VALUE'] ?? '');
+            }
+            $axisValue = (string)($properties['INSTALLATION_AXIS']['VALUE'] ?? '');
+
+            if ($isShortCardCategory) {
+                $details = [
+                    [
+                        'label' => 'Артикул',
+                        'value' => $articleValue,
+                    ],
+                    [
+                        'label' => 'Производитель:',
+                        'value' => $manufacturerValue,
+                    ],
+                    [
+                        'label' => 'Ось:',
+                        'value' => $axisValue,
+                    ],
+                ];
+            } else {
+                $details = [
+                    [
+                        'label' => 'Артикул',
+                        'value' => $articleValue,
+                    ],
+                    [
+                        'label' => 'Производитель:',
+                        'value' => $manufacturerValue,
+                    ],
+                    [
+                        'label' => 'Кол-во поршней:',
+                        'value' => (string)($properties['NUMBER_PISTONS']['VALUE'] ?? ''),
+                    ],
+                    [
+                        'label' => 'Ось:',
+                        'value' => $axisValue,
+                    ],
+                ];
+            }
 
             $pictureData = null;
             $fileValue = $properties['LINK_PHOTO_FILE']['VALUE'] ?? null;
@@ -123,7 +185,8 @@ class CatalogViewedComponent extends \CBitrixComponent
                 'OPTIONS_ATTR' => '{}',
                 'SELECTED' => [],
                 'EXPAND_FEATURES' => true,
-                'FAVORITES_VIEW' => true,
+                'FAVORITES_VIEW' => false,
+                'HIDE_FEATURES' => true,
                 'BUY' => [
                     'NAME' => $name,
                     'URL' => $detailUrl,

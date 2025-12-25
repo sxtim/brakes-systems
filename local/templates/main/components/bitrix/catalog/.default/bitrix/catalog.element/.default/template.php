@@ -338,12 +338,22 @@ if (!empty($arResult['SECTION']['PATH']) && is_array($arResult['SECTION']['PATH'
         }
     }
 }
+$isDiscsCategory = false;
+if (!empty($arResult['SECTION']['PATH']) && is_array($arResult['SECTION']['PATH'])) {
+    foreach ($arResult['SECTION']['PATH'] as $section) {
+        if (($section['CODE'] ?? '') === 'tormoznye_diski') {
+            $isDiscsCategory = true;
+            break;
+        }
+    }
+}
 
 $brandValue = trim((string)($arResult['PROPERTIES']['CML2_MANUFACTURER']['VALUE'] ?? ''));
 if ($brandValue === '') {
     $brandValue = trim((string)($arResult['PROPERTIES']['MANUFACTURER']['VALUE'] ?? ''));
 }
 $axisValue = trim((string)($arResult['PROPERTIES']['INSTALLATION_AXIS']['VALUE'] ?? ''));
+$articleValue = trim((string)($arResult['PROPERTIES']['CML2_ARTICLE']['VALUE'] ?? ''));
 
 // Debug: выводим цепочку разделов/значения применяемости в HTML-комментарий
 $sectionPathInfo = [];
@@ -469,41 +479,43 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
 <!--                </div>-->
                 <span class="main-details__price-new"><?= $initialPriceFormatted ?></span>
             </div>
-            <div class="main-details__feature">
-                <div class="main-cataloge__info">
-                    <div data-fls-spollers="" data-fls-spollers-one="" class="main-cataloge__feature spollers">
-                        <details class="spollers__item">
-                            <summary class="main-details__feature-item main-cataloge__feature-item--big spollers__title">Двусоставная конструкция диска:</summary>
-                            <div class="main-cataloge__sublist spollers__body">
-                                <div class="main-cataloge__sublist-item<?= $twoPieceYesSelected ? ' selected' : '' ?>">Да</div>
-                                <div class="main-cataloge__sublist-item<?= $twoPieceNoSelected ? ' selected' : '' ?>">Нет</div>
-                            </div>
-                        </details>
-                        <details class="spollers__item">
-                            <summary class="main-details__feature-item spollers__title">Тип ротора:</summary>
-                            <div class="main-cataloge__sublist spollers__body">
-                                <div class="main-cataloge__sublist-item<?= $rotorPerforationSelected ? ' selected' : '' ?>">ПЕРФОРАЦИЯ</div>
-                                <div class="main-cataloge__sublist-item<?= $rotorSlotsSelected ? ' selected' : '' ?>">НАСЕЧКИ</div>
-                                <div class="main-cataloge__sublist-item<?= $rotorComboSelected ? ' selected' : '' ?>">ПЕРФОРАЦИЯ + НАСЕЧКИ</div>
-                            </div>
-                        </details>
-                        <details class="spollers__item">
-                            <summary class="main-details__feature-item spollers__title">Лого на суппорт:</summary>
-                            <div class="main-cataloge__sublist spollers__body">
-                                <div class="main-cataloge__sublist-item<?= $caliperStandardSelected ? ' selected' : '' ?>">Стандартный</div>
-                                <div class="main-cataloge__sublist-item<?= $caliperSpecialSelected ? ' selected' : '' ?>">Особый логотип</div>
-                            </div>
-                        </details>
-                        <details class="spollers__item">
-                            <summary class="main-details__feature-item spollers__title">Электроручник</summary>
-                            <div class="main-cataloge__sublist spollers__body">
-                                <div class="main-cataloge__sublist-item<?= $handbrakeYesSelected ? ' selected' : '' ?>">Да</div>
-                                <div class="main-cataloge__sublist-item<?= $handbrakeNoSelected ? ' selected' : '' ?>">Нет</div>
-                            </div>
-                        </details>
+            <?php if (!$isPadsCategory && !$isDiscsCategory): ?>
+                <div class="main-details__feature">
+                    <div class="main-cataloge__info">
+                        <div data-fls-spollers="" data-fls-spollers-one="" class="main-cataloge__feature spollers">
+                            <details class="spollers__item">
+                                <summary class="main-details__feature-item main-cataloge__feature-item--big spollers__title">Двусоставная конструкция диска:</summary>
+                                <div class="main-cataloge__sublist spollers__body">
+                                    <div class="main-cataloge__sublist-item<?= $twoPieceYesSelected ? ' selected' : '' ?>">Да</div>
+                                    <div class="main-cataloge__sublist-item<?= $twoPieceNoSelected ? ' selected' : '' ?>">Нет</div>
+                                </div>
+                            </details>
+                            <details class="spollers__item">
+                                <summary class="main-details__feature-item spollers__title">Тип ротора:</summary>
+                                <div class="main-cataloge__sublist spollers__body">
+                                    <div class="main-cataloge__sublist-item<?= $rotorPerforationSelected ? ' selected' : '' ?>">ПЕРФОРАЦИЯ</div>
+                                    <div class="main-cataloge__sublist-item<?= $rotorSlotsSelected ? ' selected' : '' ?>">НАСЕЧКИ</div>
+                                    <div class="main-cataloge__sublist-item<?= $rotorComboSelected ? ' selected' : '' ?>">ПЕРФОРАЦИЯ + НАСЕЧКИ</div>
+                                </div>
+                            </details>
+                            <details class="spollers__item">
+                                <summary class="main-details__feature-item spollers__title">Лого на суппорт:</summary>
+                                <div class="main-cataloge__sublist spollers__body">
+                                    <div class="main-cataloge__sublist-item<?= $caliperStandardSelected ? ' selected' : '' ?>">Стандартный</div>
+                                    <div class="main-cataloge__sublist-item<?= $caliperSpecialSelected ? ' selected' : '' ?>">Особый логотип</div>
+                                </div>
+                            </details>
+                            <details class="spollers__item">
+                                <summary class="main-details__feature-item spollers__title">Электроручник</summary>
+                                <div class="main-cataloge__sublist spollers__body">
+                                    <div class="main-cataloge__sublist-item<?= $handbrakeYesSelected ? ' selected' : '' ?>">Да</div>
+                                    <div class="main-cataloge__sublist-item<?= $handbrakeNoSelected ? ' selected' : '' ?>">Нет</div>
+                                </div>
+                            </details>
+                        </div>
                     </div>
                 </div>
-            </div>
+            <?php endif; ?>
             <?php if ($actionsAllowed): ?>
                 <div class="main-details__shoping" data-fls-like-product="<?=$arResult['ID']?>"<?php if ($contextSectionId > 0) { ?> data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>>
                     <button data-fls-addtocart-button="" class="main-details__shoping-btn" data-options='<?=$optionsAttr?>'>
@@ -574,60 +586,63 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
 <div class="main__details details">
     <?php
 
-    if ($isPadsCategory) {
-        ?>
-	        <div class="details-row">
-	            <span class="details-label">Бренд:</span>
-	            <span class="details-dots-wrap"><span class="details-dots"></span></span>
-	            <span class="details-value"><?=htmlspecialcharsbx($brandValue !== '' ? $brandValue : '—')?></span>
-	        </div>
-	        <div class="details-row">
-	            <span class="details-label">Тип:</span>
-	            <span class="details-dots-wrap"><span class="details-dots"></span></span>
-	            <span class="details-value"><?=htmlspecialcharsbx($axisValue !== '' ? $axisValue : '—')?></span>
-	        </div>
-	        <div class="details-row">
-	            <span class="details-label">Оригинальный номер детали:</span>
-	            <span class="details-dots-wrap"><span class="details-dots"></span></span>
-	            <span class="details-value">
-	                <?php if (!empty($oemNumbers)): ?>
-	                    <a href="#oem-numbers">Посмотреть</a>
-	                <?php else: ?>
-                    —
-                <?php endif; ?>
-            </span>
-        </div>
-	        <?php if (!empty($crossRows)): ?>
-	            <div class="details-row" id="oem-numbers">
-	                <span class="details-label">Оригинальные номера:</span>
-	                <span class="details-dots-wrap"><span class="details-dots"></span></span>
-	                <span class="details-value">
-	                    <div class="applicability-table__wrapper">
-	                        <table class="applicability-table">
-                            <thead>
-                            <tr>
-                                <th>Номер</th>
-                                <th>Бренд</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <?php foreach ($crossRows as $row): ?>
-                                <tr>
-                                    <td><?=htmlspecialcharsbx($row['NUMBER'])?></td>
-                                    <td><?=htmlspecialcharsbx($row['BRAND'] !== '' ? $row['BRAND'] : '—')?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
+	    if ($isPadsCategory || $isDiscsCategory) {
+	        ?>
+                <div class="details-row">
+                    <span class="details-label">Артикул:</span>
+                    <span class="details-dots-wrap"><span class="details-dots"></span></span>
+                    <span class="details-value"><?=htmlspecialcharsbx($articleValue !== '' ? $articleValue : '—')?></span>
+                </div>
+		        <div class="details-row">
+		            <span class="details-label">Производитель:</span>
+		            <span class="details-dots-wrap"><span class="details-dots"></span></span>
+		            <span class="details-value"><?=htmlspecialcharsbx($brandValue !== '' ? $brandValue : '—')?></span>
+		        </div>
+		        <div class="details-row">
+		            <span class="details-label">Ось:</span>
+		            <span class="details-dots-wrap"><span class="details-dots"></span></span>
+		            <span class="details-value"><?=htmlspecialcharsbx($axisValue !== '' ? $axisValue : '—')?></span>
+		        </div>
+		        <?php if (!empty($crossRows)): ?>
+                    <details class="details-spoiler" id="oem-numbers">
+                        <summary class="details-row details-spoiler__summary">
+                            <span class="details-label">Оригинальный номер детали:</span>
+                            <span class="details-dots-wrap"><span class="details-dots"></span></span>
+                            <span class="details-value"><span class="details-spoiler__btn">Посмотреть</span></span>
+                        </summary>
+                        <div class="details-spoiler__body">
+                            <div class="applicability-table__wrapper">
+                                <table class="applicability-table">
+                                    <thead>
+                                    <tr>
+                                        <th>Номер</th>
+                                        <th>Бренд</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <?php foreach ($crossRows as $row): ?>
+                                        <tr>
+                                            <td><?=htmlspecialcharsbx($row['NUMBER'])?></td>
+                                            <td><?=htmlspecialcharsbx($row['BRAND'] !== '' ? $row['BRAND'] : '—')?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </details>
+		        <?php else: ?>
+                    <div class="details-row">
+                        <span class="details-label">Оригинальный номер детали:</span>
+                        <span class="details-dots-wrap"><span class="details-dots"></span></span>
+                        <span class="details-value">—</span>
                     </div>
-                </span>
-            </div>
-        <?php endif; ?>
-        <?php
-    } else {
-        $skipCodes = ['MARK', 'MODEL', 'BODY', 'DATE_RELEASE', 'DATE_END'];
-        foreach ($arResult['PROPERTIES'] as $prop) {
-            switch ($prop['CODE']) {
+                <?php endif; ?>
+	        <?php
+	    } else {
+	        $skipCodes = ['MARK', 'MODEL', 'BODY', 'DATE_RELEASE', 'DATE_END'];
+	        foreach ($arResult['PROPERTIES'] as $prop) {
+	            switch ($prop['CODE']) {
                 case 'VIDEO_LINK':
                 case 'LINK_PHOTO':
                 case 'LINK_PHOTO_FILE':

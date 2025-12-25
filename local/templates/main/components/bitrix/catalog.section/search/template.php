@@ -67,8 +67,10 @@ $appendQueryParam = static function (string $url, string $param, string $value):
 
                         $detailUrlRaw = (string)($item['DETAIL_PAGE_URL'] ?? '');
                         $isPadsCategory = $detailUrlRaw !== '' && strpos($detailUrlRaw, '/tormoznye_kolodki/') !== false;
+                        $isDiscsCategory = $detailUrlRaw !== '' && strpos($detailUrlRaw, '/tormoznye_diski/') !== false;
+                        $isShortCardCategory = $isPadsCategory || $isDiscsCategory;
 
-                        if ($isPadsCategory) {
+                        if ($isShortCardCategory) {
                             $brand = (string)($item['PROPERTIES']['CML2_MANUFACTURER']['VALUE'] ?? '');
                             if ($brand === '') {
                                 $brand = (string)($item['PROPERTIES']['MANUFACTURER']['VALUE'] ?? '');
@@ -80,11 +82,11 @@ $appendQueryParam = static function (string $url, string $param, string $value):
                                     'value' => $item['PROPERTIES']['CML2_ARTICLE']['VALUE'] ?? '',
                                 ],
                                 [
-                                    'label' => 'Бренд',
+                                    'label' => 'Производитель:',
                                     'value' => $brand,
                                 ],
                                 [
-                                    'label' => 'Тип',
+                                    'label' => 'Ось',
                                     'value' => $item['PROPERTIES']['INSTALLATION_AXIS']['VALUE'] ?? '',
                                 ],
                             ];

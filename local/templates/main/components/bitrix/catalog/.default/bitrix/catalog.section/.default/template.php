@@ -37,6 +37,8 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
             }
         }
         $isPadsCategory = $contextSectionPath !== '' && strpos($contextSectionPath, 'tormoznye_kolodki') === 0;
+        $isDiscsCategory = $contextSectionPath !== '' && strpos($contextSectionPath, 'tormoznye_diski') === 0;
+        $isShortCardCategory = $isPadsCategory || $isDiscsCategory;
         $cardPartialPath = __DIR__ . '/partials/product-card.php';
 
         foreach ($arResult['ITEMS'] as $item) {
@@ -53,7 +55,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
             $optionsAttr = htmlspecialcharsbx($optionsJson);
 
             $details = [];
-            if ($isPadsCategory) {
+            if ($isShortCardCategory) {
                 $brand = (string)($item['PROPERTIES']['CML2_MANUFACTURER']['VALUE'] ?? '');
                 if ($brand === '') {
                     $brand = (string)($item['PROPERTIES']['MANUFACTURER']['VALUE'] ?? '');
@@ -65,11 +67,11 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                         'value' => $item['PROPERTIES']['CML2_ARTICLE']['VALUE'] ?? '',
                     ],
                     [
-                        'label' => 'Бренд',
+                        'label' => 'Производитель:',
                         'value' => $brand,
                     ],
                     [
-                        'label' => 'Тип',
+                        'label' => 'Ось',
                         'value' => $item['PROPERTIES']['INSTALLATION_AXIS']['VALUE'] ?? '',
                     ],
                 ];

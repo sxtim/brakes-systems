@@ -13,7 +13,8 @@ Asset::getInstance()->addString('<script type="module" crossorigin="" src="' . S
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/product-page.min.css');
 
 $request = Application::getInstance()->getContext()->getRequest();
-$isFromSearch = ((string)$request->getQuery('from') === 'search');
+$fromParam = (string)$request->getQuery('from');
+$isFromSearch = in_array($fromParam, ['search', 'viewed'], true);
 $path = $request->getRequestedPageDirectory();
 $path = explode('/', $path);
 unset($path[array_key_last($path)]);

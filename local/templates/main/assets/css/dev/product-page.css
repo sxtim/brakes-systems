@@ -1089,6 +1089,28 @@ body:not(.lg-from-hash) .lg-outer.lg-start-zoom .lg-item:not(.lg-zoomable).lg-co
   color: #404040;
 }
 
+.details-spoiler {
+  border: none;
+}
+
+.details-spoiler__summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.details-spoiler__summary::-webkit-details-marker {
+  display: none;
+}
+
+.details-spoiler__btn {
+  color: #3459A3;
+  text-decoration: underline;
+}
+
+.details-spoiler__body {
+  padding-top: 0.625rem;
+}
+
 .main-cataloge__sublist {
   display: flex;
   flex-direction: column;

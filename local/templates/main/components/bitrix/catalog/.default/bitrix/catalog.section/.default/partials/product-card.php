@@ -33,6 +33,7 @@ $contextLabel = isset($card['CONTEXT_LABEL']) ? (string)$card['CONTEXT_LABEL'] :
 
 $buyName = (string)($buy['NAME'] ?? $name);
 $buyUrl = (string)($buy['URL'] ?? $detailUrl);
+$hideFeatures = !empty($card['HIDE_FEATURES']);
 
 $normalizeCase = static function ($value) {
     if (!is_string($value) || $value === '') {
@@ -136,7 +137,12 @@ if ($detailUrl !== '') {
         }
     }
 }
-$isFromSearch = $fromParam === 'search';
+$isFromSearch = in_array($fromParam, ['search', 'viewed'], true);
+$isPadsCard = ($contextSectionPath !== '' && strpos($contextSectionPath, 'tormoznye_kolodki') === 0)
+    || ($detailUrl !== '' && strpos($detailUrl, '/tormoznye_kolodki/') !== false);
+$isDiscsCard = ($contextSectionPath !== '' && strpos($contextSectionPath, 'tormoznye_diski') === 0)
+    || ($detailUrl !== '' && strpos($detailUrl, '/tormoznye_diski/') !== false);
+$isShortCardCategory = $isPadsCard || $isDiscsCard;
 
 ?>
 <div class="main-cataloge__item" data-fls-like-product="<?=$id?>"<?php if ($contextSectionId > 0) { ?> data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>>
@@ -212,25 +218,25 @@ $isFromSearch = $fromParam === 'search';
             </div>
         <?php } ?>
     </div>
-    <div class="main-cataloge__info">
-            <?php if ($favoritesView) { ?>
-                <div class="main-cataloge__feature main-cataloge__feature--favorite">
-                    <?php foreach ($optionLabelMap as $optionKey => $label) {
-                        $rawValue = $selectedOptions[$optionKey] ?? null;
-                        $displayValue = $formatOptionValue($optionKey, $rawValue);
+	    <div class="main-cataloge__info">
+	            <?php if (!$hideFeatures && $favoritesView) { ?>
+	                <div class="main-cataloge__feature main-cataloge__feature--favorite">
+	                    <?php foreach ($optionLabelMap as $optionKey => $label) {
+	                        $rawValue = $selectedOptions[$optionKey] ?? null;
+	                        $displayValue = $formatOptionValue($optionKey, $rawValue);
                     ?>
                         <div class="main-cataloge__details-row details-row">
                             <span class="main-cataloge__details-label details-label"><?=htmlspecialcharsbx($label)?></span>
                             <span class="main-cataloge__details-dots details-dots"></span>
                             <span class="main-cataloge__details-value details-value"><?=htmlspecialcharsbx($displayValue)?></span>
                         </div>
-                    <?php } ?>
-                </div>
-            <?php } else { ?>
-                <div data-fls-spollers="" data-fls-spollers-one="" class="main-cataloge__feature spollers">
-                    <details class="spollers__item main-cataloge__feature-item--big"<?=$detailsOpenAttr?>>
-                        <summary class="main-cataloge__feature-item спollers__title">Двусоставная конструкция диска:</summary>
-                        <div class="main-cataloge__sublist спollers__body">
+	                    <?php } ?>
+	                </div>
+	            <?php } elseif (!$hideFeatures && !$isShortCardCategory) { ?>
+	                <div data-fls-spollers="" data-fls-spollers-one="" class="main-cataloge__feature spollers">
+	                    <details class="spollers__item main-cataloge__feature-item--big"<?=$detailsOpenAttr?>>
+	                        <summary class="main-cataloge__feature-item спollers__title">Двусоставная конструкция диска:</summary>
+	                        <div class="main-cataloge__sublist спollers__body">
                             <div class="main-cataloge__sublist-item<?=$twoPieceYesSelected ? ' selected' : ''?>">Да</div>
                             <div class="main-cataloge__sublist-item<?=$twoPieceNoSelected ? ' selected' : ''?>">Нет</div>
                         </div>
