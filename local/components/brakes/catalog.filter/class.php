@@ -59,9 +59,16 @@ class CatalogFilterComponent extends \CBitrixComponent
             return $row;
         };
 
-        $fetchSections = static function ($entitySections, array $filter, array $select, callable $mapRow): array {
+        $fetchSections = static function (
+            $entitySections,
+            array $filter,
+            array $select,
+            callable $mapRow,
+            array $order = []
+        ): array {
             $items = [];
             $rsData = $entitySections::getList([
+                'order' => $order,
                 'filter' => $filter,
                 'select' => $select,
             ]);
@@ -167,7 +174,8 @@ class CatalogFilterComponent extends \CBitrixComponent
                     'IBLOCK_SECTION_ID' => $categoryId,
                 ],
                 $select,
-                $mapRow
+                $mapRow,
+                ['NAME' => 'ASC']
             );
         }
 

@@ -35,15 +35,15 @@ if ($sectionCodePath !== '') {
     $categoryCode = (string)($parts[0] ?? '');
 }
 
-$contextPrompt = 'Выберите автомобиль, чтобы увидеть товары и проверить применяемость.';
+$contextPrompt = 'Выберите автомобиль.';
 if ($sectionDepth === 0) {
-    $contextPrompt = 'Выберите категорию, марку, модель и поколение, чтобы увидеть товары и проверить применяемость.';
+    $contextPrompt = 'Выберите категорию, марку, модель и поколение.';
 } elseif ($sectionDepth === 1) {
-    $contextPrompt = 'Выберите марку, модель и поколение, чтобы увидеть товары и проверить применяемость.';
+    $contextPrompt = 'Выберите марку, модель и поколение.';
 } elseif ($sectionDepth === 2) {
-    $contextPrompt = 'Выберите модель и поколение, чтобы увидеть товары и проверить применяемость.';
+    $contextPrompt = 'Выберите модель и поколение.';
 } elseif ($sectionDepth === 3) {
-    $contextPrompt = 'Выберите поколение, чтобы увидеть товары и проверить применяемость.';
+    $contextPrompt = 'Выберите поколение.';
 }
 
 $pageContainerClass = 'page__container' . ($isBodyContext ? '' : ' page__container--single');

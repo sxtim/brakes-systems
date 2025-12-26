@@ -138,6 +138,7 @@ if ($detailUrl !== '') {
     }
 }
 $isFromSearch = in_array($fromParam, ['search', 'viewed'], true);
+$canShowLike = !$isFromSearch;
 $isPadsCard = ($contextSectionPath !== '' && strpos($contextSectionPath, 'tormoznye_kolodki') === 0)
     || ($detailUrl !== '' && strpos($detailUrl, '/tormoznye_kolodki/') !== false);
 $isDiscsCard = ($contextSectionPath !== '' && strpos($contextSectionPath, 'tormoznye_diski') === 0)
@@ -159,9 +160,9 @@ $isShortCardCategory = $isPadsCard || $isDiscsCard;
         </picture>
     </a>
     <div class="main-cataloge__item-content">
-	        <div class="main-cataloge__item-top">
+	    <div class="main-cataloge__item-top">
 	            <h3 class="main-cataloge__item-title"><a href="<?=htmlspecialcharsbx($detailUrl)?>"><?=htmlspecialcharsbx($name)?></a></h3>
-                <?php if ($favoritesView): ?>
+                <?php if ($favoritesView || $canShowLike): ?>
                     <button
                         data-fls-like-image=""
                         data-fls-like-button=""
