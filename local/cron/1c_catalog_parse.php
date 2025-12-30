@@ -23,6 +23,72 @@ function brakes_1c_catalog_parse_run(array $options = []): array
 
     Loader::includeModule('iblock');
 
+    $lockDir = dirname($logPath);
+    if (!is_dir($lockDir)) {
+        @mkdir($lockDir, 0775, true);
+    }
+    $lockPath = (string)($options['lockPath'] ?? ($lockDir . '/parse.lock'));
+    $lockHandle = @fopen($lockPath, 'c+');
+    if ($lockHandle === false) {
+        throw new RuntimeException('1c_catalog_parse: failed to open lock file ' . $lockPath);
+    }
+    if (!flock($lockHandle, LOCK_EX)) {
+        throw new RuntimeException('1c_catalog_parse: failed to acquire lock ' . $lockPath);
+    }
+
+    $normalizeCategory = static function (?string $raw): array {
+        $value = trim((string)$raw);
+        if ($value === '') {
+            return ['code' => 'other', 'name' => 'other'];
+        }
+
+        $valueLower = mb_strtolower($value);
+        $valueLower = str_replace(['ё'], ['е'], $valueLower);
+
+        if (str_contains($valueLower, 'колод')) {
+            return ['code' => 'tormoznye_kolodki', 'name' => 'Тормозные колодки'];
+        }
+        if (str_contains($valueLower, 'диск')) {
+            return ['code' => 'tormoznye_diski', 'name' => 'Тормозные диски'];
+        }
+        if (str_contains($valueLower, 'систем')) {
+            return ['code' => 'tormoznye_sistemy', 'name' => 'Тормозные системы'];
+        }
+
+        return ['code' => 'other', 'name' => 'other'];
+    };
+
+    $slugify = static function (string $value): string {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+        $slug = (string)CUtil::translit(
+            $value,
+            'ru',
+            [
+                'max_len' => 100,
+                'change_case' => 'L',
+                'replace_space' => '_',
+                'replace_other' => '_',
+                'delete_repeat_replace' => true,
+            ]
+        );
+        $slug = trim($slug, "_- \t\n\r\0\x0B");
+        return $slug;
+    };
+
+    $makeSectionXmlId = static function (string $type, array $parts): string {
+        $clean = [];
+        foreach ($parts as $part) {
+            $part = trim((string)$part);
+            if ($part !== '') {
+                $clean[] = $part;
+            }
+        }
+        return 'BRKS:' . $type . ':' . implode(':', $clean);
+    };
+
     $ensureOemProperty = static function (int $iblockId, string $code, string $name): void {
         $existing = CIBlockProperty::GetList([], ['IBLOCK_ID' => $iblockId, '=CODE' => $code])->Fetch();
         if (!$existing) {
@@ -73,6 +139,284 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         $ensureOemProperty($iblockId, $oemPropertyCode, $oemPropertyName);
     }
 
+    $warnings = [];
+    $createdSections = 0;
+    $sectionsUpdated = 0;
+    $codeConflictsFixed = 0;
+
+    $sectionsByXmlId = [];
+    $sectionsByParentAndCode = [];
+    $sectionsByParentAndName = [];
+    $ensuredXmlIds = [];
+    $attemptedXmlIds = [];
+    $warningOnce = [];
+
+    $rsSections = SectionTable::getList([
+        'filter' => [
+            'IBLOCK_ID' => $iblockId,
+        ],
+        'select' => [
+            'ID',
+            'NAME',
+            'CODE',
+            'XML_ID',
+            'IBLOCK_SECTION_ID',
+        ],
+    ]);
+    while ($row = $rsSections->fetch()) {
+        $sectionId = (int)$row['ID'];
+        $parentId = (int)$row['IBLOCK_SECTION_ID'];
+        $name = (string)($row['NAME'] ?? '');
+        $code = (string)($row['CODE'] ?? '');
+        $xmlId = trim((string)($row['XML_ID'] ?? ''));
+
+        if ($xmlId !== '') {
+            $sectionsByXmlId[$xmlId][] = $sectionId;
+        }
+        if ($code !== '') {
+            $sectionsByParentAndCode[$parentId][$code][] = $sectionId;
+        }
+        if ($name !== '') {
+            $sectionsByParentAndName[$parentId][$name][] = $sectionId;
+        }
+    }
+
+    $bs = new CIBlockSection();
+    $ensureSection = static function (array $fields) use (
+        $iblockId,
+        &$warnings,
+        &$warningOnce,
+        &$sectionsByXmlId,
+        &$sectionsByParentAndCode,
+        &$sectionsByParentAndName,
+        &$ensuredXmlIds,
+        &$attemptedXmlIds,
+        &$createdSections,
+        &$sectionsUpdated,
+        &$codeConflictsFixed,
+        $bs
+    ): int {
+        $xmlId = trim((string)($fields['XML_ID'] ?? ''));
+        $parentId = (int)($fields['IBLOCK_SECTION_ID'] ?? 0);
+        $code = (string)($fields['CODE'] ?? '');
+        $name = (string)($fields['NAME'] ?? '');
+
+        $makeUniqueCode = static function (string $baseCode, int $sectionId) use ($iblockId): string {
+            $maxLen = 255;
+            $suffix = '__dup' . $sectionId;
+            $prefixMax = max(1, $maxLen - strlen($suffix));
+            $candidate = substr($baseCode, 0, $prefixMax) . $suffix;
+            $candidate = trim($candidate, "_- \t\n\r\0\x0B");
+            if ($candidate === '') {
+                $candidate = 'dup' . $sectionId;
+            }
+
+            $i = 0;
+            $unique = $candidate;
+            while (true) {
+                $conflict = SectionTable::getList([
+                    'filter' => [
+                        '=IBLOCK_ID' => $iblockId,
+                        '=CODE' => $unique,
+                    ],
+                    'select' => ['ID'],
+                    'limit' => 1,
+                ])->fetch();
+                if (!$conflict) {
+                    break;
+                }
+                $i++;
+                $suffix2 = '__dup' . $sectionId . '_' . $i;
+                $prefixMax2 = max(1, $maxLen - strlen($suffix2));
+                $unique = substr($baseCode, 0, $prefixMax2) . $suffix2;
+                $unique = trim($unique, "_- \t\n\r\0\x0B");
+                if ($unique === '') {
+                    $unique = 'dup' . $sectionId . '_' . $i;
+                }
+            }
+            return $unique;
+        };
+
+        $tryResolveDuplicateCode = static function (int $targetId, string $desiredCode) use (
+            $iblockId,
+            $makeUniqueCode,
+            &$warnings,
+            &$warningOnce,
+            &$codeConflictsFixed,
+            $bs
+        ): bool {
+            $desiredCode = trim($desiredCode);
+            if ($desiredCode === '') {
+                return false;
+            }
+
+            $conflict = SectionTable::getList([
+                'filter' => [
+                    '=IBLOCK_ID' => $iblockId,
+                    '=CODE' => $desiredCode,
+                    '!=ID' => $targetId,
+                ],
+                'select' => ['ID', 'XML_ID'],
+                'limit' => 1,
+            ])->fetch();
+            if (!$conflict) {
+                return false;
+            }
+
+            $conflictId = (int)$conflict['ID'];
+            $conflictXml = trim((string)($conflict['XML_ID'] ?? ''));
+            if ($conflictXml !== '' && str_starts_with($conflictXml, 'BRKS:')) {
+                $msg = 'code_conflict_with_brks target=' . $targetId . ' code=' . $desiredCode . ' conflict_id=' . $conflictId . ' conflict_xml=' . $conflictXml;
+                if (!isset($warningOnce[$msg])) {
+                    $warningOnce[$msg] = true;
+                    $warnings[] = $msg;
+                }
+                return false;
+            }
+
+            $newCode = $makeUniqueCode($desiredCode, $conflictId);
+            $res = $bs->Update($conflictId, ['CODE' => $newCode], false);
+            if (!$res) {
+                $msg = 'code_conflict_rename_failed target=' . $targetId . ' code=' . $desiredCode . ' conflict_id=' . $conflictId . ' new_code=' . $newCode . ' error=' . (string)$bs->LAST_ERROR;
+                if (!isset($warningOnce[$msg])) {
+                    $warningOnce[$msg] = true;
+                    $warnings[] = $msg;
+                }
+                return false;
+            }
+
+            $codeConflictsFixed++;
+            return true;
+        };
+
+        $existingIds = $xmlId !== '' ? ($sectionsByXmlId[$xmlId] ?? []) : [];
+        if (count($existingIds) > 1) {
+            sort($existingIds);
+            $msg = 'duplicate_xml_id xml_id=' . $xmlId . ' ids=' . implode(',', $existingIds) . ' pick=' . $existingIds[0];
+            if (!isset($warningOnce[$msg])) {
+                $warningOnce[$msg] = true;
+                $warnings[] = $msg;
+            }
+        }
+        if ($existingIds) {
+            $id = (int)min($existingIds);
+            if ($xmlId !== '' && isset($ensuredXmlIds[$xmlId])) {
+                return $id;
+            }
+            if ($xmlId !== '' && isset($attemptedXmlIds[$xmlId])) {
+                return $id;
+            }
+            if ($xmlId !== '') {
+                $attemptedXmlIds[$xmlId] = true;
+            }
+            $updateFields = $fields;
+            $updateFields['IBLOCK_ID'] = $iblockId;
+            $res = $bs->Update($id, $updateFields, false);
+            if (!$res && $code !== '' && str_contains((string)$bs->LAST_ERROR, 'символьным кодом')) {
+                if ($tryResolveDuplicateCode($id, $code)) {
+                    $res = $bs->Update($id, $updateFields, false);
+                }
+            }
+            if ($res) {
+                $sectionsUpdated++;
+                if ($xmlId !== '') {
+                    $ensuredXmlIds[$xmlId] = true;
+                }
+            } else {
+                $msg = 'section_update_failed id=' . $id . ' xml_id=' . $xmlId . ' error=' . (string)$bs->LAST_ERROR;
+                if (!isset($warningOnce[$msg])) {
+                    $warningOnce[$msg] = true;
+                    $warnings[] = $msg;
+                }
+            }
+            return $id;
+        }
+
+        $candidates = [];
+        if ($code !== '' && isset($sectionsByParentAndCode[$parentId][$code])) {
+            $candidates = $sectionsByParentAndCode[$parentId][$code];
+        } elseif ($name !== '' && isset($sectionsByParentAndName[$parentId][$name])) {
+            $candidates = $sectionsByParentAndName[$parentId][$name];
+        }
+
+        if (count($candidates) > 1) {
+            sort($candidates);
+            $msg = 'duplicate_section_candidates parent=' . $parentId . ' code=' . $code . ' name=' . $name . ' ids=' . implode(',', $candidates) . ' pick=' . $candidates[0];
+            if (!isset($warningOnce[$msg])) {
+                $warningOnce[$msg] = true;
+                $warnings[] = $msg;
+            }
+        }
+        if ($candidates) {
+            $id = (int)min($candidates);
+            if ($xmlId !== '' && isset($attemptedXmlIds[$xmlId])) {
+                return $id;
+            }
+            if ($xmlId !== '') {
+                $attemptedXmlIds[$xmlId] = true;
+            }
+            $updateFields = $fields;
+            $updateFields['IBLOCK_ID'] = $iblockId;
+            $res = $bs->Update($id, $updateFields, false);
+            if (!$res && $code !== '' && str_contains((string)$bs->LAST_ERROR, 'символьным кодом')) {
+                if ($tryResolveDuplicateCode($id, $code)) {
+                    $res = $bs->Update($id, $updateFields, false);
+                }
+            }
+            if ($res) {
+                $sectionsUpdated++;
+                if ($xmlId !== '') {
+                    $ensuredXmlIds[$xmlId] = true;
+                }
+            } else {
+                $msg = 'section_update_failed id=' . $id . ' xml_id=' . $xmlId . ' error=' . (string)$bs->LAST_ERROR;
+                if (!isset($warningOnce[$msg])) {
+                    $warningOnce[$msg] = true;
+                    $warnings[] = $msg;
+                }
+            }
+
+            if ($xmlId !== '') {
+                $sectionsByXmlId[$xmlId][] = $id;
+            }
+            if ($code !== '') {
+                $sectionsByParentAndCode[$parentId][$code][] = $id;
+            }
+            if ($name !== '') {
+                $sectionsByParentAndName[$parentId][$name][] = $id;
+            }
+            return $id;
+        }
+
+        $addFields = $fields;
+        $addFields['IBLOCK_ID'] = $iblockId;
+        $id = (int)$bs->Add($addFields, false);
+        if ($id <= 0) {
+            $msg = 'section_add_failed parent=' . $parentId . ' code=' . $code . ' xml_id=' . $xmlId . ' error=' . (string)$bs->LAST_ERROR;
+            if (!isset($warningOnce[$msg])) {
+                $warningOnce[$msg] = true;
+                $warnings[] = $msg;
+            }
+            return 0;
+        }
+        $createdSections++;
+        if ($xmlId !== '') {
+            $ensuredXmlIds[$xmlId] = true;
+        }
+
+        if ($xmlId !== '') {
+            $sectionsByXmlId[$xmlId][] = $id;
+        }
+        if ($code !== '') {
+            $sectionsByParentAndCode[$parentId][$code][] = $id;
+        }
+        if ($name !== '') {
+            $sectionsByParentAndName[$parentId][$name][] = $id;
+        }
+
+        return $id;
+    };
+
     $rsData = CIBlockElement::GetList(
         arFilter: [
             'IBLOCK_ID' => $iblockId,
@@ -87,9 +431,7 @@ function brakes_1c_catalog_parse_run(array $options = []): array
     );
 
     $itemsData = [];
-    $sectionsData = [];
     $orphanElements = [];
-    $createdSections = 0;
     $elementsProcessed = 0;
     $combosProcessed = 0;
     $skippedLengthMismatch = 0;
@@ -111,7 +453,7 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         $models = array_values(array_filter(array_map('trim', explode(';', (string)$data['PROPERTY_MODEL_VALUE'])), 'strlen'));
         $bodies = array_values(array_filter(array_map('trim', explode(';', (string)$data['PROPERTY_BODY_VALUE'])), 'strlen'));
 
-        $categoryName = null;
+        $categoryTrait = null;
         $crossRaw = null;
         $propsRes = CIBlockElement::GetProperty(
             $iblockId,
@@ -124,7 +466,7 @@ function brakes_1c_catalog_parse_run(array $options = []): array
             if ($desc === 'Категория товара') {
                 $value = trim((string)($prop['VALUE'] ?? ''));
                 if ($value !== '') {
-                    $categoryName = $value;
+                    $categoryTrait = $value;
                 }
             } elseif ($syncOemNumbers && $desc === 'Кросс номера') {
                 $value = trim((string)($prop['VALUE'] ?? ''));
@@ -133,13 +475,11 @@ function brakes_1c_catalog_parse_run(array $options = []): array
                 }
             }
 
-            if ($categoryName !== null && (!$syncOemNumbers || $crossRaw !== null)) {
+            if ($categoryTrait !== null && (!$syncOemNumbers || $crossRaw !== null)) {
                 break;
             }
         }
-        if ($categoryName === null || $categoryName === '') {
-            $categoryName = 'other';
-        }
+        $category = $normalizeCategory($categoryTrait);
 
         if ($syncOemNumbers) {
             if ($crossRaw === null || $crossRaw === '') {
@@ -201,14 +541,23 @@ function brakes_1c_catalog_parse_run(array $options = []): array
             $combosProcessed++;
             $hasValidCombo = true;
 
-            $itemsData[$elementId][] = [
-                'CATEGORY' => $categoryName,
-                'SECTION_1' => $mark,
-                'SECTION_2' => $model,
-                'SECTION_3' => $body,
-            ];
+            $markSlug = $slugify($mark);
+            $modelSlug = $slugify($model);
+            $bodySlug = $slugify($body);
+            if ($markSlug === '' || $modelSlug === '' || $bodySlug === '') {
+                continue;
+            }
 
-            $sectionsData[$categoryName][$mark][$model][$body] = true;
+            $itemsData[$elementId][] = [
+                'CATEGORY_CODE' => $category['code'],
+                'CATEGORY_NAME' => $category['name'],
+                'MARK_NAME' => $mark,
+                'MARK_SLUG' => $markSlug,
+                'MODEL_NAME' => $model,
+                'MODEL_SLUG' => $modelSlug,
+                'BODY_NAME' => $body,
+                'BODY_SLUG' => $bodySlug,
+            ];
         }
 
         if (!$hasValidCombo) {
@@ -216,131 +565,108 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         }
     }
 
-    $rsData = SectionTable::getList([
-        'filter' => [
-            'IBLOCK_ID' => $iblockId,
-        ],
-        'select' => [
-            'ID',
-            'NAME',
-            'IBLOCK_SECTION_ID',
-        ],
-    ]);
-
-    $sectionsByParent = [];
-    while ($data = $rsData->fetch()) {
-        $parentId = (int)$data['IBLOCK_SECTION_ID'];
-        $sectionsByParent[$parentId][$data['NAME']] = (int)$data['ID'];
-    }
-
-    foreach ($sectionsData as $category => $marks) {
-        if (!isset($sectionsByParent[0][$category])) {
-            $id = SectionTable::add([
-                'IBLOCK_ID' => $iblockId,
-                'NAME'      => $category,
-                'CODE'      => CUtil::translit($category, 'ru'),
-                'ACTIVE'    => 'Y',
-            ])->getId();
-
-            $createdSections++;
-            $sectionsByParent[0][$category] = $id;
+    $categorySectionIds = [];
+    $getCategorySectionId = static function (string $categoryCode, string $categoryName) use (&$categorySectionIds, $makeSectionXmlId, $ensureSection): int {
+        if (isset($categorySectionIds[$categoryCode])) {
+            return (int)$categorySectionIds[$categoryCode];
         }
-
-        foreach ($marks as $mark => $models) {
-            $parentCategoryId = $sectionsByParent[0][$category];
-            $markId = $sectionsByParent[$parentCategoryId][$mark] ?? null;
-
-            if (!$markId) {
-                $id = SectionTable::add([
-                    'IBLOCK_ID'         => $iblockId,
-                    'NAME'              => $mark,
-                    'IBLOCK_SECTION_ID' => $parentCategoryId,
-                    'CODE'              => CUtil::translit($category . '-' . $mark, 'ru'),
-                    'ACTIVE'            => 'Y',
-                ])->getId();
-
-                $createdSections++;
-                $sectionsByParent[$parentCategoryId][$mark] = $id;
-                $markId = $id;
-            }
-
-            foreach ($models as $model => $bodies) {
-                $modelId = $sectionsByParent[$markId][$model] ?? null;
-
-                if (!$modelId) {
-                    $id = SectionTable::add([
-                        'IBLOCK_ID'         => $iblockId,
-                        'NAME'              => $model,
-                        'IBLOCK_SECTION_ID' => $markId,
-                        'CODE'              => CUtil::translit($category . '-' . $mark . '-' . $model, 'ru'),
-                        'ACTIVE'            => 'Y',
-                    ])->getId();
-
-                    $createdSections++;
-                    $sectionsByParent[$markId][$model] = $id;
-                    $modelId = $id;
-                }
-
-                foreach ($bodies as $body => $true) {
-                    if (isset($sectionsByParent[$modelId][$body])) {
-                        continue;
-                    }
-
-                    $id = SectionTable::add([
-                        'IBLOCK_ID'         => $iblockId,
-                        'NAME'              => $body,
-                        'IBLOCK_SECTION_ID' => $modelId,
-                        'CODE'              => CUtil::translit($category . '-' . $mark . '-' . $model . '-' . $body, 'ru'),
-                        'ACTIVE'            => 'Y',
-                    ])->getId();
-
-                    $createdSections++;
-                    $sectionsByParent[$modelId][$body] = $id;
-                }
-            }
+        $xmlId = $makeSectionXmlId('CAT', [$categoryCode]);
+        $id = $ensureSection([
+            'ACTIVE' => 'Y',
+            'SORT' => 500,
+            'IBLOCK_SECTION_ID' => 0,
+            'NAME' => $categoryName,
+            'CODE' => $categoryCode,
+            'XML_ID' => $xmlId,
+        ]);
+        if ($id > 0) {
+            $categorySectionIds[$categoryCode] = $id;
         }
-    }
+        return (int)$id;
+    };
 
-    $otherSectionId = $sectionsByParent[0]['other'] ?? null;
-    if (!$otherSectionId) {
-        $otherSectionId = SectionTable::add([
-            'IBLOCK_ID' => $iblockId,
-            'NAME'      => 'other',
-            'CODE'      => 'other',
-            'ACTIVE'    => 'Y',
-        ])->getId();
-        $createdSections++;
-        $sectionsByParent[0]['other'] = $otherSectionId;
-    }
+    $otherSectionId = $getCategorySectionId('other', 'other');
 
     foreach ($itemsData as $id => $item) {
         $elementSectionIds = [];
 
         foreach ($item as $combo) {
-            $categoryId = $sectionsByParent[0][$combo['CATEGORY']] ?? null;
-            $markId = $categoryId ? ($sectionsByParent[$categoryId][$combo['SECTION_1']] ?? null) : null;
-            $modelId = $markId ? ($sectionsByParent[$markId][$combo['SECTION_2']] ?? null) : null;
-            $bodyId  = $modelId ? ($sectionsByParent[$modelId][$combo['SECTION_3']] ?? null) : null;
+            $categoryCode = (string)$combo['CATEGORY_CODE'];
+            $categoryName = (string)$combo['CATEGORY_NAME'];
 
-            if ($categoryId) {
+            $categoryId = $getCategorySectionId($categoryCode, $categoryName);
+            if ($categoryId > 0) {
                 $sectionsToActivate[$categoryId] = true;
             }
-            if ($markId) {
-                $sectionsToActivate[$markId] = true;
+
+            $markSlug = (string)$combo['MARK_SLUG'];
+            $modelSlug = (string)$combo['MODEL_SLUG'];
+            $bodySlug = (string)$combo['BODY_SLUG'];
+
+            $markId = 0;
+            if ($categoryId > 0) {
+                $markXmlId = $makeSectionXmlId('MARK', [$categoryCode, $markSlug]);
+                $markCode = $categoryCode . '_' . $markSlug;
+                $markId = $ensureSection([
+                    'ACTIVE' => 'Y',
+                    'SORT' => 500,
+                    'IBLOCK_SECTION_ID' => $categoryId,
+                    'NAME' => (string)$combo['MARK_NAME'],
+                    'CODE' => $markCode,
+                    'XML_ID' => $markXmlId,
+                ]);
+                if ($markId > 0) {
+                    $sectionsToActivate[$markId] = true;
+                }
             }
-            if ($modelId) {
-                $sectionsToActivate[$modelId] = true;
+
+            $modelId = 0;
+            if ($markId > 0) {
+                $modelXmlId = $makeSectionXmlId('MODEL', [$categoryCode, $markSlug, $modelSlug]);
+                $modelCode = $categoryCode . '_' . $markSlug . '_' . $modelSlug;
+                $modelId = $ensureSection([
+                    'ACTIVE' => 'Y',
+                    'SORT' => 500,
+                    'IBLOCK_SECTION_ID' => $markId,
+                    'NAME' => (string)$combo['MODEL_NAME'],
+                    'CODE' => $modelCode,
+                    'XML_ID' => $modelXmlId,
+                ]);
+                if ($modelId > 0) {
+                    $sectionsToActivate[$modelId] = true;
+                }
+            }
+
+            $bodyId = 0;
+            if ($modelId > 0) {
+                $bodyXmlId = $makeSectionXmlId('BODY', [$categoryCode, $markSlug, $modelSlug, $bodySlug]);
+                $bodyCode = $categoryCode . '_' . $markSlug . '_' . $modelSlug . '_' . $bodySlug;
+                $bodyId = $ensureSection([
+                    'ACTIVE' => 'Y',
+                    'SORT' => 500,
+                    'IBLOCK_SECTION_ID' => $modelId,
+                    'NAME' => (string)$combo['BODY_NAME'],
+                    'CODE' => $bodyCode,
+                    'XML_ID' => $bodyXmlId,
+                ]);
+                if ($bodyId > 0) {
+                    $sectionsToActivate[$bodyId] = true;
+                }
             }
 
             if ($bodyId) {
-                $sectionsToActivate[$bodyId] = true;
                 $elementSectionIds[] = $bodyId;
             }
         }
 
         if ($elementSectionIds) {
             $elementSectionIds = array_unique($elementSectionIds);
-            CIBlockElement::SetElementSection($id, $elementSectionIds);
+            $changed = CIBlockElement::SetElementSection($id, $elementSectionIds);
+            if ($changed) {
+                if (class_exists(\Bitrix\Iblock\PropertyIndex\Manager::class)) {
+                    \Bitrix\Iblock\PropertyIndex\Manager::updateElementIndex($iblockId, $id);
+                }
+            }
             $elementSectionsLog[] = 'element_id=' . $id . ' sections=' . implode(',', $elementSectionIds);
         } else {
             $orphanElements[(int)$id] = $orphanElements[(int)$id] ?? 'no_sections';
@@ -353,16 +679,23 @@ function brakes_1c_catalog_parse_run(array $options = []): array
     }
 
     foreach ($orphanElements as $elementId => $reason) {
-        CIBlockElement::SetElementSection((int)$elementId, [(int)$otherSectionId]);
+        $changed = CIBlockElement::SetElementSection((int)$elementId, [(int)$otherSectionId]);
+        if ($changed) {
+            if (class_exists(\Bitrix\Iblock\PropertyIndex\Manager::class)) {
+                \Bitrix\Iblock\PropertyIndex\Manager::updateElementIndex($iblockId, (int)$elementId);
+            }
+        }
         $elementSectionsLog[] = 'element_id=' . (int)$elementId . ' sections=' . (int)$otherSectionId . ' fallback=other reason=' . $reason;
     }
 
     $sectionsActivated = 0;
     if ($reactivate) {
         foreach (array_keys($sectionsToActivate) as $sectionId) {
-            $result = SectionTable::update((int)$sectionId, ['ACTIVE' => 'Y']);
-            if ($result->isSuccess()) {
+            $res = $bs->Update((int)$sectionId, ['ACTIVE' => 'Y'], false);
+            if ($res) {
                 $sectionsActivated++;
+            } else {
+                $warnings[] = 'section_activate_failed id=' . (int)$sectionId . ' error=' . (string)$bs->LAST_ERROR;
             }
         }
 
@@ -378,12 +711,18 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         CIBlockSection::ReSort($iblockId);
     }
 
+    if ($createdSections > 0 && !$reactivate) {
+        CIBlockSection::ReSort($iblockId);
+    }
+
     $logLine = date('c')
         . ' src=' . $logPrefix
         . ' iblock=' . $iblockId
         . ' elements=' . $elementsProcessed
         . ' combos=' . $combosProcessed
         . ' sections_created=' . $createdSections
+        . ' sections_updated=' . $sectionsUpdated
+        . ' code_conflicts_fixed=' . $codeConflictsFixed
         . ' sections_reactivated=' . $sectionsActivated
         . ' orphans=' . count($orphanElements)
         . ' skipped_mismatch=' . $skippedLengthMismatch
@@ -392,9 +731,13 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         . ' oem_skipped_no_cross=' . $oemSkippedMissingCross
         . ' oem_skipped_unchanged=' . $oemSkippedUnchanged
         . ' oem_errors=' . $oemErrors
+        . ' warnings=' . count($warnings)
         . PHP_EOL
         . implode(PHP_EOL, $elementSectionsLog)
         . PHP_EOL;
+    if ($warnings) {
+        $logLine .= implode(PHP_EOL, array_map(static fn ($w) => 'warn ' . $w, $warnings)) . PHP_EOL;
+    }
     $logDir = dirname($logPath);
     if (!is_dir($logDir)) {
         @mkdir($logDir, 0775, true);
@@ -413,13 +756,19 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         error_log('1c_catalog_parse: failed to append log to ' . $logPath);
     }
 
+    @flock($lockHandle, LOCK_UN);
+    @fclose($lockHandle);
+
     return [
         'elementsProcessed' => $elementsProcessed,
         'combosProcessed' => $combosProcessed,
         'createdSections' => $createdSections,
+        'updatedSections' => $sectionsUpdated,
+        'codeConflictsFixed' => $codeConflictsFixed,
         'sectionsActivated' => $sectionsActivated,
         'orphans' => count($orphanElements),
         'skippedLengthMismatch' => $skippedLengthMismatch,
+        'warnings' => count($warnings),
         'oem' => [
             'enabled' => $syncOemNumbers,
             'propertyCode' => $oemPropertyCode,
@@ -432,10 +781,11 @@ function brakes_1c_catalog_parse_run(array $options = []): array
 }
 
 if (PHP_SAPI === 'cli' || realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
-    brakes_1c_catalog_parse_run([
+    $result = brakes_1c_catalog_parse_run([
         'iblockId' => 1,
         'reactivate' => true,
         'logPath' => $_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log',
         'logPrefix' => 'manual',
     ]);
+    echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . PHP_EOL;
 }
