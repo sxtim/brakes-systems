@@ -14,38 +14,45 @@ Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/product-page.min.cs
 
 $request = Application::getInstance()->getContext()->getRequest();
 $fromParam = (string)$request->getQuery('from');
+$favkeyParam = (string)$request->getQuery('favkey');
 $isFromSearch = in_array($fromParam, ['search', 'viewed'], true);
 
 // Canonicalize neutral transitions (from=search/viewed) to category+product URL:
 // /catalog/{category_code}/{element_code}/?from=...
 if ($isFromSearch) {
     $sectionCodePath = (string)($arResult['VARIABLES']['SECTION_CODE_PATH'] ?? '');
-    $elementCode = (string)($arResult['VARIABLES']['ELEMENT_CODE'] ?? '');
-    if ($elementCode === '') {
-        $elementId = (int)($arResult['VARIABLES']['ELEMENT_ID'] ?? 0);
-        if ($elementId > 0 && Loader::includeModule('iblock')) {
-            $row = \CIBlockElement::GetList([], ['IBLOCK_ID' => $arParams['IBLOCK_ID'], 'ID' => $elementId], false, ['nTopCount' => 1], ['ID', 'CODE'])->Fetch();
-            if (is_array($row) && !empty($row['CODE'])) {
-                $elementCode = (string)$row['CODE'];
+    $parts = array_values(array_filter(explode('/', trim($sectionCodePath, '/')), 'strlen'));
+    $hasContext = !empty($favkeyParam) || count($parts) > 1;
+
+    if ($hasContext) {
+        // Preserve context-specific URLs when provided by search/viewed/favorites.
+    } else {
+        $elementCode = (string)($arResult['VARIABLES']['ELEMENT_CODE'] ?? '');
+        if ($elementCode === '') {
+            $elementId = (int)($arResult['VARIABLES']['ELEMENT_ID'] ?? 0);
+            if ($elementId > 0 && Loader::includeModule('iblock')) {
+                $row = \CIBlockElement::GetList([], ['IBLOCK_ID' => $arParams['IBLOCK_ID'], 'ID' => $elementId], false, ['nTopCount' => 1], ['ID', 'CODE'])->Fetch();
+                if (is_array($row) && !empty($row['CODE'])) {
+                    $elementCode = (string)$row['CODE'];
+                }
             }
         }
-    }
 
-    $categoryCode = '';
-    if ($sectionCodePath !== '') {
-        $parts = explode('/', trim($sectionCodePath, '/'));
-        $categoryCode = (string)($parts[0] ?? '');
-    } elseif (!empty($arResult['VARIABLES']['SECTION_CODE'])) {
-        $categoryCode = (string)$arResult['VARIABLES']['SECTION_CODE'];
-    }
+        $categoryCode = '';
+        if ($sectionCodePath !== '') {
+            $categoryCode = (string)($parts[0] ?? '');
+        } elseif (!empty($arResult['VARIABLES']['SECTION_CODE'])) {
+            $categoryCode = (string)$arResult['VARIABLES']['SECTION_CODE'];
+        }
 
-    if ($categoryCode !== '' && $elementCode !== '') {
-        $canonicalPath = '/catalog/' . $categoryCode . '/' . $elementCode . '/';
-        $currentPath = (string)parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
-        if ($currentPath !== $canonicalPath) {
-            $queryString = (string)($request->getServer()->get('QUERY_STRING') ?? '');
-            $targetUrl = $canonicalPath . ($queryString !== '' ? ('?' . $queryString) : '');
-            LocalRedirect($targetUrl, true, '302 Found');
+        if ($categoryCode !== '' && $elementCode !== '') {
+            $canonicalPath = '/catalog/' . $categoryCode . '/' . $elementCode . '/';
+            $currentPath = (string)parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+            if ($currentPath !== $canonicalPath) {
+                $queryString = (string)($request->getServer()->get('QUERY_STRING') ?? '');
+                $targetUrl = $canonicalPath . ($queryString !== '' ? ('?' . $queryString) : '');
+                LocalRedirect($targetUrl, true, '302 Found');
+            }
         }
     }
 }
@@ -105,6 +112,12 @@ if ($sectionCodePathForFilter !== '') {
                 <div class="main__inner">
 <?php
 $baseTitle = '';
+$sectionChain = [];
+$sectionNames = [];
+$sectionCodes = [];
+$sectionId = 0;
+$sectionCodePath = (string)($arResult['VARIABLES']['SECTION_CODE_PATH'] ?? '');
+
 if (Loader::includeModule('iblock')) {
     // Получаем название товара (если есть ID или CODE)
     $elementId = (int)($arResult['VARIABLES']['ELEMENT_ID'] ?? 0);
@@ -122,36 +135,68 @@ if (Loader::includeModule('iblock')) {
         }
     }
 
-    // Собираем цепочку разделов (если есть)
-    $brandModelBody = [];
+    // Определяем контекст по SECTION_CODE_PATH / favkey
     $sectionId = (int)($arResult['VARIABLES']['SECTION_ID'] ?? 0);
-    $sectionCodePath = (string)($arResult['VARIABLES']['SECTION_CODE_PATH'] ?? '');
     if ($sectionId <= 0 && $sectionCodePath !== '') {
-        $sectionId = (int)\CIBlockFindTools::GetSectionID(false, $sectionCodePath, ['IBLOCK_ID' => $arParams['IBLOCK_ID']]);
+        $sectionId = (int)\CIBlockFindTools::GetSectionIDByCodePath($arParams['IBLOCK_ID'], $sectionCodePath);
     }
-    if ($sectionId > 0) {
-        $navChain = \CIBlockSection::GetNavChain($arParams['IBLOCK_ID'], $sectionId, ['ID', 'NAME']);
-        $sectionNames = [];
-        while ($row = $navChain->Fetch()) {
-            if (!empty($row['NAME'])) {
-                $sectionNames[] = $row['NAME'];
+
+    if ($sectionId <= 0 && $favkeyParam !== '') {
+        if (preg_match('/^(\\d+):(s|p|n)(.*)$/', $favkeyParam, $matches)) {
+            $favType = $matches[2];
+            $favTail = $matches[3] ?? '';
+            if ($favType === 's') {
+                $favSectionId = (int)$favTail;
+                if ($favSectionId > 0) {
+                    $sectionId = $favSectionId;
+                }
+            } elseif ($favType === 'p') {
+                $favSectionPath = trim((string)$favTail, " \t\n\r\0\x0B/");
+                if ($favSectionPath !== '') {
+                    $sectionCodePath = $favSectionPath;
+                }
             }
         }
-        $sectionDepth = count($sectionNames);
-        if ($sectionDepth >= 4) {
-            $brandModelBody = array_slice($sectionNames, -3);
+    }
+
+    if ($sectionId <= 0 && $sectionCodePath !== '') {
+        $sectionId = (int)\CIBlockFindTools::GetSectionIDByCodePath($arParams['IBLOCK_ID'], $sectionCodePath);
+    }
+
+    if ($sectionId > 0) {
+        $navChain = \CIBlockSection::GetNavChain($arParams['IBLOCK_ID'], $sectionId, ['ID', 'NAME', 'CODE']);
+        while ($row = $navChain->Fetch()) {
+            $name = isset($row['NAME']) ? (string)$row['NAME'] : '';
+            $code = isset($row['CODE']) ? (string)$row['CODE'] : '';
+            if ($name !== '') {
+                $sectionNames[] = $name;
+            }
+            if ($code !== '') {
+                $sectionCodes[] = $code;
+            }
+            $sectionChain[] = [
+                'NAME' => $name,
+                'CODE' => $code,
+            ];
         }
     }
-    $brandModelBody = array_values(array_filter($brandModelBody, static fn($value) => is_string($value) && $value !== ''));
 }
 
 if ($baseTitle === '') {
     $baseTitle = (string)$APPLICATION->GetTitle(false);
 }
 
+$contextNames = [];
+if ($sectionNames !== []) {
+    $contextNames = array_slice($sectionNames, 1);
+    if ($contextNames !== []) {
+        $contextNames = array_slice($contextNames, -3);
+    }
+}
+
 $newTitle = trim($baseTitle);
-if (!$isFromSearch && !empty($brandModelBody)) {
-    $suffix = implode(' ', $brandModelBody);
+if ($contextNames !== []) {
+    $suffix = implode(' ', $contextNames);
     if ($suffix !== '') {
         $newTitle = trim(($newTitle !== '' ? $newTitle : $baseTitle) . ' — ' . $suffix);
     }
@@ -160,50 +205,46 @@ if ($newTitle !== '') {
     $APPLICATION->SetTitle($newTitle);
     $APPLICATION->SetPageProperty('title', $newTitle);
 }
+
+$breadcrumbs = [];
+$breadcrumbs[] = ['TITLE' => 'Главная', 'URL' => '/'];
+$breadcrumbs[] = ['TITLE' => 'Каталог', 'URL' => '/catalog/'];
+$pathParts = [];
+foreach ($sectionChain as $section) {
+    $name = (string)($section['NAME'] ?? '');
+    $code = (string)($section['CODE'] ?? '');
+    if ($name === '') {
+        continue;
+    }
+    $url = '';
+    if ($code !== '') {
+        $pathParts[] = $code;
+        $url = '/catalog/' . implode('/', $pathParts) . '/';
+    }
+    $breadcrumbs[] = ['TITLE' => $name, 'URL' => $url];
+}
+$currentUrl = (string)($_SERVER['REQUEST_URI'] ?? '');
+$currentUrl = $currentUrl !== '' ? $currentUrl : '#';
+$breadcrumbs[] = ['TITLE' => $baseTitle, 'URL' => $currentUrl, 'ACTIVE' => true];
 ?>
-<?php if ($isFromSearch): ?>
-    <?php
-    $categoryCode = '';
-    $sectionCodePath = (string)($arResult['VARIABLES']['SECTION_CODE_PATH'] ?? '');
-    if ($sectionCodePath !== '') {
-        $parts = explode('/', trim($sectionCodePath, '/'));
-        $categoryCode = (string)($parts[0] ?? '');
-    } elseif (!empty($arResult['VARIABLES']['SECTION_CODE'])) {
-        $categoryCode = (string)$arResult['VARIABLES']['SECTION_CODE'];
-    }
-
-    $categoryName = '';
-    if ($categoryCode !== '' && Loader::includeModule('iblock')) {
-        $row = \CIBlockSection::GetList(
-            [],
-            ['IBLOCK_ID' => $arParams['IBLOCK_ID'], '=CODE' => $categoryCode],
-            false,
-            ['ID', 'NAME']
-        )->Fetch();
-        if (is_array($row) && !empty($row['NAME'])) {
-            $categoryName = (string)$row['NAME'];
-        }
-    }
-
-    $currentUrl = (string)($_SERVER['REQUEST_URI'] ?? '');
-    $currentUrl = $currentUrl !== '' ? $currentUrl : '#';
-    ?>
-    <div class="main__breadcrumbs">
-        <a class="main__breadcrumbs-item" href="/">Главная</a>
-        <a class="main__breadcrumbs-item" href="/catalog/">Каталог</a>
-        <?php if ($categoryCode !== ''): ?>
-            <a class="main__breadcrumbs-item" href="<?=htmlspecialcharsbx('/catalog/' . $categoryCode . '/')?>"><?=htmlspecialcharsbx($categoryName !== '' ? $categoryName : $categoryCode)?></a>
+<div class="main__breadcrumbs">
+    <?php foreach ($breadcrumbs as $item): ?>
+        <?php
+        $title = (string)($item['TITLE'] ?? '');
+        $url = (string)($item['URL'] ?? '');
+        $active = !empty($item['ACTIVE']);
+        ?>
+        <?php if ($url !== ''): ?>
+            <a class="main__breadcrumbs-item<?= $active ? ' active' : '' ?>" href="<?= htmlspecialcharsbx($url) ?>">
+                <?= htmlspecialcharsbx($title) ?>
+            </a>
+        <?php else: ?>
+            <span class="main__breadcrumbs-item<?= $active ? ' active' : '' ?>">
+                <?= htmlspecialcharsbx($title) ?>
+            </span>
         <?php endif; ?>
-        <a class="main__breadcrumbs-item active" href="<?=htmlspecialcharsbx($currentUrl)?>"><?=htmlspecialcharsbx($baseTitle)?></a>
-    </div>
-<?php else: ?>
-    <?php $APPLICATION->IncludeComponent("bitrix:breadcrumb","",Array(
-            "START_FROM" => "0",
-            "PATH" => "",
-            "SITE_ID" => "s1"
-        )
-    );?>
-<?php endif; ?>
+    <?php endforeach; ?>
+</div>
                     <h1 class="main__title"><?=$APPLICATION->ShowTitle(false)?></h1>
                     <?php
 

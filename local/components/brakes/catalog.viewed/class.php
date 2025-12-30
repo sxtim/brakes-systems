@@ -28,29 +28,239 @@ class CatalogViewedComponent extends \CBitrixComponent
             return $path . ($newQuery !== '' ? ('?' . $newQuery) : '') . $fragment;
         };
 
+        $parseFavoriteKey = static function (string $value): array {
+            $value = trim($value);
+            if ($value === '') {
+                return [];
+            }
+
+            if (preg_match('/^(\\d+):(s|p|n)(.*)$/', $value, $matches)) {
+                $productId = (int)$matches[1];
+                $type = $matches[2];
+                $tail = $matches[3] ?? '';
+                $context = [];
+
+                if ($type === 's') {
+                    $sectionId = (int)$tail;
+                    if ($sectionId > 0) {
+                        $context['section_id'] = $sectionId;
+                    }
+                } elseif ($type === 'p') {
+                    $sectionPath = trim((string)$tail, " \t\n\r\0\x0B/");
+                    if ($sectionPath !== '') {
+                        $context['section_path'] = $sectionPath;
+                    }
+                }
+
+                return [
+                    'productId' => $productId,
+                    'context' => $context,
+                ];
+            }
+
+            $productId = (int)$value;
+            return $productId > 0 ? ['productId' => $productId, 'context' => []] : [];
+        };
+
+        $normalizeContext = static function ($value): array {
+            if (!is_array($value)) {
+                return [];
+            }
+
+            $sectionId = isset($value['section_id']) ? (int)$value['section_id'] : (isset($value['sectionId']) ? (int)$value['sectionId'] : 0);
+            $sectionPath = isset($value['section_path']) ? (string)$value['section_path'] : (isset($value['sectionPath']) ? (string)$value['sectionPath'] : '');
+
+            $context = [];
+            if ($sectionId > 0) {
+                $context['section_id'] = $sectionId;
+            }
+            if ($sectionPath !== '') {
+                $sectionPath = trim((string)$sectionPath, " \t\n\r\0\x0B/");
+                if ($sectionPath !== '') {
+                    $context['section_path'] = $sectionPath;
+                }
+            }
+
+            return $context;
+        };
+
+        $buildContextSectionPath = static function (array $context, int $iblockId): string {
+            $path = '';
+
+            if (!empty($context['section_path']) && is_string($context['section_path'])) {
+                $path = trim($context['section_path'], " \t\n\r\0\x0B/");
+            } elseif (!empty($context['section_id']) && $context['section_id'] > 0 && Loader::includeModule('iblock')) {
+                $nav = \CIBlockSection::GetNavChain($iblockId, (int)$context['section_id'], ['CODE']);
+                $codes = [];
+                while ($row = $nav->Fetch()) {
+                    if (!empty($row['CODE'])) {
+                        $codes[] = $row['CODE'];
+                    }
+                }
+                if (!empty($codes)) {
+                    $path = implode('/', $codes);
+                }
+            }
+
+            return $path;
+        };
+
+        $buildContextLabel = static function (array $context, int $iblockId): string {
+            if (empty($context) || empty($context['section_id']) || !Loader::includeModule('iblock')) {
+                return '';
+            }
+
+            $nav = \CIBlockSection::GetNavChain($iblockId, (int)$context['section_id'], ['NAME']);
+            $names = [];
+            while ($row = $nav->Fetch()) {
+                if (!empty($row['NAME'])) {
+                    $names[] = $row['NAME'];
+                }
+            }
+            $names = array_slice($names, -3);
+            $names = array_values(array_filter($names, static fn($name) => is_string($name) && trim($name) !== ''));
+            return implode(' ', $names);
+        };
+
+        $buildDetailUrlWithContext = static function (array $fields, array $context) use ($buildContextSectionPath): string {
+            $detailUrl = isset($fields['DETAIL_PAGE_URL']) ? (string)$fields['DETAIL_PAGE_URL'] : '#';
+            $iblockId = (int)($fields['IBLOCK_ID'] ?? 0);
+            $sectionPath = $buildContextSectionPath($context, $iblockId);
+
+            if ($sectionPath === '') {
+                return $detailUrl;
+            }
+
+            $fieldsWithContext = $fields;
+            $fieldsWithContext['SECTION_CODE_PATH'] = $sectionPath;
+            $sectionParts = array_values(array_filter(explode('/', $sectionPath), static fn($part) => $part !== ''));
+            if (!empty($sectionParts)) {
+                $fieldsWithContext['SECTION_CODE'] = end($sectionParts);
+            }
+
+            $template = '';
+            if ($iblockId > 0 && Loader::includeModule('iblock')) {
+                $template = (string)\CIBlock::GetArrayByID($iblockId, 'DETAIL_PAGE_URL');
+            }
+
+            if ($template !== '') {
+                $resolved = \CIBlock::ReplaceDetailUrl($template, $fieldsWithContext, false, 'E');
+                if (strpos($resolved, $sectionPath) !== false) {
+                    return $resolved;
+                }
+            }
+
+            if (strpos($detailUrl, '#') !== false) {
+                $resolved = \CIBlock::ReplaceDetailUrl($detailUrl, $fieldsWithContext, false, 'E');
+                if (strpos($resolved, $sectionPath) !== false) {
+                    return $resolved;
+                }
+            }
+
+            $elementCode = isset($fields['CODE']) ? (string)$fields['CODE'] : '';
+            if ($elementCode !== '') {
+                return '/catalog/' . $sectionPath . '/' . $elementCode . '/';
+            }
+
+            return $detailUrl;
+        };
+
         $session = Application::getInstance()->getSession();
-        $ids = $session->get('CATALOG_ITEM_VIEWED');
+        $rawViewed = $session->get('CATALOG_ITEM_VIEWED');
 
-        if (!is_array($ids) || $ids === []) {
+        if (!is_array($rawViewed) || $rawViewed === []) {
             return;
         }
 
-        $ids = array_values(array_unique(array_map('intval', $ids)));
-        $ids = array_values(array_filter($ids, static fn($id) => $id > 0));
-        if ($ids === []) {
+        $viewedItems = [];
+        foreach ($rawViewed as $key => $value) {
+            $productId = 0;
+            $context = [];
+            $favoriteKey = '';
+
+            if (is_array($value)) {
+                $productId = isset($value['ID']) ? (int)$value['ID'] : (isset($value['id']) ? (int)$value['id'] : 0);
+                if (isset($value['CONTEXT']) && is_array($value['CONTEXT'])) {
+                    $context = $value['CONTEXT'];
+                } elseif (isset($value['context']) && is_array($value['context'])) {
+                    $context = $value['context'];
+                }
+                if (isset($value['FAVORITE_KEY'])) {
+                    $favoriteKey = (string)$value['FAVORITE_KEY'];
+                } elseif (isset($value['favkey'])) {
+                    $favoriteKey = (string)$value['favkey'];
+                } elseif (isset($value['key'])) {
+                    $favoriteKey = (string)$value['key'];
+                }
+            } else {
+                $productId = (int)$value;
+                if ($productId <= 0 && is_scalar($key)) {
+                    $productId = (int)$key;
+                }
+            }
+
+            if ($favoriteKey !== '' && $productId <= 0) {
+                $parsed = $parseFavoriteKey($favoriteKey);
+                $productId = (int)($parsed['productId'] ?? 0);
+                $context = $parsed['context'] ?? [];
+            }
+
+            if ($productId <= 0) {
+                continue;
+            }
+
+            $context = $normalizeContext($context);
+            if ($favoriteKey === '' && class_exists(\App\Brakes\Helper\FavoritesManager::class)) {
+                $favoriteKey = \App\Brakes\Helper\FavoritesManager::buildFavoriteKey($productId, $context);
+            }
+            if ($favoriteKey === '') {
+                $favoriteKey = (string)$productId;
+            }
+
+            $viewedItems[] = [
+                'key' => $favoriteKey,
+                'id' => $productId,
+                'context' => $context,
+            ];
+        }
+
+        if ($viewedItems === []) {
             return;
         }
 
-        $currentId = (int)Storage::get('ITEM_ID');
-        if ($currentId > 0) {
-            $ids = array_values(array_filter($ids, static fn($id) => $id !== $currentId));
+        $currentKey = (string)Storage::get('ITEM_VIEWED_KEY');
+        if ($currentKey !== '') {
+            $viewedItems = array_values(array_filter(
+                $viewedItems,
+                static fn($item) => (string)($item['key'] ?? '') !== $currentKey
+            ));
+        } else {
+            $currentId = (int)Storage::get('ITEM_ID');
+            if ($currentId > 0) {
+                $viewedItems = array_values(array_filter(
+                    $viewedItems,
+                    static fn($item) => (int)($item['id'] ?? 0) !== $currentId
+                ));
+            }
         }
 
-        if ($ids === []) {
+        if ($viewedItems === []) {
             return;
         }
 
         if (!Loader::includeModule('iblock')) {
+            return;
+        }
+
+        $ids = [];
+        foreach ($viewedItems as $item) {
+            $id = (int)($item['id'] ?? 0);
+            if ($id > 0) {
+                $ids[$id] = true;
+            }
+        }
+        $ids = array_keys($ids);
+        if ($ids === []) {
             return;
         }
 
@@ -82,24 +292,6 @@ class CatalogViewedComponent extends \CBitrixComponent
 
             $name = (string)($fields['~NAME'] ?? $fields['NAME'] ?? '');
             $elementCode = (string)($fields['CODE'] ?? '');
-            $categoryCode = '';
-            if ($categoryValue === 'Тормозные колодки') {
-                $categoryCode = 'tormoznye_kolodki';
-            } elseif ($categoryValue === 'Тормозные диски') {
-                $categoryCode = 'tormoznye_diski';
-            } elseif ($categoryValue === 'Тормозные системы') {
-                $categoryCode = 'tormoznye_sistemy';
-            }
-
-            $detailUrl = '';
-            if ($categoryCode !== '' && $elementCode !== '') {
-                $detailUrl = '/catalog/' . $categoryCode . '/' . $elementCode . '/';
-            } else {
-                $detailUrl = (string)($fields['DETAIL_PAGE_URL'] ?? '#');
-                $detailUrl = \CIBlock::ReplaceDetailUrl($detailUrl, $fields, false, 'E');
-            }
-            $detailUrl = $appendQueryParam($detailUrl, 'from', 'viewed');
-
             $categoryValue = '';
             if (!empty($properties['CML2_TRAITS']['VALUE']) && is_array($properties['CML2_TRAITS']['VALUE'])) {
                 $traitsValues = $properties['CML2_TRAITS']['VALUE'];
@@ -189,7 +381,7 @@ class CatalogViewedComponent extends \CBitrixComponent
             $card = [
                 'ID' => $id,
                 'NAME' => $name,
-                'DETAIL_PAGE_URL' => $detailUrl,
+                'DETAIL_PAGE_URL' => (string)($fields['DETAIL_PAGE_URL'] ?? '#'),
                 'CONTEXT_LABEL' => '',
                 'CONTEXT_SECTION_ID' => 0,
                 'CONTEXT_SECTION_PATH' => '',
@@ -209,14 +401,56 @@ class CatalogViewedComponent extends \CBitrixComponent
                 ],
             ];
 
-            $itemsById[$id] = $card;
+            $itemsById[$id] = [
+                'FIELDS' => $fields,
+                'PROPERTIES' => $properties,
+                'CARD' => $card,
+                'ELEMENT_CODE' => $elementCode,
+                'CATEGORY_VALUE' => $categoryValue,
+            ];
         }
 
         $this->arResult['ITEMS'] = [];
-        foreach ($ids as $id) {
-            if (isset($itemsById[$id])) {
-                $this->arResult['ITEMS'][] = $itemsById[$id];
+        foreach ($viewedItems as $viewed) {
+            $id = (int)($viewed['id'] ?? 0);
+            if ($id <= 0 || !isset($itemsById[$id])) {
+                continue;
             }
+
+            $base = $itemsById[$id];
+            $fields = $base['FIELDS'] ?? [];
+            $context = $normalizeContext($viewed['context'] ?? []);
+            $favoriteKey = (string)($viewed['key'] ?? '');
+            if ($favoriteKey === '') {
+                if (class_exists(\App\Brakes\Helper\FavoritesManager::class)) {
+                    $favoriteKey = \App\Brakes\Helper\FavoritesManager::buildFavoriteKey($id, $context);
+                } else {
+                    $favoriteKey = (string)$id;
+                }
+            }
+
+            $detailUrl = $buildDetailUrlWithContext($fields, $context);
+            $detailUrl = $appendQueryParam($detailUrl, 'from', 'viewed');
+            if ($favoriteKey !== '') {
+                $detailUrl = $appendQueryParam($detailUrl, 'favkey', $favoriteKey);
+            }
+
+            $contextSectionId = isset($context['section_id']) ? (int)$context['section_id'] : 0;
+            $contextSectionPath = $buildContextSectionPath($context, (int)($fields['IBLOCK_ID'] ?? 0));
+            $contextLabel = $buildContextLabel($context, (int)($fields['IBLOCK_ID'] ?? 0));
+
+            $card = $base['CARD'] ?? [];
+            $card['DETAIL_PAGE_URL'] = $detailUrl;
+            $card['CONTEXT_LABEL'] = $contextLabel;
+            $card['CONTEXT_SECTION_ID'] = $contextSectionId;
+            $card['CONTEXT_SECTION_PATH'] = $contextSectionPath;
+            $card['FAVORITE_KEY'] = $favoriteKey;
+            $card['BUY'] = [
+                'NAME' => $card['NAME'] ?? '',
+                'URL' => $detailUrl,
+            ];
+
+            $this->arResult['ITEMS'][] = $card;
         }
 
         if ($this->arResult['ITEMS'] === []) {

@@ -20,6 +20,8 @@ $optionsFromMeta = [];
 $favoritePriceFormatted = null;
 $favoriteContextSectionId = 0;
 $favoriteContextSectionPath = '';
+ $favkeyParam = trim((string)($_GET['favkey'] ?? ''));
+ $favkeyContext = [];
 
 if (!empty($arResult['SECTION']['PATH']) && is_array($arResult['SECTION']['PATH'])) {
     $path = array_values($arResult['SECTION']['PATH']);
@@ -33,6 +35,51 @@ if (!empty($arResult['SECTION']['PATH']) && is_array($arResult['SECTION']['PATH'
         if (!empty($contextCodes)) {
             $favoriteContextSectionPath = implode('/', $contextCodes);
         }
+    }
+}
+
+if ($favkeyParam !== '') {
+    if (preg_match('/^(\\d+):(s|p|n)(.*)$/', $favkeyParam, $matches)) {
+        $favType = $matches[2];
+        $favTail = $matches[3] ?? '';
+        if ($favType === 's') {
+            $favSectionId = (int)$favTail;
+            if ($favSectionId > 0) {
+                $favkeyContext['section_id'] = $favSectionId;
+            }
+        } elseif ($favType === 'p') {
+            $favSectionPath = trim((string)$favTail, " \t\n\r\0\x0B/");
+            if ($favSectionPath !== '') {
+                $favkeyContext['section_path'] = $favSectionPath;
+            }
+        }
+    }
+}
+
+$resolveSectionPath = static function (int $sectionId) use ($arParams): string {
+    if ($sectionId <= 0 || empty($arParams['IBLOCK_ID']) || !Loader::includeModule('iblock')) {
+        return '';
+    }
+
+    $nav = \CIBlockSection::GetNavChain((int)$arParams['IBLOCK_ID'], $sectionId, ['CODE']);
+    $codes = [];
+    while ($row = $nav->Fetch()) {
+        if (!empty($row['CODE'])) {
+            $codes[] = $row['CODE'];
+        }
+    }
+    return $codes !== [] ? implode('/', $codes) : '';
+};
+
+if ($favoriteContextSectionId <= 0 && $favoriteContextSectionPath === '' && $favkeyContext !== []) {
+    if (isset($favkeyContext['section_id'])) {
+        $favoriteContextSectionId = (int)$favkeyContext['section_id'];
+    }
+    if (isset($favkeyContext['section_path'])) {
+        $favoriteContextSectionPath = (string)$favkeyContext['section_path'];
+    }
+    if ($favoriteContextSectionPath === '' && $favoriteContextSectionId > 0) {
+        $favoriteContextSectionPath = $resolveSectionPath($favoriteContextSectionId);
     }
 }
 
@@ -303,7 +350,20 @@ if (!empty($applicabilityRows) && !empty($arResult['SECTION']['PATH']) && is_arr
 // If the user came from global search (or from "viewed"), treat it as "no auto context":
 // show full applicability instead of assuming the section-path is the user's selection.
 $from = (string)($_GET['from'] ?? '');
-$isNeutralFrom = ($from === 'search' || $from === 'viewed');
+if (($contextSectionId <= 0 && $contextSectionPath === '') && $favkeyContext !== []) {
+    if (isset($favkeyContext['section_id'])) {
+        $contextSectionId = (int)$favkeyContext['section_id'];
+    }
+    if (isset($favkeyContext['section_path'])) {
+        $contextSectionPath = (string)$favkeyContext['section_path'];
+    }
+    if ($contextSectionPath === '' && $contextSectionId > 0) {
+        $contextSectionPath = $resolveSectionPath($contextSectionId);
+    }
+}
+
+$hasContext = ($contextSectionId > 0 || $contextSectionPath !== '');
+$isNeutralFrom = ($from === 'search' || $from === 'viewed') && !$hasContext && $favkeyParam === '';
 if ($isNeutralFrom) {
     $contextApplicability = null;
     $filteredApplicability = $applicabilityRows;

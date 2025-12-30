@@ -413,6 +413,8 @@ class FavoritesManager
             $detailUrlContext = self::buildDetailUrlWithContext($fields, $context);
             $contextLabel = self::buildContextLabel($context, (int)($fields['IBLOCK_ID'] ?? 0));
             $contextPath = self::buildContextSectionPath($context, (int)($fields['IBLOCK_ID'] ?? 0));
+            $contextUrl = $detailUrlContext !== '' ? $detailUrlContext : $detailUrl;
+            $contextUrlWithKey = $key !== '' ? self::appendQueryParam($contextUrl, 'favkey', $key) : $contextUrl;
 
             $optionsRaw = $itemState['options'] ?? [];
             $optionsRaw = is_array($optionsRaw) ? $optionsRaw : [];
@@ -423,7 +425,7 @@ class FavoritesManager
                 'ID' => $productId,
                 'FAVORITES_KEY' => $key,
                 'NAME' => $base['NAME'] ?? '',
-                'URL' => $detailUrlContext ?: $detailUrl,
+                'URL' => $contextUrlWithKey,
                 'CANONICAL_URL' => $detailUrl,
                 'PICTURE' => $base['PICTURE'] ?? '',
                 'IMAGE' => $base['IMAGE'] ?? null,
@@ -437,11 +439,11 @@ class FavoritesManager
                 'SELECTED_OPTIONS' => $selectedValues,
                 'CONTEXT' => $context,
                 'CONTEXT_LABEL' => $contextLabel,
-                'CONTEXT_URL' => $detailUrlContext ?: $detailUrl,
+                'CONTEXT_URL' => $contextUrlWithKey,
                 'CARD' => [
                     'ID' => $productId,
                     'NAME' => $base['NAME'] ?? '',
-                    'DETAIL_PAGE_URL' => $detailUrlContext ?: $detailUrl,
+                    'DETAIL_PAGE_URL' => $contextUrlWithKey,
                     'CONTEXT_LABEL' => $contextLabel,
                     'CONTEXT_SECTION_ID' => isset($context['section_id']) ? (int)$context['section_id'] : 0,
                     'CONTEXT_SECTION_PATH' => $contextPath,
@@ -961,6 +963,24 @@ class FavoritesManager
         }
 
         return $detailUrl;
+    }
+
+    private static function appendQueryParam(string $url, string $param, string $value): string
+    {
+        if ($url === '' || $param === '' || $value === '') {
+            return $url;
+        }
+
+        $parts = parse_url($url);
+        $path = $parts['path'] ?? $url;
+        $query = $parts['query'] ?? '';
+        $fragment = isset($parts['fragment']) ? ('#' . $parts['fragment']) : '';
+
+        parse_str($query, $params);
+        $params[$param] = $value;
+
+        $newQuery = http_build_query($params);
+        return $path . ($newQuery !== '' ? ('?' . $newQuery) : '') . $fragment;
     }
 
     private static function pruneMissingProducts(): void

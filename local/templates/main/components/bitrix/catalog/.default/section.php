@@ -9,6 +9,8 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 
 $sectionDepth = 0;
 $isBodyContext = false;
+$showProducts = false;
+$showFilter = false;
 $iblockId = (int)($arParams['IBLOCK_ID'] ?? 0);
 $sectionId = (int)($arResult['VARIABLES']['SECTION_ID'] ?? 0);
 $sectionCodePath = (string)($arResult['VARIABLES']['SECTION_CODE_PATH'] ?? '');
@@ -29,6 +31,8 @@ if ($iblockModuleLoaded && $sectionId > 0) {
 }
 
 $isBodyContext = $sectionDepth >= 4;
+$showProducts = $sectionDepth >= 2;
+$showFilter = $isBodyContext;
 $categoryCode = '';
 if ($sectionCodePath !== '') {
     $parts = array_values(array_filter(explode('/', trim($sectionCodePath, '/')), 'strlen'));
@@ -46,12 +50,15 @@ if ($sectionDepth === 0) {
     $contextPrompt = 'Выберите поколение.';
 }
 
-$pageContainerClass = 'page__container' . ($isBodyContext ? '' : ' page__container--single');
+$pageContainerClass = 'page__container';
+if (!$showFilter) {
+    $pageContainerClass .= ' page__container--single';
+}
 ?>
 <main class="page">
     <div class="<?= $pageContainerClass ?>">
         <?
-        if ($isBodyContext) {
+        if ($showFilter) {
 	            $APPLICATION->IncludeComponent(
 	                "bitrix:catalog.smart.filter",
 	                "sidebar",
@@ -121,7 +128,7 @@ $pageContainerClass = 'page__container' . ($isBodyContext ? '' : ' page__contain
                 ); ?>
 <?php
 
-if ($isBodyContext) {
+if ($showProducts) {
     $getData = $request->getQueryList()->toArray();
 
 $searchContext = $GLOBALS['CATALOG_SEARCH_CONTEXT'] ?? null;
@@ -153,6 +160,13 @@ if (!empty($getData['art_number'])) {
 }
 ?>
 
+<?php
+$sectionIdForList = $sectionId > 0 ? $sectionId : (int)($arResult["VARIABLES"]["SECTION_ID"] ?? 0);
+$includeSubsections = $arParams["INCLUDE_SUBSECTIONS"];
+if (!$isBodyContext) {
+    $includeSubsections = 'Y';
+}
+?>
 <?php $APPLICATION->IncludeComponent(
     "bitrix:catalog.section",
     "",
@@ -169,7 +183,7 @@ if (!empty($getData['art_number'])) {
         "META_DESCRIPTION" => $arParams["LIST_META_DESCRIPTION"],
         "BROWSER_TITLE" => $arParams["LIST_BROWSER_TITLE"],
         "SET_LAST_MODIFIED" => $arParams["SET_LAST_MODIFIED"],
-        "INCLUDE_SUBSECTIONS" => $arParams["INCLUDE_SUBSECTIONS"],
+        "INCLUDE_SUBSECTIONS" => $includeSubsections,
         "BASKET_URL" => $arParams["BASKET_URL"],
         "ACTION_VARIABLE" => $arParams["ACTION_VARIABLE"],
         "PRODUCT_ID_VARIABLE" => $arParams["PRODUCT_ID_VARIABLE"],
@@ -223,7 +237,7 @@ if (!empty($getData['art_number'])) {
         "OFFERS_SORT_ORDER2" => $arParams["OFFERS_SORT_ORDER2"],
         "OFFERS_LIMIT" => (isset($arParams["LIST_OFFERS_LIMIT"]) ? $arParams["LIST_OFFERS_LIMIT"] : 0),
 
-        "SECTION_ID" => $arResult["VARIABLES"]["SECTION_ID"],
+        "SECTION_ID" => $sectionIdForList,
         "SECTION_CODE" => $arResult["VARIABLES"]["SECTION_CODE"],
         "SECTION_URL" => $arResult["FOLDER"].$arResult["URL_TEMPLATES"]["section"],
         "DETAIL_URL" => $arResult["FOLDER"].$arResult["URL_TEMPLATES"]["element"],

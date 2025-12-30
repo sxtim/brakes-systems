@@ -96,6 +96,38 @@ foreach ($arResult['ITEMS'] as $i => $item) {
 // Expand items by body-level sections to provide a strict mark/model/body context.
 $iblockId = (int)($arParams['IBLOCK_ID'] ?? 0);
 if ($iblockId > 0 && !empty($arResult['ITEMS']) && class_exists('CIBlockElement') && class_exists('CIBlockSection')) {
+    $contextSectionId = (int)($arParams['SECTION_ID'] ?? 0);
+    if ($contextSectionId <= 0) {
+        $contextSectionId = (int)($arResult['SECTION']['ID'] ?? 0);
+    }
+    $allowedSectionIds = null;
+    if ($contextSectionId > 0) {
+        $currentSection = \CIBlockSection::GetList(
+            [],
+            ['IBLOCK_ID' => $iblockId, 'ID' => $contextSectionId],
+            false,
+            ['ID', 'LEFT_MARGIN', 'RIGHT_MARGIN']
+        )->Fetch();
+        if ($currentSection && isset($currentSection['LEFT_MARGIN'], $currentSection['RIGHT_MARGIN'])) {
+            $allowedSectionIds = [];
+            $sectionsRes = \CIBlockSection::GetList(
+                [],
+                [
+                    'IBLOCK_ID' => $iblockId,
+                    '>=LEFT_MARGIN' => $currentSection['LEFT_MARGIN'],
+                    '<=RIGHT_MARGIN' => $currentSection['RIGHT_MARGIN'],
+                ],
+                false,
+                ['ID']
+            );
+            while ($sectionRow = $sectionsRes->Fetch()) {
+                $sectionId = (int)($sectionRow['ID'] ?? 0);
+                if ($sectionId > 0) {
+                    $allowedSectionIds[$sectionId] = true;
+                }
+            }
+        }
+    }
     $elementIds = [];
     foreach ($arResult['ITEMS'] as $item) {
         $elementId = (int)($item['ID'] ?? 0);
@@ -202,6 +234,9 @@ if ($iblockId > 0 && !empty($arResult['ITEMS']) && class_exists('CIBlockElement'
                 $xmlId = (string)($group['XML_ID'] ?? $group['EXTERNAL_ID'] ?? '');
                 if ($xmlId !== '' && strncmp($xmlId, 'BRKS:BODY:', 10) === 0) {
                     $sectionId = (int)($group['ID'] ?? 0);
+                    if (is_array($allowedSectionIds) && !isset($allowedSectionIds[$sectionId])) {
+                        continue;
+                    }
                     if ($sectionId > 0) {
                         $bodySectionIds[$sectionId] = true;
                     }
@@ -209,6 +244,9 @@ if ($iblockId > 0 && !empty($arResult['ITEMS']) && class_exists('CIBlockElement'
             }
 
             if ($bodySectionIds === []) {
+                if (is_array($allowedSectionIds)) {
+                    continue;
+                }
                 $expandedItems[] = $item;
                 continue;
             }
