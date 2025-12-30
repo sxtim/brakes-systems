@@ -75,6 +75,10 @@ if ($query !== '' && $iblockId > 0 && !empty($arResult['ITEMS']) && is_array($ar
 
     if ($tokens !== []) {
         foreach ($arResult['ITEMS'] as &$item) {
+            if (!empty($item['CONTEXT_SECTION_ID']) || !empty($item['CONTEXT_SECTION_PATH'])) {
+                continue;
+            }
+
             $elementId = isset($item['ID']) ? (int)$item['ID'] : 0;
             if ($elementId <= 0) {
                 continue;

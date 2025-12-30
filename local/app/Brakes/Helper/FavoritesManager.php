@@ -18,7 +18,7 @@ class FavoritesManager
     private const SESSION_FLAG = 'BR_FAVORITES_SYNC_DONE';
 
     /**
-     * @var array<int, array{options: array}>
+     * @var array<string, array{productId: int, context: array, options: array, optionsHash: string, priceData: ?array, priceHash: ?string, pricePublic: ?array, rowId: ?int}>
      */
     private static ?array $currentItems = null;
     private static ?bool $isAuthorized = null;
@@ -69,39 +69,61 @@ class FavoritesManager
 
         $items = array_keys(self::$currentItems);
         $meta = self::buildClientMeta();
+        $metaByProduct = [];
+        foreach ($meta as $entry) {
+            $productId = isset($entry['productId']) ? (int)$entry['productId'] : 0;
+            if ($productId <= 0) {
+                continue;
+            }
+            if (!isset($metaByProduct[$productId])) {
+                $metaByProduct[$productId] = $entry;
+            }
+        }
 
         return [
             'items' => $items,
             'count' => count($items),
             'isAuthorized' => self::$isAuthorized === true,
             'meta' => $meta,
+            'metaByProduct' => $metaByProduct,
         ];
     }
 
     /**
-     * @return array<int, array{options: array, optionsHash: string, price: ?array}>
+     * @return array<string, array{productId: int, options: array, optionsHash: string, price: ?array, context: array}>
      */
     private static function buildClientMeta(): array
     {
         $meta = [];
 
-        foreach (self::$currentItems as $productId => $item) {
-            $productId = (int)$productId;
-            if ($productId <= 0) {
+        foreach (self::$currentItems as $key => $item) {
+            $productId = (int)($item['productId'] ?? 0);
+            if ($productId <= 0 || !is_string($key) || $key === '') {
                 continue;
             }
 
-            $meta[$productId] = self::buildClientMetaEntry($productId, $item);
+            $meta[$key] = self::buildClientMetaEntry($key, $item);
         }
 
         return $meta;
     }
 
-    public static function isFavorite(int $productId): bool
+    public static function isFavorite(int $productId, array $context = []): bool
     {
         self::ensureLoaded();
 
-        return isset(self::$currentItems[$productId]);
+        $key = self::buildFavoriteKey($productId, self::normalizeContext($context));
+        if ($key !== '' && isset(self::$currentItems[$key])) {
+            return true;
+        }
+
+        foreach (self::$currentItems as $item) {
+            if ((int)($item['productId'] ?? 0) === $productId) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static function toggleProduct(int $productId, array $options = []): array
@@ -113,7 +135,11 @@ class FavoritesManager
 
         self::ensureLoaded();
         $normalizedPayload = self::normalizePayload($options);
-        $itemState = self::makeItemState($normalizedPayload);
+        $favoriteKey = self::buildFavoriteKey($productId, $normalizedPayload['context']);
+        if ($favoriteKey === '') {
+            return self::getCurrentFavorites();
+        }
+        $itemState = self::makeItemState($normalizedPayload, $productId);
 
         if (self::$isAuthorized) {
             $userId = self::getCurrentUserId();
@@ -121,18 +147,24 @@ class FavoritesManager
                 return self::getCurrentFavorites();
             }
 
-            if (isset(self::$currentItems[$productId])) {
-                Favorites::removeProduct($userId, $productId);
-                unset(self::$currentItems[$productId]);
+            if (isset(self::$currentItems[$favoriteKey])) {
+                $rowId = (int)(self::$currentItems[$favoriteKey]['rowId'] ?? 0);
+                if ($rowId > 0) {
+                    Favorites::removeRow($userId, $rowId);
+                } else {
+                    Favorites::removeProduct($userId, $productId);
+                }
+                unset(self::$currentItems[$favoriteKey]);
             } else {
-                Favorites::addProduct($userId, $productId, $normalizedPayload);
-                self::$currentItems[$productId] = $itemState;
+                $rowId = Favorites::addProduct($userId, $productId, $normalizedPayload);
+                $itemState['rowId'] = $rowId > 0 ? $rowId : null;
+                self::$currentItems[$favoriteKey] = $itemState;
             }
         } else {
-            if (isset(self::$currentItems[$productId])) {
-                unset(self::$currentItems[$productId]);
+            if (isset(self::$currentItems[$favoriteKey])) {
+                unset(self::$currentItems[$favoriteKey]);
             } else {
-                self::$currentItems[$productId] = $itemState;
+                self::$currentItems[$favoriteKey] = $itemState;
             }
 
             self::setCookieFavorites(self::$currentItems);
@@ -152,18 +184,19 @@ class FavoritesManager
 
         self::ensureLoaded();
 
-        if (!isset(self::$currentItems[$productId])) {
+        $normalizedPayload = self::normalizePayload($options);
+        $favoriteKey = self::buildFavoriteKey($productId, $normalizedPayload['context']);
+        if ($favoriteKey === '' || !isset(self::$currentItems[$favoriteKey])) {
             return false;
         }
 
-        $normalizedPayload = self::normalizePayload($options);
-        $itemState = self::makeItemState($normalizedPayload);
-        self::$currentItems[$productId]['options'] = $itemState['options'];
-        self::$currentItems[$productId]['context'] = $itemState['context'];
-        self::$currentItems[$productId]['optionsHash'] = $itemState['optionsHash'];
-        self::$currentItems[$productId]['priceHash'] = null;
-        self::$currentItems[$productId]['priceData'] = null;
-        self::$currentItems[$productId]['pricePublic'] = null;
+        $itemState = self::makeItemState($normalizedPayload, $productId);
+        self::$currentItems[$favoriteKey]['options'] = $itemState['options'];
+        self::$currentItems[$favoriteKey]['context'] = $itemState['context'];
+        self::$currentItems[$favoriteKey]['optionsHash'] = $itemState['optionsHash'];
+        self::$currentItems[$favoriteKey]['priceHash'] = null;
+        self::$currentItems[$favoriteKey]['priceData'] = null;
+        self::$currentItems[$favoriteKey]['pricePublic'] = null;
 
         if (self::$isAuthorized) {
             $userId = self::getCurrentUserId();
@@ -171,7 +204,12 @@ class FavoritesManager
                 return false;
             }
 
-            Favorites::setProductOptions($userId, $productId, $normalizedPayload);
+            $rowId = (int)(self::$currentItems[$favoriteKey]['rowId'] ?? 0);
+            if ($rowId > 0) {
+                Favorites::setRowOptions($userId, $rowId, $normalizedPayload);
+            } else {
+                Favorites::setProductOptions($userId, $productId, $normalizedPayload);
+            }
         } else {
             self::setCookieFavorites(self::$currentItems);
         }
@@ -179,13 +217,13 @@ class FavoritesManager
         return true;
     }
 
-    public static function getFavoritesProductsData(array $productIds): array
+    public static function getFavoritesProductsData(array $favoriteKeys): array
     {
         self::ensureLoaded();
 
-        $ids = Favorites::normalizeProductIds($productIds);
+        $keys = self::normalizeFavoriteKeys($favoriteKeys);
 
-        if ($ids === []) {
+        if ($keys === []) {
             return [];
         }
 
@@ -197,10 +235,40 @@ class FavoritesManager
             return [];
         }
 
+        $lookup = [];
+        $productIds = [];
+        foreach ($keys as $key) {
+            $item = self::$currentItems[$key] ?? null;
+            if ($item) {
+                $productId = (int)($item['productId'] ?? 0);
+                $context = is_array($item['context'] ?? null) ? $item['context'] : [];
+            } else {
+                $parsed = self::parseFavoriteKey($key);
+                $productId = (int)($parsed['productId'] ?? 0);
+                $context = is_array($parsed['context'] ?? null) ? $parsed['context'] : [];
+            }
+
+            if ($productId <= 0) {
+                continue;
+            }
+
+            $lookup[$key] = [
+                'productId' => $productId,
+                'context' => $context,
+            ];
+            $productIds[$productId] = true;
+        }
+
+        $ids = array_keys($productIds);
+        if ($ids === []) {
+            return [];
+        }
+
         $select = [
             'ID',
             'IBLOCK_ID',
             'NAME',
+            'CODE',
             'DETAIL_PAGE_URL',
             'PROPERTY_LINK_PHOTO',
             'PROPERTY_LINK_PHOTO_FILE',
@@ -224,9 +292,6 @@ class FavoritesManager
 
             $name = $fields['~NAME'] ?? $fields['NAME'] ?? '';
             $detailUrl = $fields['DETAIL_PAGE_URL'] ?? '#';
-            $context = self::$currentItems[$id]['context'] ?? [];
-            $detailUrlContext = self::buildDetailUrlWithContext($fields, $context);
-            $contextLabel = self::buildContextLabel($context, (int)($fields['IBLOCK_ID'] ?? 0));
 
             $details = [
                 [
@@ -300,20 +365,70 @@ class FavoritesManager
 
             $pictureSrc = is_array($pictureData) ? (string)($pictureData['src'] ?? '') : '';
 
-            $optionsRaw = self::$currentItems[$id]['options'] ?? [];
-            $optionsRaw = is_array($optionsRaw) ? $optionsRaw : [];
-            $optionsUnwrapped = self::unwrapOptionsPayload($optionsRaw);
-            $selectedValues = self::flattenOptionValues($optionsUnwrapped);
-
             $elements[$id] = [
+                'FIELDS' => $fields,
+                'PROPERTIES' => $properties,
                 'ID' => $id,
                 'NAME' => $name,
-                'URL' => $detailUrlContext ?: $detailUrl,
-                'CANONICAL_URL' => $detailUrl,
+                'DETAIL_PAGE_URL' => $detailUrl,
                 'PICTURE' => $pictureSrc,
                 'IMAGE' => $pictureData,
                 'DETAILS' => $details,
                 'COLORS' => $colors,
+            ];
+        }
+
+        $ordered = [];
+        foreach ($keys as $key) {
+            if (!isset($lookup[$key])) {
+                continue;
+            }
+
+            $productId = (int)($lookup[$key]['productId'] ?? 0);
+            if ($productId <= 0 || !isset($elements[$productId])) {
+                continue;
+            }
+
+            $base = $elements[$productId];
+            $fields = $base['FIELDS'] ?? [];
+            $detailUrl = $base['DETAIL_PAGE_URL'] ?? '#';
+            $itemState = self::$currentItems[$key] ?? [];
+            $context = $itemState['context'] ?? $lookup[$key]['context'] ?? [];
+            $context = self::normalizeContext(is_array($context) ? $context : []);
+            if ($context === []) {
+                $lookupContext = $lookup[$key]['context'] ?? [];
+                $context = self::normalizeContext(is_array($lookupContext) ? $lookupContext : []);
+            }
+            if ($context === []) {
+                $parsed = self::parseFavoriteKey($key);
+                $context = self::normalizeContext($parsed['context'] ?? []);
+            }
+            if ($itemState === []) {
+                $itemState = [
+                    'productId' => $productId,
+                    'context' => $context,
+                    'options' => [],
+                ];
+            }
+            $detailUrlContext = self::buildDetailUrlWithContext($fields, $context);
+            $contextLabel = self::buildContextLabel($context, (int)($fields['IBLOCK_ID'] ?? 0));
+            $contextPath = self::buildContextSectionPath($context, (int)($fields['IBLOCK_ID'] ?? 0));
+
+            $optionsRaw = $itemState['options'] ?? [];
+            $optionsRaw = is_array($optionsRaw) ? $optionsRaw : [];
+            $optionsUnwrapped = self::unwrapOptionsPayload($optionsRaw);
+            $selectedValues = self::flattenOptionValues($optionsUnwrapped);
+
+            $item = [
+                'ID' => $productId,
+                'FAVORITES_KEY' => $key,
+                'NAME' => $base['NAME'] ?? '',
+                'URL' => $detailUrlContext ?: $detailUrl,
+                'CANONICAL_URL' => $detailUrl,
+                'PICTURE' => $base['PICTURE'] ?? '',
+                'IMAGE' => $base['IMAGE'] ?? null,
+                'DETAILS' => $base['DETAILS'] ?? [],
+                'COLORS' => $base['COLORS'] ?? [],
                 'PRICE' => null,
                 'PRICE_HTML' => null,
                 'PRICE_DATA' => null,
@@ -324,59 +439,51 @@ class FavoritesManager
                 'CONTEXT_LABEL' => $contextLabel,
                 'CONTEXT_URL' => $detailUrlContext ?: $detailUrl,
                 'CARD' => [
-                    'ID' => $id,
-                    'NAME' => $name,
+                    'ID' => $productId,
+                    'NAME' => $base['NAME'] ?? '',
                     'DETAIL_PAGE_URL' => $detailUrlContext ?: $detailUrl,
                     'CONTEXT_LABEL' => $contextLabel,
                     'CONTEXT_SECTION_ID' => isset($context['section_id']) ? (int)$context['section_id'] : 0,
-                    'CONTEXT_SECTION_PATH' => $context['section_path'] ?? '',
-                    'IMAGE' => $pictureData,
-                    'IMG' => $pictureSrc,
-                    'DETAILS' => $details,
-                    'COLORS' => $colors,
+                    'CONTEXT_SECTION_PATH' => $contextPath,
+                    'IMAGE' => $base['IMAGE'] ?? null,
+                    'IMG' => $base['PICTURE'] ?? '',
+                    'DETAILS' => $base['DETAILS'] ?? [],
+                    'COLORS' => $base['COLORS'] ?? [],
                     'SELECTED' => $selectedValues,
                     'EXPAND_FEATURES' => true,
+                    'FAVORITE_KEY' => $key,
                 ],
             ];
-        }
 
-        $ordered = [];
-        foreach ($ids as $id) {
-            if (!isset($elements[$id])) {
-                continue;
-            }
+            $metaEntry = self::buildClientMetaEntry($key, $itemState);
+            $optionsPayload = $metaEntry['options'] ?? $item['OPTIONS'];
+            $item['OPTIONS'] = $optionsPayload;
 
-            $currentItem = self::$currentItems[$id] ?? [];
-            $metaEntry = self::buildClientMetaEntry($id, $currentItem);
+            $optionsUnwrapped = $item['OPTIONS_UNWRAPPED'] ?? self::unwrapOptionsPayload($optionsPayload);
+            $item['OPTIONS_UNWRAPPED'] = $optionsUnwrapped;
+            $item['SELECTED_OPTIONS'] = $item['SELECTED_OPTIONS'] ?? self::flattenOptionValues($optionsUnwrapped);
 
-            $optionsPayload = $metaEntry['options'] ?? $elements[$id]['OPTIONS'];
-            $elements[$id]['OPTIONS'] = $optionsPayload;
-
-            $optionsUnwrapped = $elements[$id]['OPTIONS_UNWRAPPED'] ?? self::unwrapOptionsPayload($optionsPayload);
-            $elements[$id]['OPTIONS_UNWRAPPED'] = $optionsUnwrapped;
-            $elements[$id]['SELECTED_OPTIONS'] = $elements[$id]['SELECTED_OPTIONS'] ?? self::flattenOptionValues($optionsUnwrapped);
-
-            $priceData = self::$currentItems[$id]['priceData'] ?? null;
-            $pricePublic = self::$currentItems[$id]['pricePublic'] ?? $metaEntry['price'];
+            $priceData = $itemState['priceData'] ?? null;
+            $pricePublic = $itemState['pricePublic'] ?? $metaEntry['price'];
 
             if ($priceData !== null) {
-                $elements[$id]['PRICE_DATA'] = $priceData;
+                $item['PRICE_DATA'] = $priceData;
                 $formattedPrice = $priceData['PRICE_FORMATTED'] ?? null;
                 if (is_string($formattedPrice) && $formattedPrice !== '') {
-                    $elements[$id]['PRICE_HTML'] = $formattedPrice;
-                    $elements[$id]['PRICE'] = htmlspecialcharsback($formattedPrice);
+                    $item['PRICE_HTML'] = $formattedPrice;
+                    $item['PRICE'] = htmlspecialcharsback($formattedPrice);
                 } else {
-                    $elements[$id]['PRICE_HTML'] = null;
-                    $elements[$id]['PRICE'] = null;
+                    $item['PRICE_HTML'] = null;
+                    $item['PRICE'] = null;
                 }
             } elseif (is_array($pricePublic)) {
                 $formattedPrice = $pricePublic['formatted'] ?? null;
                 if (is_string($formattedPrice) && $formattedPrice !== '') {
-                    $elements[$id]['PRICE_HTML'] = $formattedPrice;
-                    $elements[$id]['PRICE'] = htmlspecialcharsback($formattedPrice);
+                    $item['PRICE_HTML'] = $formattedPrice;
+                    $item['PRICE'] = htmlspecialcharsback($formattedPrice);
                 } else {
-                    $elements[$id]['PRICE_HTML'] = null;
-                    $elements[$id]['PRICE'] = null;
+                    $item['PRICE_HTML'] = null;
+                    $item['PRICE'] = null;
                 }
             }
 
@@ -391,21 +498,21 @@ class FavoritesManager
                 }
             }
 
-            $card = $elements[$id]['CARD'];
-            $card['PRICE_HTML'] = isset($elements[$id]['PRICE_HTML']) && is_string($elements[$id]['PRICE_HTML'])
-                ? htmlspecialcharsback($elements[$id]['PRICE_HTML'])
+            $card = $item['CARD'];
+            $card['PRICE_HTML'] = isset($item['PRICE_HTML']) && is_string($item['PRICE_HTML'])
+                ? htmlspecialcharsback($item['PRICE_HTML'])
                 : '';
             $card['OPTIONS_ATTR'] = $optionsAttr;
             $card['BUY'] = [
-                'NAME' => $elements[$id]['NAME'],
-                'URL' => $elements[$id]['URL'],
+                'NAME' => $item['NAME'],
+                'URL' => $item['URL'],
             ];
-            $card['SELECTED'] = $elements[$id]['SELECTED_OPTIONS'] ?? $card['SELECTED'] ?? [];
+            $card['SELECTED'] = $item['SELECTED_OPTIONS'] ?? $card['SELECTED'] ?? [];
 
-            $elements[$id]['CARD'] = $card;
-            $elements[$id]['OPTIONS_ATTR'] = $optionsAttr;
+            $item['CARD'] = $card;
+            $item['OPTIONS_ATTR'] = $optionsAttr;
 
-            $ordered[] = $elements[$id];
+            $ordered[] = $item;
         }
 
         return $ordered;
@@ -420,30 +527,31 @@ class FavoritesManager
 
         $normalizedPayload = self::normalizePayload($options);
         $normalized = ['options' => $normalizedPayload['options']];
+        $favoriteKey = self::buildFavoriteKey($productId, $normalizedPayload['context']);
 
         $price = self::calculatePrice($productId, $normalized);
 
         if ($price !== null) {
-            if (isset(self::$currentItems[$productId])) {
+            if ($favoriteKey !== '' && isset(self::$currentItems[$favoriteKey])) {
                 $payload = self::prepareOptionsPayload($normalized);
                 $hash = self::hashOptionsPayload($payload);
-                self::$currentItems[$productId]['options'] = $payload;
-                self::$currentItems[$productId]['context'] = $normalizedPayload['context'];
-                self::$currentItems[$productId]['optionsHash'] = $hash;
-                self::$currentItems[$productId]['priceData'] = $price;
-                self::$currentItems[$productId]['priceHash'] = $hash;
-                self::$currentItems[$productId]['pricePublic'] = self::buildPublicPrice($price);
+                self::$currentItems[$favoriteKey]['options'] = $payload;
+                self::$currentItems[$favoriteKey]['context'] = $normalizedPayload['context'];
+                self::$currentItems[$favoriteKey]['optionsHash'] = $hash;
+                self::$currentItems[$favoriteKey]['priceData'] = $price;
+                self::$currentItems[$favoriteKey]['priceHash'] = $hash;
+                self::$currentItems[$favoriteKey]['pricePublic'] = self::buildPublicPrice($price);
             }
         } else {
-            if (isset(self::$currentItems[$productId])) {
+            if ($favoriteKey !== '' && isset(self::$currentItems[$favoriteKey])) {
                 $payload = self::prepareOptionsPayload($normalized);
                 $hash = self::hashOptionsPayload($payload);
-                self::$currentItems[$productId]['options'] = $payload;
-                self::$currentItems[$productId]['context'] = $normalizedPayload['context'];
-                self::$currentItems[$productId]['optionsHash'] = $hash;
-                self::$currentItems[$productId]['priceData'] = null;
-                self::$currentItems[$productId]['priceHash'] = null;
-                self::$currentItems[$productId]['pricePublic'] = null;
+                self::$currentItems[$favoriteKey]['options'] = $payload;
+                self::$currentItems[$favoriteKey]['context'] = $normalizedPayload['context'];
+                self::$currentItems[$favoriteKey]['optionsHash'] = $hash;
+                self::$currentItems[$favoriteKey]['priceData'] = null;
+                self::$currentItems[$favoriteKey]['priceHash'] = null;
+                self::$currentItems[$favoriteKey]['pricePublic'] = null;
             }
         }
 
@@ -538,25 +646,37 @@ class FavoritesManager
      *
      * @return array{options: array, optionsHash: string, price: ?array}
      */
-    private static function buildClientMetaEntry(int $productId, array $item): array
+    private static function buildClientMetaEntry(string $key, array $item): array
     {
+        $productId = (int)($item['productId'] ?? 0);
         $optionsPayload = self::prepareOptionsPayload($item['options'] ?? []);
         $optionsHash = $item['optionsHash'] ?? self::hashOptionsPayload($optionsPayload);
 
-        $priceData = self::getCachedPriceData($productId, $optionsPayload, $optionsHash);
+        $priceData = self::getCachedPriceData($key, $productId, $optionsPayload, $optionsHash);
         $pricePublic = self::buildPublicPrice($priceData);
+        $context = self::normalizeContext($item['context'] ?? []);
+        if ($context === []) {
+            $parsed = self::parseFavoriteKey($key);
+            $context = self::normalizeContext($parsed['context'] ?? []);
+        }
 
-        self::$currentItems[$productId]['options'] = $optionsPayload;
-        self::$currentItems[$productId]['optionsHash'] = $optionsHash;
-        self::$currentItems[$productId]['priceData'] = $priceData;
-        self::$currentItems[$productId]['priceHash'] = $priceData !== null ? $optionsHash : null;
-        self::$currentItems[$productId]['pricePublic'] = $pricePublic;
+        if (isset(self::$currentItems[$key])) {
+            self::$currentItems[$key]['options'] = $optionsPayload;
+            self::$currentItems[$key]['optionsHash'] = $optionsHash;
+            self::$currentItems[$key]['priceData'] = $priceData;
+            self::$currentItems[$key]['priceHash'] = $priceData !== null ? $optionsHash : null;
+            self::$currentItems[$key]['pricePublic'] = $pricePublic;
+            if ($context !== []) {
+                self::$currentItems[$key]['context'] = $context;
+            }
+        }
 
         return [
+            'productId' => $productId,
             'options' => $optionsPayload,
             'optionsHash' => $optionsHash,
             'price' => $pricePublic,
-            'context' => self::$currentItems[$productId]['context'] ?? [],
+            'context' => $context,
         ];
     }
 
@@ -574,9 +694,18 @@ class FavoritesManager
             $rows = Favorites::getUserProducts($userId);
 
             $items = [];
-            foreach ($rows as $productId => $row) {
+            foreach ($rows as $row) {
+                $productId = (int)($row['PRODUCT_ID'] ?? 0);
+                if ($productId <= 0) {
+                    continue;
+                }
                 $normalizedPayload = self::normalizePayload($row['OPTIONS'] ?? []);
-                $items[$productId] = self::makeItemState($normalizedPayload);
+                $favoriteKey = self::buildFavoriteKey($productId, $normalizedPayload['context']);
+                if ($favoriteKey === '') {
+                    continue;
+                }
+                $itemState = self::makeItemState($normalizedPayload, $productId, (int)($row['ID'] ?? 0));
+                $items[$favoriteKey] = $itemState;
             }
 
             self::$currentItems = $items;
@@ -618,6 +747,132 @@ class FavoritesManager
         $fullPath = $root . $partialRelative;
 
         return file_exists($fullPath) ? $fullPath : null;
+    }
+
+    public static function buildFavoriteKey(int $productId, array $context = []): string
+    {
+        $productId = (int)$productId;
+        if ($productId <= 0) {
+            return '';
+        }
+
+        $context = self::normalizeContext($context);
+        $sectionId = isset($context['section_id']) ? (int)$context['section_id'] : 0;
+        $sectionPath = isset($context['section_path']) ? (string)$context['section_path'] : '';
+
+        if ($sectionId > 0) {
+            return $productId . ':s' . $sectionId;
+        }
+
+        $sectionPath = trim($sectionPath, " \t\n\r\0\x0B/");
+        if ($sectionPath !== '') {
+            return $productId . ':p' . $sectionPath;
+        }
+
+        return $productId . ':n';
+    }
+
+    public static function normalizeFavoriteKeys(array $items): array
+    {
+        $normalized = [];
+        $seen = [];
+
+        foreach ($items as $item) {
+            $key = '';
+            $productId = 0;
+            $context = [];
+
+            if (is_string($item)) {
+                if (strpos($item, ':') !== false) {
+                    $key = $item;
+                } else {
+                    $productId = (int)$item;
+                }
+            } elseif (is_int($item)) {
+                $productId = $item;
+            } elseif (is_array($item)) {
+                if (isset($item['key']) && is_string($item['key']) && $item['key'] !== '') {
+                    $key = $item['key'];
+                } elseif (isset($item['favoriteKey']) && is_string($item['favoriteKey']) && $item['favoriteKey'] !== '') {
+                    $key = $item['favoriteKey'];
+                } elseif (isset($item['FAVORITE_KEY']) && is_string($item['FAVORITE_KEY']) && $item['FAVORITE_KEY'] !== '') {
+                    $key = $item['FAVORITE_KEY'];
+                }
+
+                if (isset($item['PRODUCT_ID'])) {
+                    $productId = (int)$item['PRODUCT_ID'];
+                } elseif (isset($item['productId'])) {
+                    $productId = (int)$item['productId'];
+                } elseif (isset($item['id'])) {
+                    $productId = (int)$item['id'];
+                } elseif (isset($item['ID'])) {
+                    $productId = (int)$item['ID'];
+                }
+
+                if (isset($item['context']) && is_array($item['context'])) {
+                    $context = $item['context'];
+                } elseif (isset($item['CONTEXT']) && is_array($item['CONTEXT'])) {
+                    $context = $item['CONTEXT'];
+                }
+            }
+
+            if ($key === '' && $productId > 0) {
+                $key = self::buildFavoriteKey($productId, $context);
+            }
+
+            if ($key === '') {
+                continue;
+            }
+
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $normalized[] = $key;
+            }
+        }
+
+        return $normalized;
+    }
+
+    private static function parseFavoriteKey(string $key): array
+    {
+        $key = trim($key);
+        if ($key === '') {
+            return [];
+        }
+
+        if (preg_match('/^(\\d+):(s|p|n)(.*)$/', $key, $matches)) {
+            $productId = (int)$matches[1];
+            $type = $matches[2];
+            $value = $matches[3] ?? '';
+            $context = [];
+
+            if ($type === 's') {
+                $sectionId = (int)$value;
+                if ($sectionId > 0) {
+                    $context['section_id'] = $sectionId;
+                }
+            } elseif ($type === 'p') {
+                $sectionPath = trim((string)$value, " \t\n\r\0\x0B/");
+                if ($sectionPath !== '') {
+                    $context['section_path'] = $sectionPath;
+                }
+            }
+
+            return [
+                'productId' => $productId,
+                'context' => $context,
+            ];
+        }
+
+        $productId = (int)$key;
+        if ($productId > 0) {
+            return [
+                'productId' => $productId,
+                'context' => [],
+            ];
+        }
+
+        return [];
     }
 
     private static function buildContextSectionPath(array $context, int $iblockId): string
@@ -667,7 +922,8 @@ class FavoritesManager
     private static function buildDetailUrlWithContext(array $fields, array $context): string
     {
         $detailUrl = isset($fields['DETAIL_PAGE_URL']) ? (string)$fields['DETAIL_PAGE_URL'] : '#';
-        $sectionPath = self::buildContextSectionPath($context, (int)($fields['IBLOCK_ID'] ?? 0));
+        $iblockId = (int)($fields['IBLOCK_ID'] ?? 0);
+        $sectionPath = self::buildContextSectionPath($context, $iblockId);
 
         if ($sectionPath === '') {
             return $detailUrl;
@@ -675,8 +931,36 @@ class FavoritesManager
 
         $fieldsWithContext = $fields;
         $fieldsWithContext['SECTION_CODE_PATH'] = $sectionPath;
+        $sectionParts = array_values(array_filter(explode('/', $sectionPath), static fn($part) => $part !== ''));
+        if (!empty($sectionParts)) {
+            $fieldsWithContext['SECTION_CODE'] = end($sectionParts);
+        }
 
-        return \CIBlock::ReplaceDetailUrl($detailUrl, $fieldsWithContext, false, 'E');
+        $template = '';
+        if ($iblockId > 0 && Loader::includeModule('iblock')) {
+            $template = (string)\CIBlock::GetArrayByID($iblockId, 'DETAIL_PAGE_URL');
+        }
+
+        if ($template !== '') {
+            $resolved = \CIBlock::ReplaceDetailUrl($template, $fieldsWithContext, false, 'E');
+            if (strpos($resolved, $sectionPath) !== false) {
+                return $resolved;
+            }
+        }
+
+        if (strpos($detailUrl, '#') !== false) {
+            $resolved = \CIBlock::ReplaceDetailUrl($detailUrl, $fieldsWithContext, false, 'E');
+            if (strpos($resolved, $sectionPath) !== false) {
+                return $resolved;
+            }
+        }
+
+        $elementCode = isset($fields['CODE']) ? (string)$fields['CODE'] : '';
+        if ($elementCode !== '') {
+            return '/catalog/' . $sectionPath . '/' . $elementCode . '/';
+        }
+
+        return $detailUrl;
     }
 
     private static function pruneMissingProducts(): void
@@ -685,8 +969,14 @@ class FavoritesManager
             return;
         }
 
-        $ids = array_map(static fn($id) => (int)$id, array_keys(self::$currentItems));
-        $ids = array_values(array_filter($ids, static fn($id) => $id > 0));
+        $ids = [];
+        foreach (self::$currentItems as $item) {
+            $productId = (int)($item['productId'] ?? 0);
+            if ($productId > 0) {
+                $ids[$productId] = true;
+            }
+        }
+        $ids = array_keys($ids);
         if ($ids === []) {
             return;
         }
@@ -706,15 +996,34 @@ class FavoritesManager
             return;
         }
 
-        foreach ($missing as $productId) {
-            unset(self::$currentItems[$productId]);
+        $removeItems = [];
+        foreach (self::$currentItems as $key => $item) {
+            $productId = (int)($item['productId'] ?? 0);
+            if ($productId > 0 && in_array($productId, $missing, true)) {
+                $removeItems[$key] = $item;
+            }
+        }
+
+        foreach ($removeItems as $key => $item) {
+            unset(self::$currentItems[$key]);
         }
 
         if (self::$isAuthorized) {
             $userId = self::getCurrentUserId();
             if ($userId > 0) {
-                foreach ($missing as $productId) {
-                    Favorites::removeProduct($userId, $productId);
+                $removedByProduct = [];
+                foreach ($removeItems as $item) {
+                    $productId = (int)($item['productId'] ?? 0);
+                    if ($productId <= 0) {
+                        continue;
+                    }
+                    $rowId = (int)($item['rowId'] ?? 0);
+                    if ($rowId > 0) {
+                        Favorites::removeRow($userId, $rowId);
+                    } elseif (!isset($removedByProduct[$productId])) {
+                        Favorites::removeProduct($userId, $productId);
+                        $removedByProduct[$productId] = true;
+                    }
                 }
             }
         } else {
@@ -732,6 +1041,16 @@ class FavoritesManager
 
         $name = htmlspecialcharsbx($item['NAME'] ?? '');
         $url = htmlspecialcharsbx($item['URL'] ?? '#');
+        $context = isset($item['CONTEXT']) && is_array($item['CONTEXT']) ? $item['CONTEXT'] : [];
+        $contextSectionId = isset($context['section_id']) ? (int)$context['section_id'] : (int)($item['CONTEXT_SECTION_ID'] ?? 0);
+        $contextSectionPath = isset($context['section_path']) ? (string)$context['section_path'] : (string)($item['CONTEXT_SECTION_PATH'] ?? '');
+        $favoriteKey = isset($item['FAVORITES_KEY']) ? (string)$item['FAVORITES_KEY'] : '';
+        if ($favoriteKey === '') {
+            $favoriteKey = self::buildFavoriteKey($id, [
+                'section_id' => $contextSectionId,
+                'section_path' => $contextSectionPath,
+            ]);
+        }
 
         $imageData = [];
         if (isset($item['IMAGE']) && is_array($item['IMAGE'])) {
@@ -747,7 +1066,7 @@ class FavoritesManager
 
         ob_start();
         ?>
-        <a class="favorit-box__item" data-fls-like-product="<?= $id ?>" href="<?= $url ?>">
+        <a class="favorit-box__item" data-fls-like-product="<?= $id ?>"<?php if ($favoriteKey !== '') { ?> data-favorite-key="<?= htmlspecialcharsbx($favoriteKey) ?>"<?php } ?><?php if ($contextSectionId > 0) { ?> data-context-section-id="<?= $contextSectionId ?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?= htmlspecialcharsbx($contextSectionPath) ?>"<?php } ?> href="<?= $url ?>">
             <div class="favorit-box__item-foto">
                 <img class="favorit-box__img"
                      alt="<?= $name ?>"
@@ -770,7 +1089,7 @@ class FavoritesManager
                     </div>
                 </div>
             </div>
-            <button class="favorit-box__delete" data-fls-like-button data-product-id="<?= $id ?>" aria-label="Remove from favorites">
+            <button class="favorit-box__delete" data-fls-like-button data-product-id="<?= $id ?>"<?php if ($favoriteKey !== '') { ?> data-favorite-key="<?= htmlspecialcharsbx($favoriteKey) ?>"<?php } ?><?php if ($contextSectionId > 0) { ?> data-context-section-id="<?= $contextSectionId ?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?= htmlspecialcharsbx($contextSectionPath) ?>"<?php } ?> aria-label="Remove from favorites">
                 <img src="<?= $templatePath ?>/assets/img/favorite/trash.svg" alt="Remove">
             </button>
         </a>
@@ -827,7 +1146,7 @@ class FavoritesManager
     }
 
     /**
-     * @return array<int, array{options: array}>
+     * @return array<string, array{productId: int, context: array, options: array}>
      */
     private static function getCookieFavorites(): array
     {
@@ -845,51 +1164,68 @@ class FavoritesManager
 
         $normalized = [];
         foreach ($decoded as $item) {
+            $productId = 0;
+            $context = [];
+            $options = [];
+            $favoriteKey = '';
+
             if (is_array($item)) {
-                $productId = isset($item['id']) ? (int)$item['id'] : (int)($item['PRODUCT_ID'] ?? 0);
-                if ($productId <= 0) {
-                    continue;
+                if (isset($item['key']) && is_string($item['key']) && $item['key'] !== '') {
+                    $favoriteKey = $item['key'];
+                } elseif (isset($item['favoriteKey']) && is_string($item['favoriteKey']) && $item['favoriteKey'] !== '') {
+                    $favoriteKey = $item['favoriteKey'];
+                } elseif (isset($item['FAVORITE_KEY']) && is_string($item['FAVORITE_KEY']) && $item['FAVORITE_KEY'] !== '') {
+                    $favoriteKey = $item['FAVORITE_KEY'];
                 }
 
-                $options = [];
+                if (isset($item['id'])) {
+                    $productId = (int)$item['id'];
+                } elseif (isset($item['PRODUCT_ID'])) {
+                    $productId = (int)$item['PRODUCT_ID'];
+                }
+
                 if (isset($item['options']) && is_array($item['options'])) {
                     $options = $item['options'];
                 } elseif (isset($item['OPTIONS']) && is_array($item['OPTIONS'])) {
                     $options = $item['OPTIONS'];
                 }
 
-                $context = [];
                 if (isset($item['context']) && is_array($item['context'])) {
                     $context = $item['context'];
                 }
-
-                $normalizedPayload = self::normalizePayload(['options' => $options, 'context' => $context]);
-                $normalizedOptions = ['options' => $normalizedPayload['options']];
-                $optionsHash = isset($item['optionsHash']) && is_string($item['optionsHash']) && $item['optionsHash'] !== ''
-                    ? (string)$item['optionsHash']
-                    : self::hashOptionsPayload($normalizedOptions);
-
-                $pricePublic = self::normalizePublicPrice($item['price'] ?? null);
-
-                $normalized[$productId] = [
-                    'options' => $normalizedOptions,
-                    'context' => $normalizedPayload['context'],
-                    'optionsHash' => $optionsHash,
-                    'pricePublic' => $pricePublic,
-                    'priceHash' => $pricePublic !== null ? $optionsHash : null,
-                ];
-                continue;
+            } else {
+                $productId = (int)$item;
             }
 
-            $productId = (int)$item;
+            if ($favoriteKey !== '' && $productId <= 0) {
+                $parsed = self::parseFavoriteKey($favoriteKey);
+                $productId = (int)($parsed['productId'] ?? 0);
+                $context = is_array($parsed['context'] ?? null) ? $parsed['context'] : $context;
+            }
+
             if ($productId <= 0) {
                 continue;
             }
 
-            $normalized[$productId] = [
-                'options' => [],
-                'optionsHash' => 'empty',
-            ];
+            $normalizedPayload = self::normalizePayload(['options' => $options, 'context' => $context]);
+            $favoriteKey = $favoriteKey !== '' ? $favoriteKey : self::buildFavoriteKey($productId, $normalizedPayload['context']);
+            if ($favoriteKey === '') {
+                continue;
+            }
+
+            $itemState = self::makeItemState($normalizedPayload, $productId);
+
+            if (isset($item['optionsHash']) && is_string($item['optionsHash']) && $item['optionsHash'] !== '') {
+                $itemState['optionsHash'] = (string)$item['optionsHash'];
+            }
+
+            $pricePublic = self::normalizePublicPrice($item['price'] ?? null);
+            if ($pricePublic !== null) {
+                $itemState['pricePublic'] = $pricePublic;
+                $itemState['priceHash'] = $itemState['optionsHash'];
+            }
+
+            $normalized[$favoriteKey] = $itemState;
         }
 
         ksort($normalized);
@@ -906,15 +1242,16 @@ class FavoritesManager
         $meta = self::buildClientMeta();
 
         $payload = [];
-        foreach ($items as $productId => $data) {
-            $productId = (int)$productId;
+        foreach ($items as $key => $data) {
+            $productId = (int)($data['productId'] ?? 0);
             if ($productId <= 0) {
                 continue;
             }
 
-            $metaEntry = $meta[$productId] ?? self::buildClientMetaEntry($productId, $data);
+            $metaEntry = $meta[$key] ?? self::buildClientMetaEntry($key, $data);
 
             $payload[] = [
+                'key' => $key,
                 'id' => $productId,
                 'options' => $metaEntry['options'],
                 'optionsHash' => $metaEntry['optionsHash'],
@@ -1012,7 +1349,7 @@ class FavoritesManager
         return $encoded !== false ? md5($encoded) : md5((string)microtime(true));
     }
 
-    private static function makeItemState(array $payload): array
+    private static function makeItemState(array $payload, int $productId, int $rowId = 0): array
     {
         $optionsPayload = self::prepareOptionsPayload($payload['options'] ?? [], true);
         $context = self::normalizeContext($payload['context'] ?? []);
@@ -1020,30 +1357,34 @@ class FavoritesManager
         $hash = self::hashOptionsPayload($optionsPayload);
 
         return [
+            'productId' => $productId,
             'options' => $optionsPayload,
             'context' => $context,
             'optionsHash' => $hash,
             'priceHash' => null,
             'priceData' => null,
             'pricePublic' => null,
+            'rowId' => $rowId > 0 ? $rowId : null,
         ];
     }
 
     /**
      * @param array{options?: array} $optionsPayload
      */
-    private static function getCachedPriceData(int $productId, array $optionsPayload, string $optionsHash): ?array
+    private static function getCachedPriceData(string $key, int $productId, array $optionsPayload, string $optionsHash): ?array
     {
-        $cachedHash = self::$currentItems[$productId]['priceHash'] ?? null;
-        $cachedData = self::$currentItems[$productId]['priceData'] ?? null;
+        $cachedHash = self::$currentItems[$key]['priceHash'] ?? null;
+        $cachedData = self::$currentItems[$key]['priceData'] ?? null;
 
         if ($cachedData !== null && $cachedHash === $optionsHash) {
             return $cachedData;
         }
 
         $priceData = self::calculatePrice($productId, $optionsPayload);
-        self::$currentItems[$productId]['priceHash'] = $priceData !== null ? $optionsHash : null;
-        self::$currentItems[$productId]['priceData'] = $priceData;
+        if (isset(self::$currentItems[$key])) {
+            self::$currentItems[$key]['priceHash'] = $priceData !== null ? $optionsHash : null;
+            self::$currentItems[$key]['priceData'] = $priceData;
+        }
 
         return $priceData;
     }

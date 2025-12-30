@@ -1,6 +1,5 @@
 <?php
 
-use App\Brakes\Helper\Favorites;
 use App\Brakes\Helper\FavoritesManager;
 use Bitrix\Main\Engine\ActionFilter;
 use Bitrix\Main\Engine\Controllerable;
@@ -150,16 +149,18 @@ class FavoritesSyncComponent extends CBitrixComponent implements Controllerable
 
     private function buildSuccessResponse(array $items): array
     {
-        $normalized = Favorites::normalizeProductIds($items);
+        $normalized = FavoritesManager::normalizeFavoriteKeys($items);
         $products = FavoritesManager::getFavoritesProductsData($normalized);
         $popupHtml = FavoritesManager::buildFavoritesPopupHtml($products);
+        $state = FavoritesManager::getClientState();
 
         return [
             'status' => 'success',
             'items' => $normalized,
             'count' => count($normalized),
             'popupHtml' => $popupHtml,
-            'meta' => FavoritesManager::getClientState()['meta'] ?? [],
+            'meta' => $state['meta'] ?? [],
+            'metaByProduct' => $state['metaByProduct'] ?? [],
         ];
     }
 

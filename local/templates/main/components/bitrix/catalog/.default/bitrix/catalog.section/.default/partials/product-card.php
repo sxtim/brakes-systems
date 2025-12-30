@@ -30,6 +30,13 @@ $selectedOptions = isset($card['SELECTED']) && is_array($card['SELECTED']) ? $ca
 $favoritesView = !empty($card['FAVORITES_VIEW']);
 $expandFeatures = !empty($card['EXPAND_FEATURES']);
 $contextLabel = isset($card['CONTEXT_LABEL']) ? (string)$card['CONTEXT_LABEL'] : '';
+$favoriteKey = (string)($card['FAVORITE_KEY'] ?? $card['FAVORITES_KEY'] ?? '');
+if ($favoriteKey === '' && class_exists(\App\Brakes\Helper\FavoritesManager::class)) {
+    $favoriteKey = \App\Brakes\Helper\FavoritesManager::buildFavoriteKey($id, [
+        'section_id' => $contextSectionId,
+        'section_path' => $contextSectionPath,
+    ]);
+}
 
 $buyName = (string)($buy['NAME'] ?? $name);
 $buyUrl = (string)($buy['URL'] ?? $detailUrl);
@@ -146,7 +153,7 @@ $isDiscsCard = ($contextSectionPath !== '' && strpos($contextSectionPath, 'tormo
 $isShortCardCategory = $isPadsCard || $isDiscsCard;
 
 ?>
-<div class="main-cataloge__item" data-fls-like-product="<?=$id?>"<?php if ($contextSectionId > 0) { ?> data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>>
+<div class="main-cataloge__item" data-fls-like-product="<?=$id?>"<?php if ($favoriteKey !== '') { ?> data-favorite-key="<?=htmlspecialcharsbx($favoriteKey)?>"<?php } ?><?php if ($contextSectionId > 0) { ?> data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?><?php if ($contextLabel !== '') { ?> data-context-label="<?=htmlspecialcharsbx($contextLabel)?>"<?php } ?>>
     <a class="main-cataloge__picture" href="<?=htmlspecialcharsbx($detailUrl)?>">
         <picture>
             <source media="(max-width: 600px)" srcset="<?=htmlspecialcharsbx($imageSrc)?>" type="image/jpeg">
@@ -161,12 +168,20 @@ $isShortCardCategory = $isPadsCard || $isDiscsCard;
     </a>
     <div class="main-cataloge__item-content">
 	    <div class="main-cataloge__item-top">
-	            <h3 class="main-cataloge__item-title"><a href="<?=htmlspecialcharsbx($detailUrl)?>"><?=htmlspecialcharsbx($name)?></a></h3>
+	            <h3 class="main-cataloge__item-title">
+                    <a href="<?=htmlspecialcharsbx($detailUrl)?>">
+                        <?php if ($contextLabel !== '') { ?>
+                            <span class="main-cataloge__item-context"><?=htmlspecialcharsbx($contextLabel)?></span><br>
+                        <?php } ?>
+                        <?=htmlspecialcharsbx($name)?>
+                    </a>
+                </h3>
                 <?php if ($favoritesView || $canShowLike): ?>
                     <button
                         data-fls-like-image=""
                         data-fls-like-button=""
                         data-product-id="<?=$id?>"
+                        <?php if ($favoriteKey !== '') { ?>data-favorite-key="<?=htmlspecialcharsbx($favoriteKey)?>"<?php } ?>
                         data-options="<?=$optionsAttr?>"
                         <?php if ($contextSectionId > 0) { ?>data-context-section-id="<?=$contextSectionId?>"<?php } ?>
                         <?php if ($contextSectionPath !== '') { ?>data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>
@@ -277,7 +292,11 @@ $isShortCardCategory = $isPadsCard || $isDiscsCard;
                             data-fls-addtocart-button=""
                             class="main-cataloge__shoping-btn"
                             data-add-basket
-                            data-options="<?=$optionsAttr?>">
+                            data-options="<?=$optionsAttr?>"
+                            data-product-id="<?=$id?>"
+                            <?php if ($contextSectionId > 0) { ?>data-context-section-id="<?=$contextSectionId?>"<?php } ?>
+                            <?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>
+                            <?php if ($contextLabel !== '') { ?> data-context-label="<?=htmlspecialcharsbx($contextLabel)?>"<?php } ?>>
                             <span class="main-cataloge__shoping-text">В корзину</span>
                             <img class="main-cataloge__shoping-img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/shopping-icon.svg" alt="Img">
                         </button>

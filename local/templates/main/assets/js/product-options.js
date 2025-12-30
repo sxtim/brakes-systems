@@ -42,6 +42,118 @@ function toLowerString(value) {
   return String(value).toLowerCase();
 }
 
+function resolveOptionKey(featureTitle) {
+  if (!featureTitle) {
+    return null;
+  }
+
+  if (featureTitle.includes("Двусоставная конструкция диска")) {
+    return "two_piece_disc_construction";
+  }
+  if (featureTitle.includes("Тип ротора") || featureTitle.includes("Рисунок ротора")) {
+    return "rotor_pattern";
+  }
+  if (featureTitle.includes("Лого на суппорт")) {
+    return "caliper_logo";
+  }
+  if (featureTitle.includes("Электроручник")) {
+    return "electric_handbrake";
+  }
+
+  return null;
+}
+
+function findOptionNode(optionItems, key, value) {
+  const items = Array.from(optionItems || []);
+  if (items.length === 0) {
+    return null;
+  }
+
+  const valueLower = toLowerString(value);
+  const pick = (predicate) => items.find((item) => {
+    const text = toLowerString(item.textContent || "");
+    return predicate(text);
+  }) || null;
+
+  if (key === "two_piece_disc_construction") {
+    if (valueLower === "yes") {
+      return pick((text) => text.includes("да")) || null;
+    }
+    return pick((text) => text.includes("нет")) || null;
+  }
+
+  if (key === "rotor_pattern") {
+    if (valueLower === "perforation_slots" || valueLower === "perforation_and_notches") {
+      return pick((text) => text.includes("перф") && text.includes("насеч"));
+    }
+    if (valueLower === "perforation") {
+      return pick((text) => text.includes("перф") && !text.includes("насеч")) || pick((text) => text.includes("перф"));
+    }
+    if (valueLower === "slots" || valueLower === "notches") {
+      return pick((text) => text.includes("насеч"));
+    }
+    if (valueLower === "none") {
+      return pick((text) => text.includes("нет"));
+    }
+  }
+
+  if (key === "caliper_logo") {
+    if (valueLower === "special" || valueLower === "custom_logo" || valueLower === "custom") {
+      return pick((text) => text.includes("особ") || text.includes("логотип"));
+    }
+    return pick((text) => text.includes("стандарт") || text.includes("станд"));
+  }
+
+  if (key === "electric_handbrake") {
+    if (valueLower === "yes") {
+      return pick((text) => text.includes("да")) || null;
+    }
+    return pick((text) => text.includes("нет")) || null;
+  }
+
+  return null;
+}
+
+function applySelectedOptions(scope, optionsPayload) {
+  const normalized = normalizeOptionsPayload(optionsPayload);
+  if (!normalized || !normalized.options) {
+    return false;
+  }
+
+  const options = { ...OPTION_DEFAULTS, ...normalized.options };
+  const root = scope instanceof Element ? scope : document;
+  let changed = false;
+
+  root.querySelectorAll(".spollers__item").forEach((spoller) => {
+    const optionItems = spoller.querySelectorAll(".main-cataloge__sublist-item");
+    if (optionItems.length === 0) {
+      return;
+    }
+
+    const featureTitleElement = spoller.querySelector(".main-cataloge__feature-item, .main-details__feature-item");
+    if (!featureTitleElement) {
+      return;
+    }
+
+    const featureTitle = featureTitleElement.textContent.trim();
+    const key = resolveOptionKey(featureTitle);
+    if (!key || typeof options[key] === "undefined") {
+      return;
+    }
+
+    const target = findOptionNode(optionItems, key, options[key]);
+    if (!target) {
+      return;
+    }
+
+    optionItems.forEach((item) => item.classList.remove("selected"));
+    target.classList.add("selected");
+    changed = true;
+  });
+
+  return changed;
+}
+
 function normalizeOptionsPayload(value) {
   if (!value) {
     return null;
@@ -92,6 +204,59 @@ function normalizeOptionsPayload(value) {
   return { options: normalized };
 }
 
+function buildFavoriteKey(productId, context = null) {
+  const id = parseInt(productId, 10);
+  if (!id) {
+    return "";
+  }
+
+  const sectionId = parseInt(context?.section_id || context?.sectionId || context?.section, 10);
+  let sectionPath = context?.section_path || context?.sectionPath || "";
+  if (typeof sectionPath === "string") {
+    sectionPath = sectionPath.trim().replace(/^\/+|\/+$/g, "");
+  } else {
+    sectionPath = "";
+  }
+
+  if (sectionId > 0) {
+    return `${id}:s${sectionId}`;
+  }
+
+  if (sectionPath) {
+    return `${id}:p${sectionPath}`;
+  }
+
+  return `${id}:n`;
+}
+
+function extractContextFromContainer(container) {
+  if (!(container instanceof Element)) {
+    return null;
+  }
+
+  const dataset = container.dataset || {};
+  let sectionId = parseInt(dataset.contextSectionId || 0, 10);
+  let sectionPath = dataset.contextPath ? String(dataset.contextPath) : "";
+
+  if (!sectionId && !sectionPath) {
+    const fallback = container.querySelector("[data-context-section-id], [data-context-path]");
+    if (fallback && fallback.dataset) {
+      sectionId = parseInt(fallback.dataset.contextSectionId || 0, 10);
+      sectionPath = fallback.dataset.contextPath ? String(fallback.dataset.contextPath) : sectionPath;
+    }
+  }
+
+  const context = {};
+  if (sectionId > 0) {
+    context.section_id = sectionId;
+  }
+  if (sectionPath && sectionPath.trim() !== "") {
+    context.section_path = sectionPath.trim();
+  }
+
+  return Object.keys(context).length > 0 ? context : null;
+}
+
 function cloneOptionsPayload(input) {
   const normalized = normalizeOptionsPayload(input);
   if (!normalized) {
@@ -130,13 +295,15 @@ function stringifyOptionsPayload(payload) {
   }
 }
 
-function extractPriceFromMeta(productId) {
+function extractPriceFromMeta(productId, context = null) {
   const meta = window.__FAVORITES__?.meta;
-  if (!meta || typeof meta !== "object") {
+  const metaByProduct = window.__FAVORITES__?.metaByProduct;
+  if ((!meta || typeof meta !== "object") && (!metaByProduct || typeof metaByProduct !== "object")) {
     return null;
   }
 
-  const entry = meta[productId];
+  const favoriteKey = buildFavoriteKey(productId, context);
+  const entry = (favoriteKey && meta && meta[favoriteKey]) || (metaByProduct && metaByProduct[productId]);
   if (!entry || typeof entry !== "object") {
     return null;
   }
@@ -312,11 +479,14 @@ document.addEventListener("favorites:popupHtmlUpdated", (event) => {
 function updateProductOptions(productContainer, reason = "manual") {
   const scope = productContainer instanceof Element ? productContainer : document;
   const productId = getProductIdFromContainer(scope);
-  const fallbackOptions = getInitialOptions(scope, productId);
+  const context = extractContextFromContainer(scope);
+  const favoriteKey = buildFavoriteKey(productId, context);
+  const fallbackOptions = getInitialOptions(scope, productId, context);
   const fallbackClone = cloneOptionsPayload(fallbackOptions);
 
   let optionsPayload = null;
   if ((reason === "init-card" || reason === "init-details") && fallbackClone) {
+    applySelectedOptions(scope, fallbackClone);
     optionsPayload = fallbackClone;
   } else {
     optionsPayload = collectSelectedOptions(scope, fallbackClone || fallbackOptions, reason);
@@ -329,6 +499,8 @@ function updateProductOptions(productContainer, reason = "manual") {
     document.dispatchEvent(new CustomEvent("productOptions:changed", {
       detail: {
         productId,
+        favoriteKey,
+        context,
         options: normalizedOptions,
         reason,
       },
@@ -337,6 +509,8 @@ function updateProductOptions(productContainer, reason = "manual") {
 
   return {
     productId,
+    favoriteKey,
+    context,
     options: { ...normalizedOptions.options },
     reason,
     timestamp: Date.now(),
@@ -436,9 +610,9 @@ function setOptionsAttribute(scope, payload) {
   });
 }
 
-function getInitialOptions(scope, productId) {
+function getInitialOptions(scope, productId, context = null) {
   const datasetPayload = extractOptionsFromDataset(scope, productId);
-  const metaPayload = productId ? extractOptionsFromMeta(productId) : null;
+  const metaPayload = productId ? extractOptionsFromMeta(productId, context) : null;
 
   const merged = mergeOptionsPayload(datasetPayload, metaPayload);
 
@@ -477,13 +651,15 @@ function extractOptionsFromDataset(scope, productId) {
   return normalizeOptionsPayload(button.dataset.options);
 }
 
-function extractOptionsFromMeta(productId) {
+function extractOptionsFromMeta(productId, context = null) {
   const meta = window.__FAVORITES__?.meta;
-  if (!meta || typeof meta !== "object") {
+  const metaByProduct = window.__FAVORITES__?.metaByProduct;
+  if ((!meta || typeof meta !== "object") && (!metaByProduct || typeof metaByProduct !== "object")) {
     return null;
   }
 
-  const entry = meta[productId];
+  const favoriteKey = buildFavoriteKey(productId, context);
+  const entry = (favoriteKey && meta && meta[favoriteKey]) || (metaByProduct && metaByProduct[productId]);
   if (!entry || typeof entry !== "object") {
     return null;
   }
@@ -515,20 +691,26 @@ function schedulePriceUpdate(productContainer, optionsData, reason = "manual") {
     return;
   }
 
+  const context = optionsData?.context || extractContextFromContainer(targetContainer);
+  const favoriteKey = buildFavoriteKey(productId, context);
+
   if ((reason === "init-card" || reason === "init-details")) {
-    const metaPrice = extractPriceFromMeta(productId);
+    const metaPrice = extractPriceFromMeta(productId, context);
     if (metaPrice !== null && metaPrice !== undefined) {
       applyPriceToContainer(targetContainer, metaPrice, productId);
       return;
     }
   }
 
-  const key = String(productId);
+  const key = favoriteKey || String(productId);
   if (pendingPriceTimers.has(key)) {
     clearTimeout(pendingPriceTimers.get(key));
   }
 
-  const payload = { options: { ...(optionsData?.options || {}) } };
+  const payload = {
+    options: { ...(optionsData?.options || {}) },
+    context: context || null,
+  };
 
   const timer = setTimeout(() => {
     pendingPriceTimers.delete(key);

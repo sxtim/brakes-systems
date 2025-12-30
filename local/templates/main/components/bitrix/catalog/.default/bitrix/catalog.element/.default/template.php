@@ -18,11 +18,38 @@ $favoriteSelectedOptions = $defaultSelectedOptions;
 $productMeta = null;
 $optionsFromMeta = [];
 $favoritePriceFormatted = null;
+$favoriteContextSectionId = 0;
+$favoriteContextSectionPath = '';
+
+if (!empty($arResult['SECTION']['PATH']) && is_array($arResult['SECTION']['PATH'])) {
+    $path = array_values($arResult['SECTION']['PATH']);
+    $pathCount = count($path);
+    if ($pathCount > 0) {
+        $favoriteContextSectionId = (int)($path[$pathCount - 1]['ID'] ?? 0);
+        $contextCodes = array_map(static function ($item) {
+            return isset($item['CODE']) ? (string)$item['CODE'] : '';
+        }, $path);
+        $contextCodes = array_values(array_filter($contextCodes, static fn($code) => $code !== ''));
+        if (!empty($contextCodes)) {
+            $favoriteContextSectionPath = implode('/', $contextCodes);
+        }
+    }
+}
 
 if (class_exists(FavoritesManager::class)) {
     $state = FavoritesManager::getClientState();
     $meta = isset($state['meta']) && is_array($state['meta']) ? $state['meta'] : [];
-    $productMeta = $meta[$arResult['ID']] ?? null;
+    $metaByProduct = isset($state['metaByProduct']) && is_array($state['metaByProduct'])
+        ? $state['metaByProduct']
+        : [];
+    $favoriteKey = FavoritesManager::buildFavoriteKey($arResult['ID'], [
+        'section_id' => $favoriteContextSectionId,
+        'section_path' => $favoriteContextSectionPath,
+    ]);
+    $productMeta = $favoriteKey !== '' ? ($meta[$favoriteKey] ?? null) : null;
+    if (!is_array($productMeta)) {
+        $productMeta = $metaByProduct[$arResult['ID']] ?? null;
+    }
     if (is_array($productMeta)) {
         $optionsFromMeta = FavoritesManager::prepareOptionsPayload($productMeta['options'] ?? [], false);
         if (is_array($optionsFromMeta)) {

@@ -65,6 +65,10 @@ $appendQueryParam = static function (string $url, string $param, string $value):
                         $optionsJson = $item['FAVORITES_OPTIONS_JSON'] ?? '{}';
                         $optionsAttr = htmlspecialcharsbx($optionsJson);
 
+                        $contextSectionId = (int)($item['CONTEXT_SECTION_ID'] ?? 0);
+                        $contextSectionPath = (string)($item['CONTEXT_SECTION_PATH'] ?? '');
+                        $contextLabel = (string)($item['CONTEXT_LABEL'] ?? '');
+
                         $detailUrlRaw = (string)($item['DETAIL_PAGE_URL'] ?? '');
                         $isPadsCategory = $detailUrlRaw !== '' && strpos($detailUrlRaw, '/tormoznye_kolodki/') !== false;
                         $isDiscsCategory = $detailUrlRaw !== '' && strpos($detailUrlRaw, '/tormoznye_diski/') !== false;
@@ -128,6 +132,9 @@ $appendQueryParam = static function (string $url, string $param, string $value):
                             'ID' => $item['ID'],
                             'NAME' => $item['NAME'],
                             'DETAIL_PAGE_URL' => $appendQueryParam((string)($item['DETAIL_PAGE_URL'] ?? ''), 'from', 'search'),
+                            'CONTEXT_SECTION_ID' => $contextSectionId,
+                            'CONTEXT_SECTION_PATH' => $contextSectionPath,
+                            'CONTEXT_LABEL' => $contextLabel,
                             'IMAGE' => $item['IMAGE'] ?? null,
                             'IMG' => $item['IMG'] ?? '',
                             'PRICE_HTML' => $priceFormatted,

@@ -22,10 +22,10 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     </div>
     <div class="main-cataloge__body view-grid">
         <?php
-        $contextSectionId = (int)($arResult['ID'] ?? 0);
-        $contextSectionPath = '';
-        if ($contextSectionId > 0 && !empty($arParams['IBLOCK_ID'])) {
-            $navChain = \CIBlockSection::GetNavChain((int)$arParams['IBLOCK_ID'], $contextSectionId, ['ID', 'CODE']);
+        $defaultContextSectionId = (int)($arResult['ID'] ?? 0);
+        $defaultContextSectionPath = '';
+        if ($defaultContextSectionId > 0 && !empty($arParams['IBLOCK_ID'])) {
+            $navChain = \CIBlockSection::GetNavChain((int)$arParams['IBLOCK_ID'], $defaultContextSectionId, ['ID', 'CODE']);
             $codes = [];
             while ($row = $navChain->Fetch()) {
                 if (!empty($row['CODE'])) {
@@ -33,15 +33,29 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 }
             }
             if (!empty($codes)) {
-                $contextSectionPath = implode('/', $codes);
+                $defaultContextSectionPath = implode('/', $codes);
             }
         }
-        $isPadsCategory = $contextSectionPath !== '' && strpos($contextSectionPath, 'tormoznye_kolodki') === 0;
-        $isDiscsCategory = $contextSectionPath !== '' && strpos($contextSectionPath, 'tormoznye_diski') === 0;
-        $isShortCardCategory = $isPadsCategory || $isDiscsCategory;
         $cardPartialPath = __DIR__ . '/partials/product-card.php';
 
         foreach ($arResult['ITEMS'] as $item) {
+            $contextSectionId = (int)($item['CONTEXT_SECTION_ID'] ?? 0);
+            if ($contextSectionId <= 0) {
+                $contextSectionId = $defaultContextSectionId;
+            }
+            $contextSectionPath = (string)($item['CONTEXT_SECTION_PATH'] ?? '');
+            if ($contextSectionPath === '') {
+                $contextSectionPath = $defaultContextSectionPath;
+            }
+            $contextLabel = (string)($item['CONTEXT_LABEL'] ?? '');
+
+            $detailUrlRaw = (string)($item['DETAIL_PAGE_URL'] ?? '');
+            $isPadsCategory = ($contextSectionPath !== '' && strpos($contextSectionPath, 'tormoznye_kolodki') === 0)
+                || ($detailUrlRaw !== '' && strpos($detailUrlRaw, '/tormoznye_kolodki/') !== false);
+            $isDiscsCategory = ($contextSectionPath !== '' && strpos($contextSectionPath, 'tormoznye_diski') === 0)
+                || ($detailUrlRaw !== '' && strpos($detailUrlRaw, '/tormoznye_diski/') !== false);
+            $isShortCardCategory = $isPadsCategory || $isDiscsCategory;
+
             $priceFormatted = null;
             if (!empty($item['FAVORITES_PRICE']['PRICE_FORMATTED'])) {
                 $priceFormatted = htmlspecialcharsback($item['FAVORITES_PRICE']['PRICE_FORMATTED']);
@@ -115,6 +129,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 'DETAIL_PAGE_URL' => $item['DETAIL_PAGE_URL'],
                 'CONTEXT_SECTION_ID' => $contextSectionId,
                 'CONTEXT_SECTION_PATH' => $contextSectionPath,
+                'CONTEXT_LABEL' => $contextLabel,
                 'IMAGE' => $item['IMAGE'] ?? null,
                 'IMG' => $item['IMG'] ?? '',
                 'PRICE_HTML' => $priceFormatted,
