@@ -12,6 +12,32 @@ $context = $arResult['SEARCH_CONTEXT'] ?? [
 
 $query = trim((string)$context['query']);
 $items = $arResult['ITEMS'] ?? [];
+$hasContextItems = false;
+foreach ($items as $item) {
+    $contextSectionId = (int)($item['CONTEXT_SECTION_ID'] ?? 0);
+    $contextSectionPath = (string)($item['CONTEXT_SECTION_PATH'] ?? '');
+    $contextParts = [];
+    if ($contextSectionPath !== '') {
+        $contextParts = array_values(array_filter(explode('/', trim($contextSectionPath, '/')), 'strlen'));
+    } else {
+        $detailUrl = (string)($item['DETAIL_PAGE_URL'] ?? '');
+        if ($detailUrl !== '') {
+            $path = (string)parse_url($detailUrl, PHP_URL_PATH);
+            $path = trim($path, '/');
+            if ($path !== '') {
+                $parts = array_values(array_filter(explode('/', $path), 'strlen'));
+                if (isset($parts[0]) && $parts[0] === 'catalog' && count($parts) > 2) {
+                    $contextParts = array_slice($parts, 1, -1);
+                }
+            }
+        }
+    }
+    $contextDepth = count($contextParts);
+    if ($contextSectionId > 0 || $contextDepth >= 4) {
+        $hasContextItems = true;
+        break;
+    }
+}
 $cardPartialPath = $_SERVER['DOCUMENT_ROOT'] . '/local/templates/main/components/bitrix/catalog/.default/bitrix/catalog.section/.default/partials/product-card.php';
 
 $appendQueryParam = static function (string $url, string $param, string $value): string {
@@ -45,9 +71,11 @@ $appendQueryParam = static function (string $url, string $param, string $value):
             </h1>
             <a class="search-page__catalog-link" href="/catalog/">Вернуться в каталог</a>
         </div>
-        <p class="main__catalog-prompt">
-            Чтобы купить/добавить в избранное/оформить «в 1 клик», сначала выберите автомобиль (поколение) в каталоге.
-        </p>
+        <?php if (!$hasContextItems): ?>
+            <p class="main__catalog-prompt">
+                Чтобы купить/добавить в избранное/оформить «в 1 клик», сначала выберите автомобиль (поколение) в каталоге.
+            </p>
+        <?php endif; ?>
         <div class="main__cataloge main-cataloge">
             <?php if (!empty($items)): ?>
                 <div class="main-cataloge__body view-grid">

@@ -30,6 +30,21 @@ $selectedOptions = isset($card['SELECTED']) && is_array($card['SELECTED']) ? $ca
 $favoritesView = !empty($card['FAVORITES_VIEW']);
 $expandFeatures = !empty($card['EXPAND_FEATURES']);
 $contextLabel = isset($card['CONTEXT_LABEL']) ? (string)$card['CONTEXT_LABEL'] : '';
+$contextParts = [];
+if ($contextSectionPath === '' && $detailUrl !== '') {
+    $path = (string)parse_url($detailUrl, PHP_URL_PATH);
+    $path = trim($path, '/');
+    if ($path !== '') {
+        $parts = array_values(array_filter(explode('/', $path), 'strlen'));
+        if (isset($parts[0]) && $parts[0] === 'catalog' && count($parts) > 2) {
+            $contextParts = array_slice($parts, 1, -1);
+            if ($contextParts !== []) {
+                $contextSectionPath = implode('/', $contextParts);
+            }
+        }
+    }
+}
+
 $favoriteKey = (string)($card['FAVORITE_KEY'] ?? $card['FAVORITES_KEY'] ?? '');
 if ($favoriteKey === '' && class_exists(\App\Brakes\Helper\FavoritesManager::class)) {
     $favoriteKey = \App\Brakes\Helper\FavoritesManager::buildFavoriteKey($id, [
@@ -145,12 +160,22 @@ if ($detailUrl !== '') {
     }
 }
 $isFromSearch = in_array($fromParam, ['search', 'viewed'], true);
-$canShowLike = !$isFromSearch;
 $isPadsCard = ($contextSectionPath !== '' && strpos($contextSectionPath, 'tormoznye_kolodki') === 0)
     || ($detailUrl !== '' && strpos($detailUrl, '/tormoznye_kolodki/') !== false);
 $isDiscsCard = ($contextSectionPath !== '' && strpos($contextSectionPath, 'tormoznye_diski') === 0)
     || ($detailUrl !== '' && strpos($detailUrl, '/tormoznye_diski/') !== false);
+$isSystemsCard = ($contextSectionPath !== '' && strpos($contextSectionPath, 'tormoznye_sistemy') === 0)
+    || ($detailUrl !== '' && strpos($detailUrl, '/tormoznye_sistemy/') !== false);
 $isShortCardCategory = $isPadsCard || $isDiscsCard;
+$contextParts = $contextParts !== [] ? $contextParts : array_values(array_filter(explode('/', trim($contextSectionPath, '/')), 'strlen'));
+$contextDepth = count($contextParts);
+$hasContext = $contextSectionId > 0 || $contextDepth >= 4;
+$actionsAllowed = !$isFromSearch || $hasContext;
+$canShowLike = $actionsAllowed;
+$optionsAttrForActions = $optionsAttr;
+if (!$isSystemsCard) {
+    $optionsAttrForActions = '{}';
+}
 
 ?>
 <div class="main-cataloge__item" data-fls-like-product="<?=$id?>"<?php if ($favoriteKey !== '') { ?> data-favorite-key="<?=htmlspecialcharsbx($favoriteKey)?>"<?php } ?><?php if ($contextSectionId > 0) { ?> data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?><?php if ($contextLabel !== '') { ?> data-context-label="<?=htmlspecialcharsbx($contextLabel)?>"<?php } ?>>
@@ -182,14 +207,14 @@ $isShortCardCategory = $isPadsCard || $isDiscsCard;
                         data-fls-like-button=""
                         data-product-id="<?=$id?>"
                         <?php if ($favoriteKey !== '') { ?>data-favorite-key="<?=htmlspecialcharsbx($favoriteKey)?>"<?php } ?>
-                        data-options="<?=$optionsAttr?>"
+                        data-options="<?=$optionsAttrForActions?>"
                         <?php if ($contextSectionId > 0) { ?>data-context-section-id="<?=$contextSectionId?>"<?php } ?>
                         <?php if ($contextSectionPath !== '') { ?>data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>
                         class="main-cataloge__like main-details__shoping-like"></button>
                 <?php endif; ?>
 	        </div>
         <?php if ($details !== []) { ?>
-            <div class="main-cataloge__details main__details details">
+            <div class="main-cataloge__details">
                 <?php if ($favoritesView && $contextLabel !== '') { ?>
                     <div class="main-cataloge__details-row details-row">
                         <span class="main-cataloge__details-label details-label">Для:</span>
@@ -235,7 +260,7 @@ $isShortCardCategory = $isPadsCard || $isDiscsCard;
         <?php } ?>
     </div>
 	    <div class="main-cataloge__info">
-	            <?php if (!$hideFeatures && $favoritesView) { ?>
+	            <?php if (!$hideFeatures && $favoritesView && $isSystemsCard) { ?>
 	                <div class="main-cataloge__feature main-cataloge__feature--favorite">
 	                    <?php foreach ($optionLabelMap as $optionKey => $label) {
 	                        $rawValue = $selectedOptions[$optionKey] ?? null;
@@ -248,7 +273,7 @@ $isShortCardCategory = $isPadsCard || $isDiscsCard;
                         </div>
 	                    <?php } ?>
 	                </div>
-	            <?php } elseif (!$hideFeatures && !$isShortCardCategory) { ?>
+	            <?php } elseif (!$hideFeatures && $isSystemsCard) { ?>
 	                <div data-fls-spollers="" data-fls-spollers-one="" class="main-cataloge__feature spollers">
 	                    <details class="spollers__item main-cataloge__feature-item--big"<?=$detailsOpenAttr?>>
 	                        <summary class="main-cataloge__feature-item спollers__title">Двусоставная конструкция диска:</summary>
@@ -283,16 +308,22 @@ $isShortCardCategory = $isPadsCard || $isDiscsCard;
             <?php } ?>
             <div class="main-cataloge__price"><?=$priceHtml?></div>
 	            <div class="main-cataloge__bottom-controls">
-                    <?php if ($isFromSearch): ?>
-                        <a class="main-cataloge__shoping-btn" href="<?=htmlspecialcharsbx($detailUrl)?>">
-                            <span class="main-cataloge__shoping-text">Открыть товар</span>
-                        </a>
-                    <?php else: ?>
+                    <?php if ($actionsAllowed): ?>
+                        <?php if (!$favoritesView): ?>
+                            <button
+                                data-fls-popup-link="speedBuy"
+                                class="main-cataloge__buy"
+                                data-product-name="<?=htmlspecialcharsbx($buyName)?>"
+                                data-product-url="<?=htmlspecialcharsbx($buyUrl)?>"
+                                data-options="<?=$optionsAttrForActions?>">
+                                Купить в один клик
+                            </button>
+                        <?php endif; ?>
                         <button
                             data-fls-addtocart-button=""
                             class="main-cataloge__shoping-btn"
                             data-add-basket
-                            data-options="<?=$optionsAttr?>"
+                            data-options="<?=$optionsAttrForActions?>"
                             data-product-id="<?=$id?>"
                             <?php if ($contextSectionId > 0) { ?>data-context-section-id="<?=$contextSectionId?>"<?php } ?>
                             <?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>
@@ -300,6 +331,10 @@ $isShortCardCategory = $isPadsCard || $isDiscsCard;
                             <span class="main-cataloge__shoping-text">В корзину</span>
                             <img class="main-cataloge__shoping-img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/shopping-icon.svg" alt="Img">
                         </button>
+                    <?php else: ?>
+                        <a class="main-cataloge__shoping-btn" href="<?=htmlspecialcharsbx($detailUrl)?>">
+                            <span class="main-cataloge__shoping-text">Открыть товар</span>
+                        </a>
                     <?php endif; ?>
 	            </div>
 	        </div>

@@ -788,7 +788,7 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
 	                <span class="details-value"><?=htmlspecialcharsbx($formatDateShort($contextApplicability['DATE_END'] ?? '') ?: '—')?></span>
 	            </div>
 	        <?php endif; ?>
-	    <?php elseif (!empty($filteredApplicability)): ?>
+	    <?php elseif (!$hasContext && !empty($filteredApplicability)): ?>
 	        <div class="details-row applicability-row">
 	            <span class="details-label">Применяемость:</span>
 	            <span class="details-dots-wrap"><span class="details-dots"></span></span>
