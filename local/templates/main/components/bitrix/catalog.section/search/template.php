@@ -46,7 +46,13 @@ $appendQueryParam = static function (string $url, string $param, string $value):
     }
 
     $parts = parse_url($url);
-    $path = $parts['path'] ?? $url;
+    $path = $parts['path'] ?? '';
+    if ($path === '') {
+        $path = (string)parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    }
+    if ($path === '') {
+        $path = $url;
+    }
     $query = $parts['query'] ?? '';
     $fragment = isset($parts['fragment']) ? ('#' . $parts['fragment']) : '';
 
@@ -58,6 +64,27 @@ $appendQueryParam = static function (string $url, string $param, string $value):
     $newQuery = http_build_query($params);
     return $path . ($newQuery !== '' ? ('?' . $newQuery) : '') . $fragment;
 };
+
+$navString = (string)($arResult['NAV_STRING'] ?? '');
+$navResult = $arResult['NAV_RESULT'] ?? null;
+$navNum = 0;
+if (is_object($navResult) && isset($navResult->NavNum)) {
+    $navNum = (int)$navResult->NavNum;
+}
+if ($navNum > 1 && $navString !== '') {
+    $navString = str_replace(
+        ['PAGEN_1=', 'SIZEN_1=', 'SHOWALL_1='],
+        ['PAGEN_' . $navNum . '=', 'SIZEN_' . $navNum . '=', 'SHOWALL_' . $navNum . '='],
+        $navString
+    );
+}
+if ($query !== '' && $navString !== '') {
+    $navString = preg_replace_callback('/href="([^"]+)"/i', static function (array $matches) use ($appendQueryParam, $query): string {
+        $href = html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5);
+        $href = $appendQueryParam($href, 'q', $query);
+        return 'href="' . htmlspecialcharsbx($href) . '"';
+    }, $navString);
+}
 ?>
 <div class="search-page">
     <div class="search-page__container">
@@ -185,8 +212,8 @@ $appendQueryParam = static function (string $url, string $param, string $value):
                     }
                     ?>
                 </div>
-                <?php if (!empty($arResult['NAV_STRING'])): ?>
-                    <?= $arResult['NAV_STRING'] ?>
+                <?php if ($navString !== ''): ?>
+                    <?= $navString ?>
                 <?php endif; ?>
             <?php else: ?>
                 <div class="main-cataloge__empty">

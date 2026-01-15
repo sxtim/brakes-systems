@@ -32,7 +32,7 @@ if ($iblockModuleLoaded && $sectionId > 0) {
 
 $isBodyContext = $sectionDepth >= 4;
 $showProducts = $sectionDepth >= 2;
-$showFilter = $isBodyContext;
+$showFilter = $sectionDepth >= 2;
 $categoryCode = '';
 if ($sectionCodePath !== '') {
     $parts = array_values(array_filter(explode('/', trim($sectionCodePath, '/')), 'strlen'));

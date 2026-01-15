@@ -3,6 +3,16 @@ require $_SERVER['DOCUMENT_ROOT'] . '/bitrix/header.php';
 $APPLICATION->SetTitle('Поиск по товарам');
 
 $catalogFilterName = 'catalogSearchFilter';
+$searchQuery = trim((string)($_REQUEST['q'] ?? ''));
+$catalogPagerParamsName = 'catalogSearchPagerParams';
+$GLOBALS[$catalogPagerParamsName] = [
+    'q' => $searchQuery,
+];
+
+// Ensure separate pager numbers for search.page and catalog.section.
+global $NavNum;
+$navNumBackup = isset($NavNum) ? (int)$NavNum : null;
+$NavNum = 0;
 
 $APPLICATION->IncludeComponent(
     'bitrix:search.page',
@@ -26,12 +36,15 @@ $APPLICATION->IncludeComponent(
         'SHOW_WHEN' => 'N',
         'USE_RATING' => 'N',
         'USE_SUGGEST' => 'N',
-        'QUERY' => trim((string)($_REQUEST['q'] ?? '')),
+        'QUERY' => $searchQuery,
         'CATALOG_FILTER_NAME' => $catalogFilterName,
     ],
     false,
     ['HIDE_ICONS' => 'Y']
 );
+
+// search.page consumes PAGEN_1; catalog.section should use PAGEN_2.
+$NavNum = 1;
 
 $catalogSectionParams = [
     'IBLOCK_TYPE' => '1c_catalog',
@@ -52,7 +65,9 @@ $catalogSectionParams = [
     'DISPLAY_COMPARE' => 'N',
     'PAGE_ELEMENT_COUNT' => '20',
     'LINE_ELEMENT_COUNT' => '3',
-    'PROPERTY_CODE' => [],
+    'PROPERTY_CODE' => [
+        'PRODUCT_CATEGORY',
+    ],
     'OFFERS_FIELD_CODE' => [
         'PREVIEW_PICTURE',
         'DETAIL_PICTURE',
@@ -79,6 +94,9 @@ $catalogSectionParams = [
     'PAGER_TITLE' => 'Товары',
     'PAGER_SHOW_ALWAYS' => 'N',
     'PAGER_TEMPLATE' => '',
+    'PAGER_PARAMS_NAME' => $catalogPagerParamsName,
+    'PAGER_BASE_LINK_ENABLE' => 'Y',
+    'PAGER_BASE_LINK' => '/search/?q=' . urlencode($searchQuery),
     'PAGER_DESC_NUMBERING' => 'N',
     'PAGER_DESC_NUMBERING_CACHE_TIME' => '36000',
     'PAGER_SHOW_ALL' => 'N',
@@ -106,5 +124,11 @@ $APPLICATION->IncludeComponent(
     $catalogSectionParams,
     false
 );
+
+if ($navNumBackup === null) {
+    unset($NavNum);
+} else {
+    $NavNum = $navNumBackup;
+}
 
 require $_SERVER['DOCUMENT_ROOT'] . '/bitrix/footer.php';

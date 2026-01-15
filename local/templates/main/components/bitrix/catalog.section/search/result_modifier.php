@@ -17,6 +17,165 @@ $items = $arResult['ITEMS'] ?? [];
 $arResult['SEARCH_CONTEXT'] = $context;
 $GLOBALS['CATALOG_SEARCH_CONTEXT'] = $context;
 
+// Filter expanded contexts by mark token in search query (only for search page).
+$query = trim((string)($context['query'] ?? ''));
+if ($query !== '' && !empty($items) && is_array($items)) {
+    $normalize = static function (string $value): string {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+        if (function_exists('mb_strtolower')) {
+            $value = mb_strtolower($value);
+        } else {
+            $value = strtolower($value);
+        }
+        return $value;
+    };
+
+    $normalizedQuery = $normalize($query);
+    $queryTokens = preg_split('/[^0-9a-zа-я]+/iu', $normalizedQuery, -1, PREG_SPLIT_NO_EMPTY);
+    $queryTokens = is_array($queryTokens) ? array_values(array_unique($queryTokens)) : [];
+
+    $normalizeCategory = static function (string $value) use ($normalize): string {
+        $value = $normalize($value);
+        if ($value === '') {
+            return '';
+        }
+        $value = str_replace(['ё'], ['е'], $value);
+        if (str_contains($value, 'колод')) {
+            return 'tormoznye_kolodki';
+        }
+        if (str_contains($value, 'диск')) {
+            return 'tormoznye_diski';
+        }
+        if (str_contains($value, 'систем')) {
+            return 'tormoznye_sistemy';
+        }
+        return '';
+    };
+
+    $queryCategoryCode = $normalizeCategory($normalizedQuery);
+
+    $getMarkToken = static function (array $item) use ($normalize): string {
+        $path = (string)($item['CONTEXT_SECTION_PATH'] ?? '');
+        if ($path === '') {
+            $detailUrl = (string)($item['DETAIL_PAGE_URL'] ?? '');
+            if ($detailUrl !== '') {
+                $path = (string)parse_url($detailUrl, PHP_URL_PATH);
+            }
+        }
+        $path = trim($path, '/');
+        if ($path === '') {
+            return '';
+        }
+
+        $parts = array_values(array_filter(explode('/', $path), 'strlen'));
+        $count = count($parts);
+        if ($count === 0) {
+            return '';
+        }
+
+        $markIndex = max(0, $count - 3);
+        $markSlug = (string)($parts[$markIndex] ?? '');
+        if ($markSlug === '') {
+            return '';
+        }
+
+        $categorySlug = ($count >= 4) ? (string)($parts[$count - 4] ?? '') : '';
+        if ($categorySlug !== '' && strncmp($markSlug, $categorySlug . '_', strlen($categorySlug) + 1) === 0) {
+            $markSlug = substr($markSlug, strlen($categorySlug) + 1);
+        }
+
+        $markSlug = preg_replace('/[^0-9a-zа-я]+/iu', '', $markSlug);
+        return $normalize($markSlug);
+    };
+
+    $getItemCategoryCode = static function (array $item) use ($normalize, $normalizeCategory): string {
+        $propertyValue = '';
+        if (!empty($item['PROPERTIES']['PRODUCT_CATEGORY']['VALUE'])) {
+            $propertyValue = (string)$item['PROPERTIES']['PRODUCT_CATEGORY']['VALUE'];
+        } elseif (!empty($item['DISPLAY_PROPERTIES']['PRODUCT_CATEGORY']['VALUE'])) {
+            $propertyValue = (string)$item['DISPLAY_PROPERTIES']['PRODUCT_CATEGORY']['VALUE'];
+        }
+
+        if ($propertyValue !== '') {
+            return $normalizeCategory($propertyValue);
+        }
+
+        $contextPath = (string)($item['CONTEXT_SECTION_PATH'] ?? '');
+        if ($contextPath === '') {
+            $detailUrl = (string)($item['DETAIL_PAGE_URL'] ?? '');
+            if ($detailUrl !== '') {
+                $contextPath = (string)parse_url($detailUrl, PHP_URL_PATH);
+            }
+        }
+
+        $contextPath = trim($contextPath, '/');
+        if ($contextPath !== '') {
+            $parts = array_values(array_filter(explode('/', $contextPath), 'strlen'));
+            if ($parts !== []) {
+                $first = (string)($parts[0] ?? '');
+                if ($first === 'catalog' && isset($parts[1])) {
+                    $first = (string)$parts[1];
+                }
+                if ($first !== '') {
+                    return $normalize($first);
+                }
+            }
+        }
+
+        return '';
+    };
+
+    $allMarkTokens = [];
+    $itemMarkTokens = [];
+    $itemCategoryCodes = [];
+    foreach ($items as $index => $item) {
+        $markToken = $getMarkToken($item);
+        if ($markToken === '') {
+            continue;
+        }
+        $allMarkTokens[$markToken] = true;
+        $itemMarkTokens[$index] = $markToken;
+
+        if ($queryCategoryCode !== '') {
+            $itemCategoryCodes[$index] = $getItemCategoryCode($item);
+        }
+    }
+
+    $matchedMarks = [];
+    foreach ($queryTokens as $token) {
+        if (isset($allMarkTokens[$token])) {
+            $matchedMarks[$token] = true;
+        }
+    }
+
+    if ($matchedMarks !== []) {
+        $filteredItems = [];
+        foreach ($items as $index => $item) {
+            $markToken = $itemMarkTokens[$index] ?? '';
+            if ($markToken !== '' && isset($matchedMarks[$markToken])) {
+                $filteredItems[] = $item;
+            }
+        }
+        $arResult['ITEMS'] = $filteredItems;
+        $items = $filteredItems;
+    }
+
+    if ($queryCategoryCode !== '' && $items !== []) {
+        $filteredItems = [];
+        foreach ($items as $index => $item) {
+            $itemCategoryCode = $itemCategoryCodes[$index] ?? $getItemCategoryCode($item);
+            if ($itemCategoryCode !== '' && $itemCategoryCode === $queryCategoryCode) {
+                $filteredItems[] = $item;
+            }
+        }
+        $arResult['ITEMS'] = $filteredItems;
+        $items = $filteredItems;
+    }
+}
+
 // Debug log of search context (kept for production diagnostics).
 $logPayload = [
     'timestamp' => date('c'),

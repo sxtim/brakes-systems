@@ -12,10 +12,13 @@ function brakes_1c_catalog_parse_run(array $options = []): array
     $iblockId = (int)($options['iblockId'] ?? 1);
     $reactivate = (bool)($options['reactivate'] ?? false);
     $syncOemNumbers = (bool)($options['syncOemNumbers'] ?? true);
+    $syncCategoryProperty = (bool)($options['syncCategoryProperty'] ?? true);
     $logPath = (string)($options['logPath'] ?? ($_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log'));
     $logPrefix = (string)($options['logPrefix'] ?? 'cron');
     $oemPropertyCode = (string)($options['oemPropertyCode'] ?? 'OEM_NUMBERS');
     $oemPropertyName = (string)($options['oemPropertyName'] ?? 'Оригинальные номера');
+    $categoryPropertyCode = (string)($options['categoryPropertyCode'] ?? 'PRODUCT_CATEGORY');
+    $categoryPropertyName = (string)($options['categoryPropertyName'] ?? 'Категория товара');
 
     if (!defined('B_PROLOG_INCLUDED')) {
         require_once $_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/prolog_before.php';
@@ -119,6 +122,44 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         }
     };
 
+    $ensureCategoryProperty = static function (int $iblockId, string $code, string $name): void {
+        $existing = CIBlockProperty::GetList([], ['IBLOCK_ID' => $iblockId, '=CODE' => $code])->Fetch();
+        if (!$existing) {
+            $fields = [
+                'NAME' => $name,
+                'ACTIVE' => 'Y',
+                'SORT' => 500,
+                'CODE' => $code,
+                'XML_ID' => $code,
+                'PROPERTY_TYPE' => 'S',
+                'IBLOCK_ID' => $iblockId,
+                'MULTIPLE' => 'N',
+                'FILTRABLE' => 'N',
+                'SEARCHABLE' => 'Y',
+            ];
+
+            $ibp = new CIBlockProperty();
+            $propertyId = (int)$ibp->Add($fields);
+            if ($propertyId <= 0) {
+                $error = method_exists($ibp, 'LAST_ERROR') ? (string)$ibp->LAST_ERROR : 'Unknown error';
+                throw new RuntimeException('Failed to create property ' . $code . ': ' . $error);
+            }
+            return;
+        }
+
+        $updates = [];
+        if (empty($existing['XML_ID'])) {
+            $updates['XML_ID'] = $code;
+        }
+        if (($existing['SEARCHABLE'] ?? 'N') !== 'Y') {
+            $updates['SEARCHABLE'] = 'Y';
+        }
+        if ($updates) {
+            $ibp = new CIBlockProperty();
+            $ibp->Update((int)$existing['ID'], $updates);
+        }
+    };
+
     $extractCrossNumbers = static function (string $raw): array {
         $result = [];
         foreach (array_values(array_filter(array_map('trim', explode(';', $raw)), 'strlen')) as $pair) {
@@ -137,6 +178,9 @@ function brakes_1c_catalog_parse_run(array $options = []): array
 
     if ($syncOemNumbers) {
         $ensureOemProperty($iblockId, $oemPropertyCode, $oemPropertyName);
+    }
+    if ($syncCategoryProperty) {
+        $ensureCategoryProperty($iblockId, $categoryPropertyCode, $categoryPropertyName);
     }
 
     $warnings = [];
@@ -442,6 +486,10 @@ function brakes_1c_catalog_parse_run(array $options = []): array
     $oemSkippedMissingCross = 0;
     $oemSkippedUnchanged = 0;
     $oemErrors = 0;
+    $categoryUpdated = 0;
+    $categorySkippedEmpty = 0;
+    $categorySkippedUnchanged = 0;
+    $categoryErrors = 0;
 
     while ($data = $rsData->fetch()) {
         $elementId = (int)$data['ID'];
@@ -480,6 +528,50 @@ function brakes_1c_catalog_parse_run(array $options = []): array
             }
         }
         $category = $normalizeCategory($categoryTrait);
+
+        if ($syncCategoryProperty) {
+            $categoryValue = $category['code'] === 'other' ? '' : (string)$category['name'];
+            try {
+                $existingValue = '';
+                $existingRes = CIBlockElement::GetProperty(
+                    $iblockId,
+                    $elementId,
+                    ['sort' => 'asc'],
+                    ['CODE' => $categoryPropertyCode]
+                );
+                while ($p = $existingRes->Fetch()) {
+                    $val = trim((string)($p['VALUE'] ?? ''));
+                    if ($val !== '') {
+                        $existingValue = $val;
+                        break;
+                    }
+                }
+
+                if ($categoryValue === '') {
+                    if ($existingValue === '') {
+                        $categorySkippedEmpty++;
+                    } else {
+                        CIBlockElement::SetPropertyValuesEx(
+                            $elementId,
+                            $iblockId,
+                            [$categoryPropertyCode => false]
+                        );
+                        $categoryUpdated++;
+                    }
+                } elseif ($existingValue === $categoryValue) {
+                    $categorySkippedUnchanged++;
+                } else {
+                    CIBlockElement::SetPropertyValuesEx(
+                        $elementId,
+                        $iblockId,
+                        [$categoryPropertyCode => $categoryValue]
+                    );
+                    $categoryUpdated++;
+                }
+            } catch (\Throwable $exception) {
+                $categoryErrors++;
+            }
+        }
 
         if ($syncOemNumbers) {
             if ($crossRaw === null || $crossRaw === '') {
@@ -731,6 +823,11 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         . ' oem_skipped_no_cross=' . $oemSkippedMissingCross
         . ' oem_skipped_unchanged=' . $oemSkippedUnchanged
         . ' oem_errors=' . $oemErrors
+        . ' category_enabled=' . ($syncCategoryProperty ? '1' : '0')
+        . ' category_updated=' . $categoryUpdated
+        . ' category_skipped_empty=' . $categorySkippedEmpty
+        . ' category_skipped_unchanged=' . $categorySkippedUnchanged
+        . ' category_errors=' . $categoryErrors
         . ' warnings=' . count($warnings)
         . PHP_EOL
         . implode(PHP_EOL, $elementSectionsLog)
@@ -776,6 +873,14 @@ function brakes_1c_catalog_parse_run(array $options = []): array
             'skippedMissingCross' => $oemSkippedMissingCross,
             'skippedUnchanged' => $oemSkippedUnchanged,
             'errors' => $oemErrors,
+        ],
+        'category' => [
+            'enabled' => $syncCategoryProperty,
+            'propertyCode' => $categoryPropertyCode,
+            'updated' => $categoryUpdated,
+            'skippedEmpty' => $categorySkippedEmpty,
+            'skippedUnchanged' => $categorySkippedUnchanged,
+            'errors' => $categoryErrors,
         ],
     ];
 }
