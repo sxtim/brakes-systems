@@ -659,6 +659,29 @@
   flex: 0 0 1.25rem;
 }
 
+.main-cataloge__status {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.main-cataloge__status-text {
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.main-cataloge__status--in .main-cataloge__status-text {
+  color: #2FB644;
+}
+
+.main-cataloge__status--order .main-cataloge__status-text {
+  color: #FEBF49;
+}
+
+.main-cataloge__status[title] {
+  cursor: help;
+}
+
 .main-cataloge__price {
   text-align: center;
   margin-bottom: 0.75rem;

@@ -19,12 +19,32 @@ if ($categoryCode === '') {
     }
 }
 
+$manufacturerCode = '';
+$manufacturerCandidates = ['MANUFACTURER', 'CML2_MANUFACTURER'];
+foreach ($manufacturerCandidates as $candidate) {
+    foreach ($arResult['ITEMS'] as $filterItem) {
+        if (($filterItem['CODE'] ?? '') !== $candidate) {
+            continue;
+        }
+        if (!empty($filterItem['VALUES']) && is_array($filterItem['VALUES'])) {
+            $manufacturerCode = $candidate;
+            break 2;
+        }
+    }
+}
+
 // Smart filter fields matrix (v1):
 // - systems: keep as is
 // - pads/discs: only manufacturer + installation axis
 $allowedCodesByCategory = [
-    'tormoznye_kolodki' => ['CML2_MANUFACTURER', 'INSTALLATION_AXIS'],
-    'tormoznye_diski' => ['CML2_MANUFACTURER', 'INSTALLATION_AXIS'],
+    'tormoznye_kolodki' => [
+        $manufacturerCode !== '' ? $manufacturerCode : 'CML2_MANUFACTURER',
+        'INSTALLATION_AXIS',
+    ],
+    'tormoznye_diski' => [
+        $manufacturerCode !== '' ? $manufacturerCode : 'CML2_MANUFACTURER',
+        'INSTALLATION_AXIS',
+    ],
 ];
 $allowedCodes = $allowedCodesByCategory[$categoryCode] ?? null;
 
@@ -46,6 +66,12 @@ $skipCodes = [
     // "Артикул" используем как отдельное текстовое поле art_number сверху.
     'CML2_ARTICLE',
 ];
+
+if ($manufacturerCode === 'MANUFACTURER') {
+    $skipCodes[] = 'CML2_MANUFACTURER';
+} elseif ($manufacturerCode === 'CML2_MANUFACTURER') {
+    $skipCodes[] = 'MANUFACTURER';
+}
 ?>
 <aside class="aside" data-fls-dynamic=".main__inner, 1199.98, 2">
     <form action="<?= $arParams['CUSTOM_FOLDER'] ?: $arResult["FORM_ACTION"] ?>" method="get"

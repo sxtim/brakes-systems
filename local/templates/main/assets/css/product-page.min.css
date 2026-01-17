@@ -753,6 +753,9 @@ body:not(.lg-from-hash)
 .main-details__status-item.active {
 	display: block;
 }
+.main-details__status-item[title] {
+	cursor: help;
+}
 
 .main-details__status-text {
 	font-weight: 700;

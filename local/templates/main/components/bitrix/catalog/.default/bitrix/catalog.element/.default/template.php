@@ -153,8 +153,9 @@ if ($favoritePriceFormatted === null && !empty($optionsAttrPayload)) {
 
 $basePriceValue = null;
 $basePriceCurrency = 'RUB';
+$catalogModuleLoaded = Loader::includeModule('catalog');
 
-if (Loader::includeModule('catalog')) {
+if ($catalogModuleLoaded) {
     $basePriceRow = \CPrice::GetBasePrice($arResult['ID']);
     if (is_array($basePriceRow) && isset($basePriceRow['PRICE'])) {
         $basePriceValue = (float)$basePriceRow['PRICE'];
@@ -175,6 +176,47 @@ $initialPriceFormatted = $basePriceFormatted;
 if (is_string($favoritePriceFormatted) && $favoritePriceFormatted !== '') {
     $initialPriceFormatted = htmlspecialcharsback($favoritePriceFormatted);
 }
+
+$formatQuantity = static function (float $value): string {
+    $rounded = round($value, 3);
+    $intValue = (int)$rounded;
+    if (abs($rounded - $intValue) < 0.0001) {
+        return (string)$intValue;
+    }
+    $formatted = number_format($rounded, 3, '.', '');
+    return rtrim(rtrim($formatted, '0'), '.');
+};
+
+$catalogQuantity = null;
+$catalogQuantityExact = false;
+$quantityCandidates = [
+    $arResult['CATALOG_QUANTITY'] ?? null,
+    $arResult['CATALOG']['QUANTITY'] ?? null,
+    $arResult['PRODUCT']['QUANTITY'] ?? null,
+];
+foreach ($quantityCandidates as $candidate) {
+    if ($candidate === null || $candidate === '') {
+        continue;
+    }
+    if (is_numeric($candidate)) {
+        $catalogQuantity = (float)$candidate;
+        $catalogQuantityExact = true;
+        break;
+    }
+}
+if ($catalogQuantity === null && $catalogModuleLoaded && class_exists('CCatalogProduct')) {
+    $catalogRow = \CCatalogProduct::GetByID((int)$arResult['ID']);
+    if (is_array($catalogRow) && isset($catalogRow['QUANTITY']) && $catalogRow['QUANTITY'] !== '') {
+        $catalogQuantity = (float)$catalogRow['QUANTITY'];
+        $catalogQuantityExact = true;
+    }
+}
+$catalogQuantityValue = $catalogQuantity ?? 0.0;
+$detailInStock = $catalogQuantityValue > 0;
+$detailStatusText = $detailInStock ? 'В наличии' : 'Под заказ';
+$detailStatusClass = $detailInStock ? 'status-item--1' : 'status-item--3';
+$detailQuantityLabel = $catalogQuantityExact ? $formatQuantity($catalogQuantityValue) : '';
+$detailStatusTooltip = $detailQuantityLabel !== '' ? 'Остаток: ' . $detailQuantityLabel : '';
 
 // Подготовка применяемости для вывода
 $splitValues = static function ($value): array {
@@ -546,7 +588,7 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
         </div>
         <div class="main__details main-details" data-fls-dynamic=".main__overlay, 1199.98" data-fls-like-product="<?=$arResult['ID']?>"<?php if ($contextSectionId > 0) { ?> data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>>
             <div data-fls-dynamic=".main__media, 1199.98, 0" class="main-details__status">
-                <div class="main-details__status-item status-item--1 active">
+                <div class="main-details__status-item status-item--1<?=$detailInStock ? ' active' : ''?>"<?php if ($detailInStock && $detailStatusTooltip !== '') { ?> title="<?=htmlspecialcharsbx($detailStatusTooltip)?>"<?php } ?><?php if ($detailInStock && $detailQuantityLabel !== '') { ?> data-stock-qty="<?=htmlspecialcharsbx($detailQuantityLabel)?>"<?php } ?>>
                     <img class="main-details__status-icon" src="<?=SITE_TEMPLATE_PATH?>/assets/img/status-1.svg" alt="Image">
                     <span class="main-details__status-text">В наличии</span>
                 </div>
@@ -554,7 +596,7 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
                     <img class="main-details__status-icon" src="<?=SITE_TEMPLATE_PATH?>/assets/img/status-2.svg" alt="Image">
                     <span class="main-details__status-text">Нет в наличии</span>
                 </div>
-                <div class="main-details__status-item status-item--3">
+                <div class="main-details__status-item status-item--3<?=$detailInStock ? '' : ' active'?>"<?php if (!$detailInStock && $detailStatusTooltip !== '') { ?> title="<?=htmlspecialcharsbx($detailStatusTooltip)?>"<?php } ?><?php if (!$detailInStock && $detailQuantityLabel !== '') { ?> data-stock-qty="<?=htmlspecialcharsbx($detailQuantityLabel)?>"<?php } ?>>
                     <img class="main-details__status-icon" src="<?=SITE_TEMPLATE_PATH?>/assets/img/status-3.svg" alt="Image">
                     <span class="main-details__status-text">Под заказ</span>
                 </div>

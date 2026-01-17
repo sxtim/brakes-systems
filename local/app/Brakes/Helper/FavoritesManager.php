@@ -264,6 +264,27 @@ class FavoritesManager
             return [];
         }
 
+        $catalogData = [];
+        if (class_exists('CCatalogProduct')) {
+            $catalogRes = \CCatalogProduct::GetList(
+                [],
+                ['@ID' => $ids],
+                false,
+                false,
+                ['ID', 'QUANTITY', 'AVAILABLE']
+            );
+            while ($row = $catalogRes->Fetch()) {
+                $rowId = (int)($row['ID'] ?? 0);
+                if ($rowId <= 0) {
+                    continue;
+                }
+                $catalogData[$rowId] = [
+                    'QUANTITY' => isset($row['QUANTITY']) ? (float)$row['QUANTITY'] : null,
+                    'AVAILABLE' => $row['AVAILABLE'] ?? null,
+                ];
+            }
+        }
+
         $select = [
             'ID',
             'IBLOCK_ID',
@@ -365,6 +386,7 @@ class FavoritesManager
 
             $pictureSrc = is_array($pictureData) ? (string)($pictureData['src'] ?? '') : '';
 
+            $catalogRow = $catalogData[$id] ?? [];
             $elements[$id] = [
                 'FIELDS' => $fields,
                 'PROPERTIES' => $properties,
@@ -375,6 +397,8 @@ class FavoritesManager
                 'IMAGE' => $pictureData,
                 'DETAILS' => $details,
                 'COLORS' => $colors,
+                'CATALOG_QUANTITY' => $catalogRow['QUANTITY'] ?? null,
+                'CATALOG_AVAILABLE' => $catalogRow['AVAILABLE'] ?? null,
             ];
         }
 
@@ -440,6 +464,8 @@ class FavoritesManager
                 'CONTEXT' => $context,
                 'CONTEXT_LABEL' => $contextLabel,
                 'CONTEXT_URL' => $contextUrlWithKey,
+                'CATALOG_QUANTITY' => $base['CATALOG_QUANTITY'] ?? null,
+                'CATALOG_AVAILABLE' => $base['CATALOG_AVAILABLE'] ?? null,
                 'CARD' => [
                     'ID' => $productId,
                     'NAME' => $base['NAME'] ?? '',
@@ -447,6 +473,8 @@ class FavoritesManager
                     'CONTEXT_LABEL' => $contextLabel,
                     'CONTEXT_SECTION_ID' => isset($context['section_id']) ? (int)$context['section_id'] : 0,
                     'CONTEXT_SECTION_PATH' => $contextPath,
+                    'CATALOG_QUANTITY' => $base['CATALOG_QUANTITY'] ?? null,
+                    'CATALOG_AVAILABLE' => $base['CATALOG_AVAILABLE'] ?? null,
                     'IMAGE' => $base['IMAGE'] ?? null,
                     'IMG' => $base['PICTURE'] ?? '',
                     'DETAILS' => $base['DETAILS'] ?? [],

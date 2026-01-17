@@ -177,6 +177,46 @@ if (!$isSystemsCard) {
     $optionsAttrForActions = '{}';
 }
 
+$formatQuantity = static function (float $value): string {
+    $rounded = round($value, 3);
+    $intValue = (int)$rounded;
+    if (abs($rounded - $intValue) < 0.0001) {
+        return (string)$intValue;
+    }
+    $formatted = number_format($rounded, 3, '.', '');
+    return rtrim(rtrim($formatted, '0'), '.');
+};
+
+$cardQuantity = null;
+$cardQuantityExact = false;
+$quantityCandidates = [
+    $card['CATALOG_QUANTITY'] ?? null,
+    $card['CATALOG']['QUANTITY'] ?? null,
+    $card['PRODUCT']['QUANTITY'] ?? null,
+];
+foreach ($quantityCandidates as $candidate) {
+    if ($candidate === null || $candidate === '') {
+        continue;
+    }
+    if (is_numeric($candidate)) {
+        $cardQuantity = (float)$candidate;
+        $cardQuantityExact = true;
+        break;
+    }
+}
+if ($cardQuantity === null) {
+    $availableFlag = $card['CATALOG_AVAILABLE'] ?? $card['AVAILABLE'] ?? null;
+    if ($availableFlag !== null) {
+        $cardQuantity = ($availableFlag === 'Y' || $availableFlag === true || $availableFlag === 1) ? 1.0 : 0.0;
+    }
+}
+$cardQuantityValue = $cardQuantity ?? 0.0;
+$cardInStock = $cardQuantityValue > 0;
+$cardStatusText = $cardInStock ? 'В наличии' : 'Под заказ';
+$cardStatusClass = $cardInStock ? 'main-cataloge__status--in' : 'main-cataloge__status--order';
+$cardQuantityLabel = $cardQuantityExact ? $formatQuantity($cardQuantityValue) : '';
+$cardStatusTooltip = $cardQuantityLabel !== '' ? 'Остаток: ' . $cardQuantityLabel : '';
+
 ?>
 <div class="main-cataloge__item" data-fls-like-product="<?=$id?>"<?php if ($favoriteKey !== '') { ?> data-favorite-key="<?=htmlspecialcharsbx($favoriteKey)?>"<?php } ?><?php if ($contextSectionId > 0) { ?> data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?><?php if ($contextLabel !== '') { ?> data-context-label="<?=htmlspecialcharsbx($contextLabel)?>"<?php } ?>>
     <a class="main-cataloge__picture" href="<?=htmlspecialcharsbx($detailUrl)?>">
@@ -306,6 +346,9 @@ if (!$isSystemsCard) {
                     </details>
                 </div>
             <?php } ?>
+            <div class="main-cataloge__status <?=$cardStatusClass?>"<?php if ($cardStatusTooltip !== '') { ?> title="<?=htmlspecialcharsbx($cardStatusTooltip)?>"<?php } ?><?php if ($cardQuantityLabel !== '') { ?> data-stock-qty="<?=htmlspecialcharsbx($cardQuantityLabel)?>"<?php } ?>>
+                <span class="main-cataloge__status-text"><?=htmlspecialcharsbx($cardStatusText)?></span>
+            </div>
             <div class="main-cataloge__price"><?=$priceHtml?></div>
 	            <div class="main-cataloge__bottom-controls">
                     <?php if ($actionsAllowed): ?>
