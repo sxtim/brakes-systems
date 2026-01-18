@@ -108,6 +108,9 @@ Array(
     "LIST_PROPERTY_CODE" => array(
         "NUMBER_PISTONS",
         "INSTALLATION_AXIS",
+        "LINK_PHOTO_FILE",
+        "LINK_PHOTO",
+        "MORE_PHOTO",
     ),
     "INCLUDE_SUBSECTIONS" => "Y",
     "LIST_META_KEYWORDS" => "UF_KEYWORDS",

@@ -38,6 +38,7 @@ require_once __DIR__ . '/include/events.php';
     'App\Brakes\Helper\Image' => '/local/app/Brakes/Helper/Image.php',
     'App\Brakes\Helper\ImageMigrator' => '/local/app/Brakes/Helper/ImageMigrator.php',
     'App\Brakes\Helper\FavoritesManager' => '/local/app/Brakes/Helper/FavoritesManager.php',
+    'App\Brakes\Helper\BasketManager' => '/local/app/Brakes/Helper/BasketManager.php',
     'App\Brakes\Auth\Sms' => '/local/app/Brakes/Auth/Sms.php',
     'App\Brakes\Pricing\Configurator' => '/local/app/Brakes/Pricing/Configurator.php',
 ]);

@@ -3,6 +3,7 @@
 use \Bitrix\Main\Page\Asset;
 use \Bitrix\Main\Web\Json;
 use App\Brakes\Helper\FavoritesManager;
+use App\Brakes\Helper\BasketManager;
 
 if ( ! defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
@@ -21,11 +22,12 @@ Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/popup.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/cataloge.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/product-options.js"></script>');
-if ($APPLICATION->GetCurPage(false) === '/basket/') { // Подключаем скрипт только на странице корзины
+if (in_array($APPLICATION->GetCurPage(false), ['/basket/', '/personal/cart/'], true)) { // Подключаем скрипт только на странице корзины
    Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/basket-page.min.js"></script>');
 }
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/auth.js?v='.time().'"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/favorites.js?v='.time().'"></script>');
+Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/basket-actions.js?v='.time().'"></script>');
 
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/app.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/slider.min.css');
@@ -38,6 +40,8 @@ Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/login-page.min.css'
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/basket-page.min.css');
 
 $favoritesClientState = FavoritesManager::getClientState();
+$basketSummary = BasketManager::getSummary();
+$basketCount = $basketSummary['count'] ?? 0;
 Asset::getInstance()->addString('<script>window.__FAVORITES__ = ' . Json::encode($favoritesClientState) . '</script>', true);
 Asset::getInstance()->addString("<script>BX.message({'ERROR_FAVORITES_TOGGLE': 'Не удалось обновить избранное.'});</script>", true);
 
@@ -214,12 +218,12 @@ Asset::getInstance()->addString(
                         <span data-fls-like="" class="header__like-quantity cart__quantity"><?= $favoritesClientState['count'] ?></span>
                     </div>
                     <a class="header__cart header__controls-btn"
-                       href="/basket/">
+                       href="/personal/cart/">
                         <svg class="header__cart-icon header__controls-icon">
                             <use xlink:href="<?= SITE_TEMPLATE_PATH ?>/assets/img/spritemap.svg#sprite-cart"></use>
                         </svg>
                         <span class="header__cart-quantity cart__quantity"
-                              data-fls-addtocart="">0</span>
+                              data-fls-addtocart=""><?= htmlspecialcharsbx((string)$basketCount) ?></span>
                     </a>
                 </div>
                 <div class="header__info">

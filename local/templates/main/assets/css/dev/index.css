@@ -336,6 +336,8 @@
 .main-cataloge__body.view-list .main-cataloge__item {
   display: grid;
   grid-template-columns: 1fr 1fr minmax(23.4375rem, 1fr);
+  width: 100%;
+  max-width: none;
   height: 100%;
   background-color: #F2F2F2;
 }
@@ -351,6 +353,8 @@
 
 .main-cataloge__picture {
   position: relative;
+  display: block;
+  width: 100%;
   padding-bottom: 68%;
   overflow: hidden;
 }
