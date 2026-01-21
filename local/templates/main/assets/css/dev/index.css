@@ -341,6 +341,10 @@
   height: 100%;
   background-color: #F2F2F2;
 }
+.main-cataloge__body.view-list .main-cataloge__picture {
+  min-width: 18rem;
+  justify-self: stretch;
+}
 .main-cataloge__body.view-list .main-cataloge__info,
 .main-cataloge__body.view-list .main-cataloge__item-content {
   padding: 0.75rem;

@@ -28,6 +28,9 @@ $colors = isset($card['COLORS']) && is_array($card['COLORS']) ? $card['COLORS'] 
 $buy = isset($card['BUY']) && is_array($card['BUY']) ? $card['BUY'] : [];
 $selectedOptions = isset($card['SELECTED']) && is_array($card['SELECTED']) ? $card['SELECTED'] : [];
 $favoritesView = !empty($card['FAVORITES_VIEW']);
+$basketView = !empty($card['BASKET_VIEW']);
+$basketItemId = isset($card['BASKET_ID']) ? (int)$card['BASKET_ID'] : 0;
+$basketQuantity = isset($card['BASKET_QUANTITY']) ? (float)$card['BASKET_QUANTITY'] : 0.0;
 $expandFeatures = !empty($card['EXPAND_FEATURES']);
 $contextLabel = isset($card['CONTEXT_LABEL']) ? (string)$card['CONTEXT_LABEL'] : '';
 $contextParts = [];
@@ -187,6 +190,9 @@ $formatQuantity = static function (float $value): string {
     return rtrim(rtrim($formatted, '0'), '.');
 };
 
+$basketQuantityValue = $basketQuantity > 0 ? $basketQuantity : 1.0;
+$basketQuantityDisplay = $formatQuantity($basketQuantityValue);
+
 $cardQuantity = null;
 $cardQuantityExact = false;
 $quantityCandidates = [
@@ -241,7 +247,7 @@ $cardStatusTooltip = $cardQuantityLabel !== '' ? 'Остаток: ' . $cardQuant
                         <?=htmlspecialcharsbx($name)?>
                     </a>
                 </h3>
-                <?php if ($favoritesView || $canShowLike): ?>
+                <?php if (($favoritesView || $canShowLike) && !$basketView): ?>
                     <button
                         data-fls-like-image=""
                         data-fls-like-button=""
@@ -350,8 +356,17 @@ $cardStatusTooltip = $cardQuantityLabel !== '' ? 'Остаток: ' . $cardQuant
                 <span class="main-cataloge__status-text"><?=htmlspecialcharsbx($cardStatusText)?></span>
             </div>
             <div class="main-cataloge__price"><?=$priceHtml?></div>
-	            <div class="main-cataloge__bottom-controls">
-                    <?php if ($actionsAllowed): ?>
+	            <div class="main-cataloge__bottom-controls<?= $basketView ? ' main-cataloge__bottom-controls--basket' : '' ?>">
+                    <?php if ($basketView): ?>
+                        <div class="basket__counter quantity-selector" data-basket-item-id="<?= $basketItemId ?>">
+                            <input class="quantity-input" type="number" min="1" step="1" data-basket-qty value="<?= htmlspecialcharsbx($basketQuantityDisplay) ?>">
+                            <div class="basket__counter-controls">
+                                <button class="quantity-btn plus" type="button" data-basket-qty-step="1" aria-label="Увеличить количество"></button>
+                                <button class="quantity-btn minus" type="button" data-basket-qty-step="-1" aria-label="Уменьшить количество"></button>
+                            </div>
+                            <button class="basket__delete" type="button" data-basket-remove data-basket-item-id="<?= $basketItemId ?>" aria-label="Удалить из корзины"></button>
+                        </div>
+                    <?php elseif ($actionsAllowed): ?>
                         <?php if (!$favoritesView): ?>
                             <button
                                 data-fls-popup-link="speedBuy"
