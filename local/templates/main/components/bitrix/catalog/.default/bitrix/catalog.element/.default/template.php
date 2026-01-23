@@ -163,14 +163,14 @@ if ($catalogModuleLoaded) {
     }
 }
 
-if ($basePriceValue === null && isset($arResult['ITEM_PRICES'][0]['PRICE'])) {
-    $basePriceValue = (float)$arResult['ITEM_PRICES'][0]['PRICE'];
+if ($basePriceValue === null && isset($arResult['ITEM_PRICES'][0]['BASE_PRICE'])) {
+    $basePriceValue = (float)$arResult['ITEM_PRICES'][0]['BASE_PRICE'];
     $basePriceCurrency = $arResult['ITEM_PRICES'][0]['CURRENCY'] ?? 'RUB';
 }
 
 $basePriceFormatted = $basePriceValue !== null
     ? number_format($basePriceValue, 0, '.', ' ') . ' ' . htmlspecialcharsbx($basePriceCurrency)
-    : '';
+    : '0';
 
 $initialPriceFormatted = $basePriceFormatted;
 if (is_string($favoritePriceFormatted) && $favoritePriceFormatted !== '') {

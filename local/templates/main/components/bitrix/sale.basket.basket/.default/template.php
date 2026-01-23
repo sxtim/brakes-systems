@@ -4,6 +4,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 }
 
 use App\Brakes\Helper\FavoritesManager;
+use Bitrix\Main\Loader;
 
 $items = $arResult['ITEMS']['AnDelCanBuy'] ?? [];
 if ($items === []) {
@@ -106,6 +107,17 @@ $buildDetailUrl = static function (string $detailUrl, string $contextPath): stri
     return '/catalog/' . $contextPath . '/' . $elementCode . '/';
 };
 
+$formatCurrency = static function (float $value, string $currency): string {
+    if (Loader::includeModule('currency') && class_exists(\CCurrencyLang::class)) {
+        return \CCurrencyLang::CurrencyFormat($value, $currency, true);
+    }
+
+    return number_format($value, 0, '.', ' ') . ' ' . $currency;
+};
+
+$basketTotalValue = 0.0;
+$basketTotalCurrency = null;
+
 $keys = [];
 $metaByKey = [];
 
@@ -189,14 +201,42 @@ if (class_exists(FavoritesManager::class) && $keys !== []) {
                             $card['CONTEXT_LABEL'] = (string)$meta['context_label'];
                             $card['CONTEXT_SECTION_ID'] = (int)$meta['context_section_id'];
                             $card['CONTEXT_SECTION_PATH'] = (string)$meta['context_path'];
-                            $card['PRICE_HTML'] = (string)($item['SUM_FORMATED'] ?? $item['PRICE_FORMATED'] ?? '');
+                            $basketQuantity = (float)($item['QUANTITY'] ?? 1);
+                            $priceData = null;
+                            if (class_exists(FavoritesManager::class)) {
+                                try {
+                                    $priceData = FavoritesManager::getProductPrice($productId, $meta['options'] ?? []);
+                                } catch (\Throwable $exception) {
+                                    $priceData = null;
+                                }
+                            }
+                            $priceValue = 0.0;
+                            $priceCurrency = 'RUB';
+                            if (is_array($priceData)) {
+                                if (isset($priceData['DISCOUNT_PRICE']) && is_numeric($priceData['DISCOUNT_PRICE'])) {
+                                    $priceValue = (float)$priceData['DISCOUNT_PRICE'];
+                                } elseif (isset($priceData['BASE_PRICE']) && is_numeric($priceData['BASE_PRICE'])) {
+                                    $priceValue = (float)$priceData['BASE_PRICE'];
+                                }
+                                if (isset($priceData['CURRENCY']) && is_string($priceData['CURRENCY'])) {
+                                    $priceCurrency = $priceData['CURRENCY'];
+                                }
+                            }
+                            $lineTotalValue = $priceValue * $basketQuantity;
+                            $lineTotalFormatted = $formatCurrency($lineTotalValue, $priceCurrency);
+                            $basketTotalValue += $lineTotalValue;
+                            if ($basketTotalCurrency === null) {
+                                $basketTotalCurrency = $priceCurrency;
+                            }
+
+                            $card['PRICE_HTML'] = $lineTotalFormatted;
                             $card['OPTIONS_ATTR'] = (string)$meta['options_attr'];
                             $card['SELECTED'] = $meta['selected'];
                             $card['EXPAND_FEATURES'] = true;
                             $card['FAVORITES_VIEW'] = true;
                             $card['BASKET_VIEW'] = true;
                             $card['BASKET_ID'] = (int)($item['ID'] ?? 0);
-                            $card['BASKET_QUANTITY'] = (float)($item['QUANTITY'] ?? 1);
+                            $card['BASKET_QUANTITY'] = $basketQuantity;
 
                             ?>
                             <div class="basket__item basket__item--card" data-basket-item-id="<?= (int)($item['ID'] ?? 0) ?>">
@@ -210,10 +250,10 @@ if (class_exists(FavoritesManager::class) && $keys !== []) {
                         <?php } ?>
                     </div>
                     <div class="basket__summary">
-                        <div class="basket__summary-row">
-                            <span>Итого:</span>
-                            <strong><?= htmlspecialcharsbx($arResult['allSum_FORMATED'] ?? '') ?></strong>
-                        </div>
+            <div class="basket__summary-row">
+                <span>Итого:</span>
+            <strong><?= $formatCurrency($basketTotalValue, $basketTotalCurrency ?? 'RUB') ?></strong>
+            </div>
                         <a class="basket__summary-action" href="<?= htmlspecialcharsbx($arParams['PATH_TO_ORDER'] ?? '/personal/order/') ?>">
                             Оформить заказ
                         </a>

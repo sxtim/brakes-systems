@@ -61,8 +61,8 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 $priceFormatted = htmlspecialcharsback($item['FAVORITES_PRICE']['PRICE_FORMATTED']);
             }
             if ($priceFormatted === null) {
-                $basePrice = isset($item['ITEM_PRICES'][0]['PRICE']) ? (float)$item['ITEM_PRICES'][0]['PRICE'] : 0.0;
-                $priceFormatted = number_format($basePrice, 0, '.', ' ') . ' ₽';
+                $basePriceFormatted = (string)($item['BASE_PRICE_FORMATTED'] ?? '');
+                $priceFormatted = $basePriceFormatted !== '' ? $basePriceFormatted : '0';
             }
 
             $optionsJson = $item['FAVORITES_OPTIONS_JSON'] ?? '{}';

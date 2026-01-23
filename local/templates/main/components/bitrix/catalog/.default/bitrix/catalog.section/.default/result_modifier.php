@@ -277,6 +277,70 @@ if ($iblockId > 0 && !empty($arResult['ITEMS']) && class_exists('CIBlockElement'
     }
 }
 
+$formatCurrency = static function (float $value, string $currency): string {
+    if (\Bitrix\Main\Loader::includeModule('currency') && class_exists(\CCurrencyLang::class)) {
+        return \CCurrencyLang::CurrencyFormat($value, $currency, true);
+    }
+
+    return number_format($value, 0, '.', ' ') . ' ' . $currency;
+};
+
+if (!empty($arResult['ITEMS']) && \Bitrix\Main\Loader::includeModule('catalog')) {
+    $baseGroup = \CCatalogGroup::GetBaseGroup();
+    if (is_array($baseGroup) && isset($baseGroup['ID'])) {
+        $itemIds = [];
+        foreach ($arResult['ITEMS'] as $item) {
+            $itemId = (int)($item['ID'] ?? 0);
+            if ($itemId > 0) {
+                $itemIds[$itemId] = true;
+            }
+        }
+
+        if ($itemIds !== []) {
+            $priceMap = [];
+            $res = \CPrice::GetList(
+                [],
+                [
+                    'CATALOG_GROUP_ID' => (int)$baseGroup['ID'],
+                    '@PRODUCT_ID' => array_keys($itemIds),
+                ],
+                false,
+                false,
+                ['PRODUCT_ID', 'PRICE', 'CURRENCY']
+            );
+            while ($row = $res->Fetch()) {
+                $productId = (int)($row['PRODUCT_ID'] ?? 0);
+                if ($productId <= 0 || !isset($row['PRICE'])) {
+                    continue;
+                }
+                $priceMap[$productId] = [
+                    'PRICE' => (float)$row['PRICE'],
+                    'CURRENCY' => $row['CURRENCY'] ?? 'RUB',
+                ];
+            }
+
+            foreach ($arResult['ITEMS'] as $index => $item) {
+                $itemId = (int)($item['ID'] ?? 0);
+                if ($itemId <= 0) {
+                    continue;
+                }
+                if (!isset($priceMap[$itemId])) {
+                    $arResult['ITEMS'][$index]['BASE_PRICE_VALUE'] = 0.0;
+                    $arResult['ITEMS'][$index]['BASE_PRICE_CURRENCY'] = 'RUB';
+                    $arResult['ITEMS'][$index]['BASE_PRICE_FORMATTED'] = '0';
+                    continue;
+                }
+
+                $value = $priceMap[$itemId]['PRICE'];
+                $currency = (string)$priceMap[$itemId]['CURRENCY'];
+                $arResult['ITEMS'][$index]['BASE_PRICE_VALUE'] = $value;
+                $arResult['ITEMS'][$index]['BASE_PRICE_CURRENCY'] = $currency;
+                $arResult['ITEMS'][$index]['BASE_PRICE_FORMATTED'] = $formatCurrency($value, $currency);
+            }
+        }
+    }
+}
+
 if (class_exists(FavoritesManager::class) && !empty($arResult['ITEMS'])) {
     $state = FavoritesManager::getClientState();
     $favoritesMeta = (!empty($state['meta']) && is_array($state['meta'])) ? $state['meta'] : [];

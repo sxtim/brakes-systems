@@ -1493,22 +1493,22 @@ class FavoritesManager
             $price['DISCOUNT_PRICE'] = (float)$price['BASE_PRICE'];
         }
 
-        $formatted = $price['PRICE_FORMATTED'] ?? null;
+        $value = null;
+        if (isset($price['DISCOUNT_PRICE']) && is_numeric($price['DISCOUNT_PRICE'])) {
+            $value = (float)$price['DISCOUNT_PRICE'];
+        } elseif (isset($price['BASE_PRICE']) && is_numeric($price['BASE_PRICE'])) {
+            $value = (float)$price['BASE_PRICE'];
+        }
 
-        if (!is_string($formatted) || trim($formatted) === '') {
-            $value = null;
+        if ($value === null || abs($value) < 0.0001) {
+            $price['PRICE_FORMATTED'] = '0';
+            return $price;
+        }
 
-            if (isset($price['DISCOUNT_PRICE']) && is_numeric($price['DISCOUNT_PRICE'])) {
-                $value = (float)$price['DISCOUNT_PRICE'];
-            } elseif (isset($price['BASE_PRICE']) && is_numeric($price['BASE_PRICE'])) {
-                $value = (float)$price['BASE_PRICE'];
-            }
-
-            if ($value !== null) {
-                $price['PRICE_FORMATTED'] = number_format($value, 0, '.', ' ') . ' ' . $currency;
-            } else {
-                $price['PRICE_FORMATTED'] = '';
-            }
+        if (Loader::includeModule('currency') && class_exists(\CCurrencyLang::class)) {
+            $price['PRICE_FORMATTED'] = \CCurrencyLang::CurrencyFormat($value, $currency, true);
+        } else {
+            $price['PRICE_FORMATTED'] = number_format($value, 0, '.', ' ') . ' ' . $currency;
         }
 
         return $price;
