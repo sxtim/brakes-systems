@@ -5,7 +5,6 @@ const OPTION_DEFAULTS = Object.freeze({
   two_piece_disc_construction: "no",
   rotor_pattern: "perforation",
   caliper_logo: "standard",
-  electric_handbrake: "no",
 });
 const LOG_ENABLED = false;
 
@@ -56,9 +55,6 @@ function resolveOptionKey(featureTitle) {
   if (featureTitle.includes("Лого на суппорт")) {
     return "caliper_logo";
   }
-  if (featureTitle.includes("Электроручник")) {
-    return "electric_handbrake";
-  }
 
   return null;
 }
@@ -102,13 +98,6 @@ function findOptionNode(optionItems, key, value) {
       return pick((text) => text.includes("особ") || text.includes("логотип"));
     }
     return pick((text) => text.includes("стандарт") || text.includes("станд"));
-  }
-
-  if (key === "electric_handbrake") {
-    if (valueLower === "yes") {
-      return pick((text) => text.includes("да")) || null;
-    }
-    return pick((text) => text.includes("нет")) || null;
   }
 
   return null;
@@ -183,6 +172,9 @@ function normalizeOptionsPayload(value) {
       return;
     }
     const normalizedKey = toLowerString(key);
+    if (normalizedKey === "electric_handbrake") {
+      return;
+    }
     let rawValue = payload[key];
     if (rawValue && typeof rawValue === "object" && Object.prototype.hasOwnProperty.call(rawValue, "value")) {
       rawValue = rawValue.value;
@@ -417,7 +409,6 @@ function handleOneClickBuyButtons(root = document) {
         two_piece_disc_construction: "Двусоставная конструкция диска",
         rotor_pattern: "Тип ротора",
         caliper_logo: "Лого на суппорт",
-        electric_handbrake: "Электроручник",
       };
       const valueMap = {
         no: "Нет",
@@ -574,9 +565,6 @@ function collectSelectedOptions(scope, defaults = null, reason = "manual") {
       } else {
         englishValue = "standard";
       }
-    } else if (featureTitle.includes("Электроручник")) {
-      englishKey = "electric_handbrake";
-      englishValue = optionText.toLowerCase() === "да" ? "yes" : "no";
     }
 
     if (englishKey) {

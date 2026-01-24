@@ -1216,6 +1216,9 @@ class FavoritesManager
             if (!is_string($key) || $key === '') {
                 continue;
             }
+            if ($key === 'electric_handbrake') {
+                continue;
+            }
 
             $normalizedKey = self::lowercase($key);
 
@@ -1428,6 +1431,9 @@ class FavoritesManager
             }
 
             $normalizedKey = self::lowercase((string)$key);
+            if ($normalizedKey === 'electric_handbrake') {
+                continue;
+            }
             $normalized[$normalizedKey] = self::lowercase((string)$value);
         }
 

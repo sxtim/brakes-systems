@@ -88,7 +88,6 @@ $optionLabelMap = [
     'two_piece_disc_construction' => 'Двусоставная конструкция диска:',
     'rotor_pattern' => 'Тип ротора:',
     'caliper_logo' => 'Лого на суппорт:',
-    'electric_handbrake' => 'Электроручник:',
 ];
 
 $optionValueMap = [
@@ -109,10 +108,6 @@ $optionValueMap = [
         'special' => 'Особый логотип',
         'custom_logo' => 'Особый логотип',
         'custom' => 'Особый логотип',
-    ],
-    'electric_handbrake' => [
-        'yes' => 'Да',
-        'no' => 'Нет',
     ],
 ];
 
@@ -139,7 +134,6 @@ if (!in_array($rotorSelected, $allowedRotorValues, true)) {
     $rotorSelected = 'perforation';
 }
 $caliperSelected = $hasSelectedValues ? ($selectedOptions['caliper_logo'] ?? 'standard') : null;
-$handbrakeSelected = $hasSelectedValues ? ($selectedOptions['electric_handbrake'] ?? 'no') : 'no';
 
 $twoPieceYesSelected = $twoPieceSelected === 'yes';
 $twoPieceNoSelected = $twoPieceSelected !== null && $twoPieceSelected !== 'yes';
@@ -148,8 +142,6 @@ $rotorSlotsSelected = $rotorSelected === 'slots';
 $rotorComboSelected = in_array($rotorSelected, ['perforation_slots', 'perforation_and_notches'], true);
 $caliperStandardSelected = $caliperSelected === 'standard';
 $caliperSpecialSelected = in_array($caliperSelected, ['special', 'custom_logo'], true);
-$handbrakeYesSelected = $handbrakeSelected === 'yes';
-$handbrakeNoSelected = $handbrakeSelected !== null && $handbrakeSelected !== 'yes';
 $detailsOpenAttr = $expandFeatures ? ' open' : '';
 
 $fromParam = '';
@@ -341,13 +333,6 @@ $cardStatusTooltip = $cardQuantityLabel !== '' ? 'Остаток: ' . $cardQuant
                         <div class="main-cataloge__sublist спollers__body">
                             <div class="main-cataloge__sublist-item<?=$caliperStandardSelected ? ' selected' : ''?>">Стандартный</div>
                             <div class="main-cataloge__sublist-item<?=$caliperSpecialSelected ? ' selected' : ''?>">Особый логотип</div>
-                        </div>
-                    </details>
-                    <details class="spollers__item"<?=$detailsOpenAttr?>>
-                        <summary class="main-cataloge__feature-item спollers__title">Электроручник</summary>
-                        <div class="main-cataloge__sublist спollers__body">
-                            <div class="main-cataloge__sublist-item<?=$handbrakeYesSelected ? ' selected' : ''?>">Да</div>
-                            <div class="main-cataloge__sublist-item<?=$handbrakeNoSelected ? ' selected' : ''?>">Нет</div>
                         </div>
                     </details>
                 </div>

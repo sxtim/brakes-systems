@@ -60,6 +60,10 @@ $parseOptions = static function (string $optionsJson) use ($normalize): array {
             continue;
         }
         $normalizedKey = $normalize($key);
+        if ($normalizedKey === 'electric_handbrake') {
+            unset($options[$key]);
+            continue;
+        }
         if (is_array($value) && isset($value['value'])) {
             $value = $value['value'];
         }

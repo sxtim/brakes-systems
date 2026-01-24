@@ -11,7 +11,6 @@ $defaultSelectedOptions = [
     'two_piece_disc_construction' => 'no',
     'rotor_pattern' => 'perforation',
     'caliper_logo' => 'standard',
-    'electric_handbrake' => 'no',
 ];
 
 $favoriteSelectedOptions = $defaultSelectedOptions;
@@ -122,7 +121,6 @@ if (!in_array($rotorSelected, $allowedRotorValues, true)) {
     $rotorSelected = 'perforation';
 }
 $caliperSelected = $favoriteSelectedOptions['caliper_logo'];
-$handbrakeSelected = $favoriteSelectedOptions['electric_handbrake'];
 
 $twoPieceYesSelected = $twoPieceSelected === 'yes';
 $twoPieceNoSelected = $twoPieceSelected !== 'yes';
@@ -131,8 +129,6 @@ $rotorSlotsSelected = $rotorSelected === 'slots';
 $rotorComboSelected = in_array($rotorSelected, ['perforation_slots', 'perforation_and_notches'], true);
 $caliperStandardSelected = $caliperSelected === 'standard';
 $caliperSpecialSelected = in_array($caliperSelected, ['special', 'custom_logo', 'custom'], true);
-$handbrakeYesSelected = $handbrakeSelected === 'yes';
-$handbrakeNoSelected = $handbrakeSelected !== 'yes';
 
 $optionsAttrPayload = FavoritesManager::prepareOptionsPayload($favoriteSelectedOptions);
 $optionsAttrJson = !empty($optionsAttrPayload)
@@ -632,13 +628,6 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
                                 <div class="main-cataloge__sublist spollers__body">
                                     <div class="main-cataloge__sublist-item<?= $caliperStandardSelected ? ' selected' : '' ?>">Стандартный</div>
                                     <div class="main-cataloge__sublist-item<?= $caliperSpecialSelected ? ' selected' : '' ?>">Особый логотип</div>
-                                </div>
-                            </details>
-                            <details class="spollers__item">
-                                <summary class="main-details__feature-item spollers__title">Электроручник</summary>
-                                <div class="main-cataloge__sublist spollers__body">
-                                    <div class="main-cataloge__sublist-item<?= $handbrakeYesSelected ? ' selected' : '' ?>">Да</div>
-                                    <div class="main-cataloge__sublist-item<?= $handbrakeNoSelected ? ' selected' : '' ?>">Нет</div>
                                 </div>
                             </details>
                         </div>

@@ -15,7 +15,6 @@ class Configurator
         'two_piece_disc_construction' => 'two_piece_disc_construction',
         'rotor_pattern' => 'rotor_pattern',
         'caliper_logo' => 'caliper_logo',
-        'electric_handbrake' => 'electric_handbrake',
     ];
 
     private const MARKUP_RULES = [
@@ -24,9 +23,6 @@ class Configurator
         ],
         'caliper_logo' => [
             'special' => 5000.0,
-        ],
-        'electric_handbrake' => [
-            'yes' => 50000.0,
         ],
     ];
 
@@ -110,6 +106,9 @@ class Configurator
         $sum = 0.0;
 
         foreach ($rules as $code => $map) {
+            if ($code === 'electric_handbrake') {
+                continue;
+            }
             $value = $normalized[$code] ?? null;
             if ($value === null) {
                 continue;
