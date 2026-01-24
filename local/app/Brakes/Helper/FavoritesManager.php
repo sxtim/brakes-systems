@@ -291,6 +291,8 @@ class FavoritesManager
             'NAME',
             'CODE',
             'DETAIL_PAGE_URL',
+            'DETAIL_PICTURE',
+            'PREVIEW_PICTURE',
             'PROPERTY_LINK_PHOTO',
             'PROPERTY_LINK_PHOTO_FILE',
             'PROPERTY_CML2_ARTICLE',
@@ -301,6 +303,26 @@ class FavoritesManager
 
         $elements = [];
         $result = \CIBlockElement::GetList([], ['ID' => $ids], false, false, $select);
+        $makeFileItem = static function (int $fileId): ?array {
+            if ($fileId <= 0) {
+                return null;
+            }
+
+            $fileArray = \CFile::GetFileArray($fileId);
+            $src = is_array($fileArray) && !empty($fileArray['SRC'])
+                ? (string)$fileArray['SRC']
+                : (string)\CFile::GetPath($fileId);
+            if ($src === '') {
+                return null;
+            }
+
+            return [
+                'src' => $src,
+                'width' => (int)($fileArray['WIDTH'] ?? 0),
+                'height' => (int)($fileArray['HEIGHT'] ?? 0),
+                'cached' => false,
+            ];
+        };
 
         while ($element = $result->GetNextElement()) {
             $fields = $element->GetFields();
@@ -370,6 +392,38 @@ class FavoritesManager
             $fileId = $fileIds[0] ?? 0;
             if ($fileId > 0) {
                 $pictureData = Image::resizeByPreset($fileId, Image::PRESET_CATALOG_TILE);
+            }
+
+            if ($pictureData === null || empty($pictureData['src'])) {
+                $fallbackFileId = 0;
+                $detailPicture = $fields['DETAIL_PICTURE'] ?? null;
+                if (is_array($detailPicture) && isset($detailPicture['ID'])) {
+                    $fallbackFileId = (int)$detailPicture['ID'];
+                } elseif (is_scalar($detailPicture) && (int)$detailPicture > 0) {
+                    $fallbackFileId = (int)$detailPicture;
+                }
+
+                if ($fallbackFileId <= 0) {
+                    $morePhotoValues = $properties['MORE_PHOTO']['VALUE'] ?? null;
+                    if (is_array($morePhotoValues) && !empty($morePhotoValues)) {
+                        $fallbackFileId = (int)reset($morePhotoValues);
+                    } elseif (is_scalar($morePhotoValues) && (int)$morePhotoValues > 0) {
+                        $fallbackFileId = (int)$morePhotoValues;
+                    }
+                }
+
+                if ($fallbackFileId <= 0) {
+                    $previewPicture = $fields['PREVIEW_PICTURE'] ?? null;
+                    if (is_array($previewPicture) && isset($previewPicture['ID'])) {
+                        $fallbackFileId = (int)$previewPicture['ID'];
+                    } elseif (is_scalar($previewPicture) && (int)$previewPicture > 0) {
+                        $fallbackFileId = (int)$previewPicture;
+                    }
+                }
+
+                if ($fallbackFileId > 0) {
+                    $pictureData = $makeFileItem($fallbackFileId);
+                }
             }
 
             if ($pictureData === null || empty($pictureData['src'])) {
