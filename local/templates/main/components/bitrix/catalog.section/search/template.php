@@ -98,11 +98,6 @@ if ($query !== '' && $navString !== '') {
             </h1>
             <a class="search-page__catalog-link" href="/catalog/">Вернуться в каталог</a>
         </div>
-        <?php if (!$hasContextItems): ?>
-            <p class="main__catalog-prompt">
-                Чтобы купить/добавить в избранное/оформить «в 1 клик», сначала выберите автомобиль (поколение) в каталоге.
-            </p>
-        <?php endif; ?>
         <div class="main__cataloge main-cataloge">
             <?php if (!empty($items)): ?>
                 <div class="main-cataloge__body view-grid">
@@ -223,19 +218,8 @@ if ($query !== '' && $navString !== '') {
                 <div class="main-cataloge__empty">
                     <?php if ($query !== ''): ?>
                         <p>По запросу «<?= htmlspecialcharsbx($query) ?>» ничего не найдено.</p>
-                        <?php if (!empty($context['sample'])): ?>
-                            <ul class="main-cataloge__suggestions">
-                                <?php foreach ($context['sample'] as $sample): ?>
-                                    <li>
-                                        <a href="<?= htmlspecialcharsbx($sample['URL'] ?? '#') ?>">
-                                            <?= htmlspecialcharsbx($sample['TITLE'] ?? $sample['URL'] ?? '') ?>
-                                        </a>
-                                    </li>
-                                <?php endforeach; ?>
-                            </ul>
-                        <?php endif; ?>
                     <?php else: ?>
-                        <p>Введите поисковый запрос, чтобы найти товары.</p>
+                        <p>Ничего не найдено.</p>
                     <?php endif; ?>
                 </div>
             <?php endif; ?>

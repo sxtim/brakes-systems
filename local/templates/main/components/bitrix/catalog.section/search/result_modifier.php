@@ -100,7 +100,7 @@ if ($query !== '' && !empty($items) && is_array($items)) {
 
     $queryCategoryCode = $normalizeCategory($normalizedQuery);
 
-    $getMarkToken = static function (array $item) use ($normalize): string {
+    $getContextParts = static function (array $item): array {
         $path = (string)($item['CONTEXT_SECTION_PATH'] ?? '');
         if ($path === '') {
             $detailUrl = (string)($item['DETAIL_PAGE_URL'] ?? '');
@@ -110,28 +110,49 @@ if ($query !== '' && !empty($items) && is_array($items)) {
         }
         $path = trim($path, '/');
         if ($path === '') {
-            return '';
+            return [];
         }
 
         $parts = array_values(array_filter(explode('/', $path), 'strlen'));
+        if (isset($parts[0]) && $parts[0] === 'catalog') {
+            $parts = array_slice($parts, 1);
+        }
+        return $parts;
+    };
+
+    $getContextTokens = static function (array $item) use ($normalize, $getContextParts): array {
+        $parts = $getContextParts($item);
         $count = count($parts);
-        if ($count === 0) {
-            return '';
+        if ($count < 3) {
+            return ['mark' => '', 'model' => ''];
         }
 
-        $markIndex = max(0, $count - 3);
-        $markSlug = (string)($parts[$markIndex] ?? '');
-        if ($markSlug === '') {
-            return '';
-        }
-
+        $markSlug = (string)($parts[$count - 3] ?? '');
+        $modelSlug = (string)($parts[$count - 2] ?? '');
         $categorySlug = ($count >= 4) ? (string)($parts[$count - 4] ?? '') : '';
+
         if ($categorySlug !== '' && strncmp($markSlug, $categorySlug . '_', strlen($categorySlug) + 1) === 0) {
             $markSlug = substr($markSlug, strlen($categorySlug) + 1);
         }
 
+        $prefix = '';
+        if ($categorySlug !== '') {
+            $prefix = $categorySlug . '_';
+        }
+        if ($markSlug !== '') {
+            $prefix .= $markSlug . '_';
+        }
+        if ($prefix !== '' && strncmp($modelSlug, $prefix, strlen($prefix)) === 0) {
+            $modelSlug = substr($modelSlug, strlen($prefix));
+        }
+
         $markSlug = preg_replace('/[^0-9a-zа-я]+/iu', '', $markSlug);
-        return $normalize($markSlug);
+        $modelSlug = preg_replace('/[^0-9a-zа-я]+/iu', '', $modelSlug);
+
+        return [
+            'mark' => $normalize($markSlug),
+            'model' => $normalize($modelSlug),
+        ];
     };
 
     $getItemCategoryCode = static function (array $item) use ($normalize, $normalizeCategory): string {
@@ -172,15 +193,23 @@ if ($query !== '' && !empty($items) && is_array($items)) {
     };
 
     $allMarkTokens = [];
+    $allModelTokens = [];
     $itemMarkTokens = [];
+    $itemModelTokens = [];
     $itemCategoryCodes = [];
     foreach ($items as $index => $item) {
-        $markToken = $getMarkToken($item);
-        if ($markToken === '') {
-            continue;
+        $tokens = $getContextTokens($item);
+        $markToken = $tokens['mark'] ?? '';
+        $modelToken = $tokens['model'] ?? '';
+
+        if ($markToken !== '') {
+            $allMarkTokens[$markToken] = true;
+            $itemMarkTokens[$index] = $markToken;
         }
-        $allMarkTokens[$markToken] = true;
-        $itemMarkTokens[$index] = $markToken;
+        if ($modelToken !== '') {
+            $allModelTokens[$modelToken] = true;
+            $itemModelTokens[$index] = $modelToken;
+        }
 
         if ($queryCategoryCode !== '') {
             $itemCategoryCodes[$index] = $getItemCategoryCode($item);
@@ -188,17 +217,42 @@ if ($query !== '' && !empty($items) && is_array($items)) {
     }
 
     $matchedMarks = [];
+    $matchedModels = [];
     foreach ($queryTokens as $token) {
         if (isset($allMarkTokens[$token])) {
             $matchedMarks[$token] = true;
         }
+        if (isset($allModelTokens[$token])) {
+            $matchedModels[$token] = true;
+        }
     }
 
-    if ($matchedMarks !== []) {
+    if ($matchedMarks !== [] && $matchedModels !== []) {
+        $filteredItems = [];
+        foreach ($items as $index => $item) {
+            $markToken = $itemMarkTokens[$index] ?? '';
+            $modelToken = $itemModelTokens[$index] ?? '';
+            if ($markToken !== '' && $modelToken !== '' && isset($matchedMarks[$markToken]) && isset($matchedModels[$modelToken])) {
+                $filteredItems[] = $item;
+            }
+        }
+        $arResult['ITEMS'] = $filteredItems;
+        $items = $filteredItems;
+    } elseif ($matchedMarks !== []) {
         $filteredItems = [];
         foreach ($items as $index => $item) {
             $markToken = $itemMarkTokens[$index] ?? '';
             if ($markToken !== '' && isset($matchedMarks[$markToken])) {
+                $filteredItems[] = $item;
+            }
+        }
+        $arResult['ITEMS'] = $filteredItems;
+        $items = $filteredItems;
+    } elseif ($matchedModels !== []) {
+        $filteredItems = [];
+        foreach ($items as $index => $item) {
+            $modelToken = $itemModelTokens[$index] ?? '';
+            if ($modelToken !== '' && isset($matchedModels[$modelToken])) {
                 $filteredItems[] = $item;
             }
         }
