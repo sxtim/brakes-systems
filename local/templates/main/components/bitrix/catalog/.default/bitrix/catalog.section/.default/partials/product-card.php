@@ -85,7 +85,7 @@ if ($selectedOptions !== []) {
 }
 
 $optionLabelMap = [
-    'two_piece_disc_construction' => 'Двусоставная конструкция диска:',
+    'two_piece_disc_construction' => 'Плавающая конструкция диска',
     'rotor_pattern' => 'Тип ротора:',
     'caliper_logo' => 'Лого на суппорт:',
 ];
@@ -314,7 +314,7 @@ $cardStatusTooltip = $cardQuantityLabel !== '' ? 'Остаток: ' . $cardQuant
 	            <?php } elseif (!$hideFeatures && $isSystemsCard) { ?>
 	                <div data-fls-spollers="" data-fls-spollers-one="" class="main-cataloge__feature spollers">
 	                    <details class="spollers__item main-cataloge__feature-item--big"<?=$detailsOpenAttr?>>
-	                        <summary class="main-cataloge__feature-item спollers__title">Двусоставная конструкция диска:</summary>
+	                        <summary class="main-cataloge__feature-item спollers__title">Плавающая конструкция диска</summary>
 	                        <div class="main-cataloge__sublist спollers__body">
                             <div class="main-cataloge__sublist-item<?=$twoPieceYesSelected ? ' selected' : ''?>">Да</div>
                             <div class="main-cataloge__sublist-item<?=$twoPieceNoSelected ? ' selected' : ''?>">Нет</div>

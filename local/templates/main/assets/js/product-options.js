@@ -46,7 +46,10 @@ function resolveOptionKey(featureTitle) {
     return null;
   }
 
-  if (featureTitle.includes("Двусоставная конструкция диска")) {
+  if (
+    featureTitle.includes("Плавающая конструкция диска")
+    || featureTitle.includes("Двусоставная конструкция диска")
+  ) {
     return "two_piece_disc_construction";
   }
   if (featureTitle.includes("Тип ротора") || featureTitle.includes("Рисунок ротора")) {
@@ -406,7 +409,7 @@ function handleOneClickBuyButtons(root = document) {
 
       let optionsString = "";
       const keyMap = {
-        two_piece_disc_construction: "Двусоставная конструкция диска",
+        two_piece_disc_construction: "Плавающая конструкция диска",
         rotor_pattern: "Тип ротора",
         caliper_logo: "Лого на суппорт",
       };
@@ -544,7 +547,10 @@ function collectSelectedOptions(scope, defaults = null, reason = "manual") {
     let englishKey = featureTitle;
     let englishValue = optionText;
 
-    if (featureTitle.includes("Двусоставная конструкция диска")) {
+    if (
+      featureTitle.includes("Плавающая конструкция диска")
+      || featureTitle.includes("Двусоставная конструкция диска")
+    ) {
       englishKey = "two_piece_disc_construction";
       englishValue = optionText.toLowerCase() === "да" ? "yes" : "no";
     } else if (featureTitle.includes("Тип ротора") || featureTitle.includes("Рисунок ротора")) {

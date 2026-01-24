@@ -609,7 +609,7 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
                     <div class="main-cataloge__info">
                         <div data-fls-spollers="" data-fls-spollers-one="" class="main-cataloge__feature spollers">
                             <details class="spollers__item">
-                                <summary class="main-details__feature-item main-cataloge__feature-item--big spollers__title">Двусоставная конструкция диска:</summary>
+                                <summary class="main-details__feature-item main-cataloge__feature-item--big spollers__title">Плавающая конструкция диска</summary>
                                 <div class="main-cataloge__sublist spollers__body">
                                     <div class="main-cataloge__sublist-item<?= $twoPieceYesSelected ? ' selected' : '' ?>">Да</div>
                                     <div class="main-cataloge__sublist-item<?= $twoPieceNoSelected ? ' selected' : '' ?>">Нет</div>
