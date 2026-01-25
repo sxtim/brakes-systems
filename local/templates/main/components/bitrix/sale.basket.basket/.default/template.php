@@ -40,10 +40,52 @@ $extractProps = static function (array $props): array {
     return $map;
 };
 
-$parseOptions = static function (string $optionsJson) use ($normalize): array {
+$extractPropsAll = static function ($propsAll): array {
+    if (!is_array($propsAll)) {
+        return [];
+    }
+
+    $map = [];
+    foreach ($propsAll as $code => $value) {
+        if (!is_string($code) || $code === '') {
+            continue;
+        }
+        if (is_array($value)) {
+            if (array_key_exists('VALUE', $value)) {
+                $value = $value['VALUE'];
+            } elseif (array_key_exists('value', $value)) {
+                $value = $value['value'];
+            }
+        }
+        if ($value === null) {
+            continue;
+        }
+        $map[$code] = $value;
+    }
+    return $map;
+};
+
+$parseOptions = static function ($optionsRaw) use ($normalize): array {
     $raw = [];
-    if ($optionsJson !== '') {
-        $decoded = json_decode($optionsJson, true);
+
+    if (is_array($optionsRaw)) {
+        if (isset($optionsRaw['options']) && is_array($optionsRaw['options'])) {
+            $raw = $optionsRaw;
+        } elseif (count($optionsRaw) === 1) {
+            $first = reset($optionsRaw);
+            if (is_string($first)) {
+                $optionsRaw = $first;
+            } else {
+                $raw = $optionsRaw;
+            }
+        } else {
+            $raw = $optionsRaw;
+        }
+    }
+
+    if ($raw === [] && is_string($optionsRaw) && $optionsRaw !== '') {
+        $decodedRaw = htmlspecialcharsback($optionsRaw);
+        $decoded = json_decode($decodedRaw, true);
         if (is_array($decoded)) {
             $raw = $decoded;
         }
@@ -54,6 +96,11 @@ $parseOptions = static function (string $optionsJson) use ($normalize): array {
         $options = $options['options'];
     }
 
+    if (class_exists(FavoritesManager::class)) {
+        $normalized = FavoritesManager::prepareOptionsPayload($options, false);
+        $selected = $normalized;
+        $options = $normalized;
+    } else {
     $selected = [];
     foreach ($options as $key => $value) {
         if (!is_string($key) || $key === '') {
@@ -71,6 +118,7 @@ $parseOptions = static function (string $optionsJson) use ($normalize): array {
             continue;
         }
         $selected[$normalizedKey] = $normalize((string)$value);
+    }
     }
 
     $optionsAttr = '{}';
@@ -132,11 +180,20 @@ foreach ($items as $item) {
     }
 
     $propsMap = $extractProps($item['PROPS'] ?? []);
+    $propsAllMap = $extractPropsAll($item['PROPS_ALL'] ?? []);
+    if ($propsAllMap !== []) {
+        foreach ($propsAllMap as $code => $value) {
+            if (!array_key_exists($code, $propsMap) || $propsMap[$code] === '' || $propsMap[$code] === null) {
+                $propsMap[$code] = $value;
+            }
+        }
+    }
     $contextSectionId = (int)($propsMap['CONTEXT_SECTION_ID'] ?? 0);
     $contextPath = trim((string)($propsMap['CONTEXT_PATH'] ?? ''), " \t\n\r\0\x0B/");
     $contextLabel = (string)($propsMap['CONTEXT_LABEL'] ?? '');
 
-    [$options, $selected, $optionsAttr] = $parseOptions((string)($propsMap['OPTIONS_JSON'] ?? ''));
+    $optionsRaw = $propsAllMap['OPTIONS_JSON'] ?? ($propsMap['OPTIONS_JSON'] ?? ($propsMap['OPTIONS'] ?? ''));
+    [$options, $selected, $optionsAttr] = $parseOptions($optionsRaw);
 
     $context = [];
     if ($contextSectionId > 0) {
@@ -206,25 +263,38 @@ if (class_exists(FavoritesManager::class) && $keys !== []) {
                             $card['CONTEXT_SECTION_ID'] = (int)$meta['context_section_id'];
                             $card['CONTEXT_SECTION_PATH'] = (string)$meta['context_path'];
                             $basketQuantity = (float)($item['QUANTITY'] ?? 1);
-                            $priceData = null;
-                            if (class_exists(FavoritesManager::class)) {
-                                try {
-                                    $priceData = FavoritesManager::getProductPrice($productId, $meta['options'] ?? []);
-                                } catch (\Throwable $exception) {
-                                    $priceData = null;
+                            $priceValue = null;
+                            $priceCurrency = null;
+                            if (isset($item['PRICE']) && is_numeric($item['PRICE'])) {
+                                $priceValue = (float)$item['PRICE'];
+                                $priceCurrency = is_string($item['CURRENCY'] ?? null) ? (string)$item['CURRENCY'] : 'RUB';
+                            } else {
+                                $priceData = null;
+                                if (class_exists(FavoritesManager::class)) {
+                                    try {
+                                        $priceData = FavoritesManager::getProductPrice($productId, $meta['options'] ?? []);
+                                    } catch (\Throwable $exception) {
+                                        $priceData = null;
+                                    }
+                                }
+
+                                if (is_array($priceData)) {
+                                    if (isset($priceData['DISCOUNT_PRICE']) && is_numeric($priceData['DISCOUNT_PRICE'])) {
+                                        $priceValue = (float)$priceData['DISCOUNT_PRICE'];
+                                    } elseif (isset($priceData['BASE_PRICE']) && is_numeric($priceData['BASE_PRICE'])) {
+                                        $priceValue = (float)$priceData['BASE_PRICE'];
+                                    }
+                                    if (isset($priceData['CURRENCY']) && is_string($priceData['CURRENCY'])) {
+                                        $priceCurrency = $priceData['CURRENCY'];
+                                    }
                                 }
                             }
-                            $priceValue = 0.0;
-                            $priceCurrency = 'RUB';
-                            if (is_array($priceData)) {
-                                if (isset($priceData['DISCOUNT_PRICE']) && is_numeric($priceData['DISCOUNT_PRICE'])) {
-                                    $priceValue = (float)$priceData['DISCOUNT_PRICE'];
-                                } elseif (isset($priceData['BASE_PRICE']) && is_numeric($priceData['BASE_PRICE'])) {
-                                    $priceValue = (float)$priceData['BASE_PRICE'];
-                                }
-                                if (isset($priceData['CURRENCY']) && is_string($priceData['CURRENCY'])) {
-                                    $priceCurrency = $priceData['CURRENCY'];
-                                }
+
+                            if ($priceValue === null) {
+                                $priceValue = 0.0;
+                            }
+                            if ($priceCurrency === null || $priceCurrency === '') {
+                                $priceCurrency = 'RUB';
                             }
                             $lineTotalValue = $priceValue * $basketQuantity;
                             $lineTotalFormatted = $formatCurrency($lineTotalValue, $priceCurrency);

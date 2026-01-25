@@ -47,6 +47,29 @@ AddEventHandler('main', 'OnBeforeProlog', static function (): void {
     \App\Brakes\Helper\FavoritesManager::handleProlog();
 });
 
+AddEventHandler('sale', 'OnSaleBasketItemBeforeSaved', static function ($event): void {
+    $item = null;
+
+    if ($event instanceof \Bitrix\Main\Event) {
+        $item = $event->getParameter('ENTITY');
+        if (!$item instanceof \Bitrix\Sale\BasketItemBase) {
+            $item = $event->getParameter('ITEM');
+        }
+    } elseif (is_array($event)) {
+        $item = $event['ENTITY'] ?? $event['ITEM'] ?? null;
+    }
+
+    if (!$item instanceof \Bitrix\Sale\BasketItemBase) {
+        return;
+    }
+
+    try {
+        \App\Brakes\Helper\BasketManager::syncCustomPrice($item);
+    } catch (\Throwable $exception) {
+        // ignore pricing errors to avoid blocking basket save
+    }
+});
+
 // После завершения 1С-импорта пересобираем привязки и активируем используемые ветки разделов.
 AddEventHandler('catalog', 'OnCompleteCatalogImport1C', static function (array $params = [], string $absFileName = ''): void {
     if (!\Bitrix\Main\Loader::includeModule('iblock')) {

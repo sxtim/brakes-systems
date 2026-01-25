@@ -7,6 +7,7 @@ const OPTION_DEFAULTS = Object.freeze({
   caliper_logo: "standard",
 });
 const LOG_ENABLED = false;
+const BASKET_PATHS = ["/personal/cart", "/basket"];
 
 function logDebug(...args) {
   if (!LOG_ENABLED) {
@@ -27,6 +28,18 @@ function logError(...args) {
     return;
   }
   console.error(...args);
+}
+
+function isBasketPage() {
+  const path = window.location && window.location.pathname ? window.location.pathname : "";
+  return BASKET_PATHS.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+}
+
+function isBasketScope(node) {
+  if (!(node instanceof Element)) {
+    return false;
+  }
+  return Boolean(node.closest(".basket__products, .basket__item--card, .basket__body"));
 }
 
 function toLowerString(value) {
@@ -326,6 +339,10 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  if (isBasketPage()) {
+    return;
+  }
+
   event.preventDefault();
   event.stopPropagation();
 
@@ -345,6 +362,11 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+  if (isBasketPage()) {
+    handleOneClickBuyButtons();
+    return;
+  }
+
   const catalogItems = new Set();
   document.querySelectorAll(".main-cataloge__item").forEach((card) => {
     if (catalogItems.has(card)) {
@@ -471,6 +493,17 @@ document.addEventListener("favorites:popupHtmlUpdated", (event) => {
 });
 
 function updateProductOptions(productContainer, reason = "manual") {
+  if (isBasketPage()) {
+    return {
+      productId: 0,
+      favoriteKey: "",
+      context: null,
+      options: {},
+      reason,
+      timestamp: Date.now(),
+    };
+  }
+
   const scope = productContainer instanceof Element ? productContainer : document;
   const productId = getProductIdFromContainer(scope);
   const context = extractContextFromContainer(scope);
@@ -682,6 +715,10 @@ function schedulePriceUpdate(productContainer, optionsData, reason = "manual") {
   }
 
   if (!targetContainer) {
+    return;
+  }
+
+  if (isBasketPage() || isBasketScope(targetContainer)) {
     return;
   }
 

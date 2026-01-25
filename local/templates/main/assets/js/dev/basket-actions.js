@@ -75,6 +75,18 @@ function resolveOptions(node) {
   }
 }
 
+function stringifyOptions(options) {
+  if (!options || typeof options !== "object") {
+    return null;
+  }
+
+  try {
+    return JSON.stringify(options);
+  } catch (error) {
+    return null;
+  }
+}
+
 function updateBasketCounter(summary) {
   if (!summary || typeof summary.count === "undefined") {
     return;
@@ -118,6 +130,7 @@ function handleAddToBasket(event) {
   const quantity = 1;
   const context = resolveContext(button);
   const options = resolveOptions(button) || null;
+  const optionsPayload = options ? stringifyOptions(options) : null;
 
   button.classList.add("is-processing");
 
@@ -127,7 +140,7 @@ function handleAddToBasket(event) {
       productId,
       quantity,
       context,
-      options,
+      options: optionsPayload,
     },
   }).then((response) => {
     const data = response?.data;

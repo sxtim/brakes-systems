@@ -4,6 +4,7 @@ namespace App\Brakes\Helper;
 
 use Bitrix\Main\Loader;
 use Bitrix\Main\SystemException;
+use App\Brakes\Pricing\Configurator;
 use Bitrix\Sale\Basket;
 use Bitrix\Sale\BasketItemBase;
 use Bitrix\Sale\Fuser;
@@ -28,6 +29,7 @@ class BasketManager
         if ($existing) {
             $existing->setField('QUANTITY', $existing->getQuantity() + $quantity);
             self::applyContextProperties($existing, $contextData);
+            self::syncCustomPrice($existing, $options);
             $basket->save();
 
             return self::getSummaryFromBasket($basket);
@@ -46,6 +48,7 @@ class BasketManager
 
         $item->setFields($fields);
         self::applyContextProperties($item, $contextData);
+        self::syncCustomPrice($item, $options);
         $basket->save();
 
         return self::getSummaryFromBasket($basket);
@@ -273,8 +276,129 @@ class BasketManager
             ];
         }
 
-        foreach ($properties as $property) {
-            $collection->setProperty($property);
+        if ($properties !== []) {
+            $collection->setProperty($properties);
         }
+    }
+
+    public static function syncCustomPrice(BasketItemBase $item, ?array $options = null): void
+    {
+        $productId = (int)$item->getProductId();
+        if ($productId <= 0) {
+            return;
+        }
+
+        $optionsMap = $options ?? self::extractOptionsFromItem($item);
+        $normalized = self::normalizeOptionsMap($optionsMap);
+        if ($normalized === []) {
+            return;
+        }
+
+        $priceData = self::calculatePriceData($productId, $normalized);
+        if ($priceData === null) {
+            return;
+        }
+
+        $price = (float)$priceData['PRICE'];
+        $currency = (string)$priceData['CURRENCY'];
+        if ($price <= 0.0 || $currency === '') {
+            return;
+        }
+
+        $currentPrice = (float)$item->getField('PRICE');
+        $currentCurrency = (string)$item->getField('CURRENCY');
+        if (
+            $item->getField('CUSTOM_PRICE') === 'Y'
+            && abs($currentPrice - $price) < 0.0001
+            && $currentCurrency === $currency
+        ) {
+            return;
+        }
+
+        $item->setField('CUSTOM_PRICE', 'Y');
+        $item->setField('PRICE', $price);
+        $item->setField('CURRENCY', $currency);
+    }
+
+    private static function extractOptionsFromItem(BasketItemBase $item): array
+    {
+        $collection = $item->getPropertyCollection();
+        if (!$collection) {
+            return [];
+        }
+
+        $prop = $collection->getItemByCode(self::OPTION_PROP_CODE);
+        if (!$prop) {
+            return [];
+        }
+
+        $raw = (string)$prop->getValue();
+        if ($raw === '') {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private static function normalizeOptionsMap(array $options): array
+    {
+        if (isset($options['options']) && is_array($options['options'])) {
+            $options = $options['options'];
+        }
+
+        $normalized = [];
+        foreach ($options as $key => $value) {
+            if (!is_string($key) || $key === '') {
+                continue;
+            }
+            if (is_array($value)) {
+                $value = $value['value'] ?? $value['VALUE'] ?? reset($value);
+            }
+            if (!is_scalar($value)) {
+                continue;
+            }
+            $normalized[$key] = $value;
+        }
+
+        return $normalized;
+    }
+
+    private static function calculatePriceData(int $productId, array $options): ?array
+    {
+        try {
+            $price = Configurator::calculate($productId, ['options' => $options]);
+            if (is_array($price)) {
+                $value = null;
+                if (isset($price['DISCOUNT_PRICE']) && is_numeric($price['DISCOUNT_PRICE'])) {
+                    $value = (float)$price['DISCOUNT_PRICE'];
+                } elseif (isset($price['BASE_PRICE']) && is_numeric($price['BASE_PRICE'])) {
+                    $value = (float)$price['BASE_PRICE'];
+                }
+                $currency = isset($price['CURRENCY']) ? (string)$price['CURRENCY'] : 'RUB';
+                if ($value !== null) {
+                    return [
+                        'PRICE' => $value,
+                        'CURRENCY' => $currency,
+                    ];
+                }
+            }
+        } catch (\Throwable $exception) {
+            // fallback to base price
+        }
+
+        if (!Loader::includeModule('catalog')) {
+            return null;
+        }
+
+        $base = \CPrice::GetBasePrice($productId);
+        if (is_array($base) && isset($base['PRICE'])) {
+            return [
+                'PRICE' => (float)$base['PRICE'],
+                'CURRENCY' => isset($base['CURRENCY']) ? (string)$base['CURRENCY'] : 'RUB',
+            ];
+        }
+
+        return null;
     }
 }
