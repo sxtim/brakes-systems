@@ -29,6 +29,7 @@ class BasketManager
         if ($existing) {
             $existing->setField('QUANTITY', $existing->getQuantity() + $quantity);
             self::applyContextProperties($existing, $contextData);
+            self::applyDisplayProperties($existing, $options);
             self::syncCustomPrice($existing, $options);
             $basket->save();
 
@@ -48,6 +49,7 @@ class BasketManager
 
         $item->setFields($fields);
         self::applyContextProperties($item, $contextData);
+        self::applyDisplayProperties($item, $options);
         self::syncCustomPrice($item, $options);
         $basket->save();
 
@@ -279,6 +281,179 @@ class BasketManager
         if ($properties !== []) {
             $collection->setProperty($properties);
         }
+    }
+
+    private static function applyDisplayProperties(BasketItemBase $item, array $options = []): void
+    {
+        $collection = $item->getPropertyCollection();
+        if (!$collection) {
+            return;
+        }
+
+        $productId = (int)$item->getProductId();
+        if ($productId <= 0) {
+            return;
+        }
+
+        if ($options === []) {
+            $options = self::extractOptionsFromItem($item);
+        }
+
+        $properties = self::buildDisplayProperties($productId, $options);
+        if ($properties === []) {
+            return;
+        }
+
+        $collection->setProperty($properties);
+    }
+
+    private static function buildDisplayProperties(int $productId, array $options): array
+    {
+        $properties = [];
+
+        $article = self::getProductPropertyValue($productId, 'CML2_ARTICLE');
+        if ($article !== '') {
+            $properties[] = [
+                'NAME' => 'Артикул',
+                'CODE' => 'DISPLAY_ARTICLE',
+                'VALUE' => $article,
+                'SORT' => 200,
+            ];
+        }
+
+        $manufacturer = self::getProductPropertyValue($productId, 'MANUFACTURER');
+        if ($manufacturer === '') {
+            $manufacturer = self::getProductPropertyValue($productId, 'CML2_MANUFACTURER');
+        }
+        if ($manufacturer !== '') {
+            $properties[] = [
+                'NAME' => 'Производитель',
+                'CODE' => 'DISPLAY_MANUFACTURER',
+                'VALUE' => $manufacturer,
+                'SORT' => 210,
+            ];
+        }
+
+        $pistons = self::getProductPropertyValue($productId, 'NUMBER_PISTONS');
+        if ($pistons !== '') {
+            $properties[] = [
+                'NAME' => 'Кол-во поршней',
+                'CODE' => 'DISPLAY_PISTONS',
+                'VALUE' => $pistons,
+                'SORT' => 220,
+            ];
+        }
+
+        $axis = self::getProductPropertyValue($productId, 'INSTALLATION_AXIS');
+        if ($axis !== '') {
+            $properties[] = [
+                'NAME' => 'Ось',
+                'CODE' => 'DISPLAY_AXIS',
+                'VALUE' => $axis,
+                'SORT' => 230,
+            ];
+        }
+
+        $optionsMap = self::normalizeOptionsMap($options);
+        if ($optionsMap !== []) {
+            $twoPiece = isset($optionsMap['two_piece_disc_construction'])
+                ? (string)$optionsMap['two_piece_disc_construction']
+                : '';
+            if ($twoPiece !== '') {
+                $properties[] = [
+                    'NAME' => 'Плавающая конструкция диска',
+                    'CODE' => 'DISPLAY_TWO_PIECE',
+                    'VALUE' => $twoPiece === 'yes' ? 'Да' : 'Нет',
+                    'SORT' => 240,
+                ];
+            }
+
+            $rotor = isset($optionsMap['rotor_pattern']) ? (string)$optionsMap['rotor_pattern'] : '';
+            $rotorValue = self::formatRotorPattern($rotor);
+            if ($rotorValue !== '') {
+                $properties[] = [
+                    'NAME' => 'Тип ротора',
+                    'CODE' => 'DISPLAY_ROTOR',
+                    'VALUE' => $rotorValue,
+                    'SORT' => 250,
+                ];
+            }
+
+            $caliper = isset($optionsMap['caliper_logo']) ? (string)$optionsMap['caliper_logo'] : '';
+            $caliperValue = self::formatCaliperLogo($caliper);
+            if ($caliperValue !== '') {
+                $properties[] = [
+                    'NAME' => 'Лого на суппорт',
+                    'CODE' => 'DISPLAY_CALIPER_LOGO',
+                    'VALUE' => $caliperValue,
+                    'SORT' => 260,
+                ];
+            }
+        }
+
+        return $properties;
+    }
+
+    private static function getProductPropertyValue(int $productId, string $code): string
+    {
+        if (!Loader::includeModule('iblock')) {
+            return '';
+        }
+
+        $value = '';
+        $propertyIterator = \CIBlockElement::GetProperty(
+            self::IBLOCK_ID,
+            $productId,
+            ['SORT' => 'ASC', 'ID' => 'ASC'],
+            ['CODE' => $code]
+        );
+
+        while ($property = $propertyIterator->Fetch()) {
+            $propValue = $property['VALUE'] ?? '';
+            if (is_array($propValue)) {
+                $propValue = implode(', ', array_filter($propValue, 'strlen'));
+            }
+            if (!is_string($propValue)) {
+                $propValue = (string)$propValue;
+            }
+            $propValue = trim($propValue);
+            if ($propValue !== '') {
+                $value = $propValue;
+                break;
+            }
+        }
+
+        return $value;
+    }
+
+    private static function formatRotorPattern(string $value): string
+    {
+        $value = strtolower(trim($value));
+        if ($value === '') {
+            return '';
+        }
+
+        return match ($value) {
+            'none' => 'Нет',
+            'perforation' => 'Перфорация',
+            'slots', 'notches' => 'Насечки',
+            'perforation_slots', 'perforation_and_notches' => 'Перфорация + насечки',
+            default => $value,
+        };
+    }
+
+    private static function formatCaliperLogo(string $value): string
+    {
+        $value = strtolower(trim($value));
+        if ($value === '') {
+            return '';
+        }
+
+        return match ($value) {
+            'standard' => 'Стандарт',
+            'special', 'custom_logo', 'custom' => 'Особый логотип',
+            default => $value,
+        };
     }
 
     public static function syncCustomPrice(BasketItemBase $item, ?array $options = null): void

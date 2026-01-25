@@ -1,0 +1,15 @@
+.bx-soa-order-page #bx-soa-order .bx-scu-container {
+  overflow: visible;
+}
+
+.bx-soa-order-page #bx-soa-order .bx-soa-item-content .bx-scu-container {
+  max-width: none;
+}
+
+.bx-soa-order-page #bx-soa-order .bx-soa-item-content {
+  overflow: visible;
+}
+
+.bx-soa-order-page #bx-soa-order .bx-soa-item-td {
+  height: auto;
+}

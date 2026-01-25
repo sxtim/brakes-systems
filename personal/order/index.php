@@ -4,8 +4,9 @@ $APPLICATION->SetTitle("Оформление заказа");
 
 $APPLICATION->IncludeComponent(
     "bitrix:sale.order.ajax",
-    "brakes_order",
+    "bootstrap_v4",
     [
+        "PRODUCT_COLUMNS_VISIBLE" => ["PREVIEW_PICTURE", "PROPS", "PRICE_FORMATED", "SUM"],
         "PATH_TO_BASKET" => "/personal/cart/",
         "PATH_TO_PERSONAL" => "/personal/",
         "PATH_TO_PAYMENT" => "/personal/order/payment/",

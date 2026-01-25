@@ -25,6 +25,9 @@ Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH
 if (in_array($APPLICATION->GetCurPage(false), ['/basket/', '/personal/cart/'], true)) { // Подключаем скрипт только на странице корзины
    Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/basket-page.min.js"></script>');
 }
+if ($APPLICATION->GetCurPage(false) === '/personal/order/') {
+    Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/dev/order-page.css');
+}
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/auth.js?v='.time().'"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/favorites.js?v='.time().'"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/basket-actions.js?v='.time().'"></script>');
@@ -82,7 +85,10 @@ Asset::getInstance()->addString(
     <?php $APPLICATION->ShowHead(); ?>
     <title><?php $APPLICATION->ShowTitle(false); ?></title>
 </head>
-<body>
+<?php
+$bodyClass = $APPLICATION->GetCurPage(false) === '/personal/order/' ? 'bx-soa-order-page' : '';
+?>
+<body<?= $bodyClass !== '' ? ' class="'.$bodyClass.'"' : '' ?>>
 <?php $APPLICATION->ShowPanel(); ?>
 <div class="wrapper">
     <header data-fls-header="" class="header">
