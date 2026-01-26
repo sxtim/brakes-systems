@@ -70,6 +70,159 @@ AddEventHandler('sale', 'OnSaleBasketItemBeforeSaved', static function ($event):
     }
 });
 
+AddEventHandler('sale', 'OnSaleComponentOrderJsData', static function (array &$arResult, array &$arParams): void {
+    if (empty($arResult['JS_DATA']['GRID']['ROWS']) || !\Bitrix\Main\Loader::includeModule('iblock')) {
+        return;
+    }
+
+    $rows = &$arResult['JS_DATA']['GRID']['ROWS'];
+    $productIds = [];
+    foreach ($rows as $row) {
+        $productId = (int)($row['data']['PRODUCT_ID'] ?? 0);
+        if ($productId > 0) {
+            $productIds[$productId] = true;
+        }
+    }
+
+    if ($productIds === []) {
+        return;
+    }
+
+    $elements = [];
+    $elementRes = \CIBlockElement::GetList(
+        [],
+        ['ID' => array_keys($productIds)],
+        false,
+        false,
+        ['ID', 'IBLOCK_ID', 'DETAIL_PICTURE', 'PREVIEW_PICTURE']
+    );
+    while ($element = $elementRes->Fetch()) {
+        $elements[(int)$element['ID']] = $element;
+    }
+
+    if ($elements === []) {
+        return;
+    }
+
+    $propCache = [];
+    $getPropertyValues = static function (int $iblockId, int $elementId, string $code) use (&$propCache): array {
+        $cacheKey = $iblockId . ':' . $elementId . ':' . $code;
+        if (isset($propCache[$cacheKey])) {
+            return $propCache[$cacheKey];
+        }
+
+        $values = [];
+        $res = \CIBlockElement::GetProperty(
+            $iblockId,
+            $elementId,
+            ['sort' => 'asc', 'id' => 'asc'],
+            ['CODE' => $code]
+        );
+        while ($row = $res->Fetch()) {
+            $value = $row['VALUE'] ?? null;
+            if (is_array($value)) {
+                foreach ($value as $valItem) {
+                    $valItem = is_scalar($valItem) ? trim((string)$valItem) : '';
+                    if ($valItem !== '') {
+                        $values[] = $valItem;
+                    }
+                }
+            } else {
+                $value = is_scalar($value) ? trim((string)$value) : '';
+                if ($value !== '') {
+                    $values[] = $value;
+                }
+            }
+        }
+
+        $propCache[$cacheKey] = $values;
+
+        return $values;
+    };
+
+    $resolveFileSrc = static function (int $fileId): ?string {
+        if ($fileId <= 0) {
+            return null;
+        }
+
+        $file = \CFile::GetFileArray($fileId);
+        if (is_array($file) && !empty($file['SRC'])) {
+            return $file['SRC'];
+        }
+
+        $path = (string)\CFile::GetPath($fileId);
+        return $path !== '' ? $path : null;
+    };
+
+    foreach ($rows as &$row) {
+        $productId = (int)($row['data']['PRODUCT_ID'] ?? 0);
+        if ($productId <= 0 || empty($elements[$productId])) {
+            continue;
+        }
+
+        $element = $elements[$productId];
+        $iblockId = (int)($element['IBLOCK_ID'] ?? 0);
+        if ($iblockId <= 0) {
+            continue;
+        }
+
+        $src = null;
+
+        $linkPhotoFiles = $getPropertyValues($iblockId, $productId, 'LINK_PHOTO_FILE');
+        foreach ($linkPhotoFiles as $fileId) {
+            $fileId = (int)$fileId;
+            $src = $resolveFileSrc($fileId);
+            if ($src !== null) {
+                break;
+            }
+        }
+
+        if ($src === null) {
+            $detailId = (int)($element['DETAIL_PICTURE'] ?? 0);
+            $src = $resolveFileSrc($detailId);
+        }
+
+        if ($src === null) {
+            $morePhotos = $getPropertyValues($iblockId, $productId, 'MORE_PHOTO');
+            foreach ($morePhotos as $fileId) {
+                $fileId = (int)$fileId;
+                $src = $resolveFileSrc($fileId);
+                if ($src !== null) {
+                    break;
+                }
+            }
+        }
+
+        if ($src === null) {
+            $previewId = (int)($element['PREVIEW_PICTURE'] ?? 0);
+            $src = $resolveFileSrc($previewId);
+        }
+
+        if ($src === null) {
+            $linkPhoto = $getPropertyValues($iblockId, $productId, 'LINK_PHOTO');
+            foreach ($linkPhoto as $value) {
+                $parts = array_filter(array_map('trim', explode(';', (string)$value)));
+                if (!empty($parts[0])) {
+                    $src = $parts[0];
+                    break;
+                }
+            }
+        }
+
+        if ($src !== null) {
+            $row['data']['PREVIEW_PICTURE'] = $row['data']['PREVIEW_PICTURE'] ?: 1;
+            $row['data']['DETAIL_PICTURE'] = $row['data']['DETAIL_PICTURE'] ?: 1;
+            $row['data']['PREVIEW_PICTURE_SRC'] = $src;
+            $row['data']['PREVIEW_PICTURE_SRC_2X'] = $src;
+            $row['data']['PREVIEW_PICTURE_SRC_ORIGINAL'] = $src;
+            $row['data']['DETAIL_PICTURE_SRC'] = $src;
+            $row['data']['DETAIL_PICTURE_SRC_2X'] = $src;
+            $row['data']['DETAIL_PICTURE_SRC_ORIGINAL'] = $src;
+        }
+    }
+    unset($row);
+});
+
 // После завершения 1С-импорта пересобираем привязки и активируем используемые ветки разделов.
 AddEventHandler('catalog', 'OnCompleteCatalogImport1C', static function (array $params = [], string $absFileName = ''): void {
     if (!\Bitrix\Main\Loader::includeModule('iblock')) {
