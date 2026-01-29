@@ -43,6 +43,60 @@
   display: none !important;
 }
 
+.bx-soa-order-page #bx-soa-total-mobile {
+  display: none !important;
+}
+
+.bx-soa-order-page #bx-soa-order #bx-soa-paysystem .bx-soa-editstep {
+  display: none !important;
+}
+
+.bx-soa-order-page #bx-soa-order #bx-soa-paysystem .bx-soa-pp-company-image,
+.bx-soa-order-page #bx-soa-order #bx-soa-paysystem .bx-soa-pp-company-logo,
+.bx-soa-order-page #bx-soa-order #bx-soa-paysystem .bx-soa-pp-company-selected img {
+  display: none !important;
+}
+
+.bx-soa-order-page #bx-soa-order #bx-soa-delivery .bx-soa-pp-company-graf-container {
+  width: 240px;
+  height: 80px;
+  max-height: 80px;
+  padding-top: 0;
+}
+
+.bx-soa-order-page #bx-soa-order #bx-soa-delivery .bx-soa-pp-company-image {
+  background-size: contain;
+  top: 8px;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+}
+
+.bx-soa-order-page #bx-soa-order #bx-soa-delivery .bx-soa-pp-company {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.bx-soa-order-page #bx-soa-order #bx-soa-delivery .bx-soa-pp-desc-container,
+.bx-soa-order-page #bx-soa-order #bx-soa-delivery .bx-soa-pp-company-desc {
+  width: 100%;
+  max-width: 100%;
+}
+
+.bx-soa-order-page #bx-soa-order #bx-soa-delivery .bx-soa-pp-company-desc {
+  min-width: 100%;
+}
+
+.bx-soa-order-page #bx-soa-order #bx-soa-delivery .bx-soa-pp-company-smalltitle {
+  padding-top: 6px;
+  text-align: left;
+}
+
+.bx-soa-order-page #bx-soa-order #bx-soa-delivery .bx-soa-pp-company-smalltitle {
+  max-width: 240px;
+}
+
 @media (max-width: 580px) {
   .bx-soa-order-page #bx-soa-order .bx-soa-item-block {
     flex-direction: column;
