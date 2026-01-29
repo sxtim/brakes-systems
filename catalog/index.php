@@ -53,7 +53,9 @@ Array(
         1 => "",
     ),
     "FILTER_PRICE_CODE" => array(
-        0 => "BASE",
+        0 => "РРЦ",
+        1 => "Партнёрская цена",
+        2 => "ОПТ",
     ),
     "FILTER_OFFERS_FIELD_CODE" => array(
         0 => "PREVIEW_PICTURE",
@@ -82,6 +84,8 @@ Array(
     "USE_COMPARE" => "N",
     "PRICE_CODE" => array(
         0 => "РРЦ",
+        1 => "Партнёрская цена",
+        2 => "ОПТ",
     ),
     "USE_PRICE_COUNT" => "N",
     "SHOW_PRICE_COUNT" => "1",

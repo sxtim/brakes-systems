@@ -469,7 +469,12 @@ class BasketManager
             return;
         }
 
-        $priceData = self::calculatePriceData($productId, $normalized);
+        $quantity = (float)$item->getQuantity();
+        if ($quantity <= 0.0) {
+            $quantity = 1.0;
+        }
+
+        $priceData = self::calculatePriceData($productId, $normalized, $quantity);
         if ($priceData === null) {
             return;
         }
@@ -539,10 +544,12 @@ class BasketManager
         return $normalized;
     }
 
-    private static function calculatePriceData(int $productId, array $options): ?array
+    private static function calculatePriceData(int $productId, array $options, float $quantity = 1.0): ?array
     {
         try {
-            $price = Configurator::calculate($productId, ['options' => $options]);
+            $price = Configurator::calculate($productId, ['options' => $options], [
+                'QUANTITY' => $quantity,
+            ]);
             if (is_array($price)) {
                 $value = null;
                 if (isset($price['DISCOUNT_PRICE']) && is_numeric($price['DISCOUNT_PRICE'])) {
@@ -564,6 +571,32 @@ class BasketManager
 
         if (!Loader::includeModule('catalog')) {
             return null;
+        }
+
+        $userGroups = [2];
+        global $USER;
+        if ($USER instanceof \CUser) {
+            $groups = $USER->GetUserGroupArray();
+            if (is_array($groups) && $groups !== []) {
+                $userGroups = $groups;
+            }
+        }
+
+        $optimal = \CCatalogProduct::GetOptimalPrice($productId, $quantity, $userGroups, 'N');
+        if (is_array($optimal)) {
+            $resultPrice = $optimal['RESULT_PRICE'] ?? null;
+            if (is_array($resultPrice) && isset($resultPrice['DISCOUNT_PRICE'])) {
+                return [
+                    'PRICE' => (float)$resultPrice['DISCOUNT_PRICE'],
+                    'CURRENCY' => isset($resultPrice['CURRENCY']) ? (string)$resultPrice['CURRENCY'] : 'RUB',
+                ];
+            }
+            if (isset($optimal['PRICE']) && is_array($optimal['PRICE']) && isset($optimal['PRICE']['PRICE'])) {
+                return [
+                    'PRICE' => (float)$optimal['PRICE']['PRICE'],
+                    'CURRENCY' => isset($optimal['PRICE']['CURRENCY']) ? (string)$optimal['PRICE']['CURRENCY'] : 'RUB',
+                ];
+            }
         }
 
         $base = \CPrice::GetBasePrice($productId);

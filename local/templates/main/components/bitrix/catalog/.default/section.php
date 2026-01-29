@@ -70,7 +70,7 @@ if (!$showFilter) {
 	                    "SECTION_CODE_PATH" => $sectionCodePath,
 	                    "CATEGORY_CODE" => $categoryCode,
 	                    "FILTER_NAME" => $arParams["FILTER_NAME"],
-	                    "PRICE_CODE" => "",
+                    "PRICE_CODE" => $arParams["FILTER_PRICE_CODE"] ?? $arParams["PRICE_CODE"] ?? [],
 	                    "CACHE_TYPE" => $arParams["CACHE_TYPE"],
                     "CACHE_TIME" => $arParams["CACHE_TIME"],
                     "CACHE_GROUPS" => $arParams["CACHE_GROUPS"],

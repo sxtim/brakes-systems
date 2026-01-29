@@ -149,9 +149,36 @@ if ($favoritePriceFormatted === null && !empty($optionsAttrPayload)) {
 
 $basePriceValue = null;
 $basePriceCurrency = 'RUB';
+$basePriceFormatted = null;
 $catalogModuleLoaded = Loader::includeModule('catalog');
 
-if ($catalogModuleLoaded) {
+$selectedPriceRow = null;
+if (!empty($arResult['ITEM_PRICES']) && is_array($arResult['ITEM_PRICES'])) {
+    $selectedIndex = isset($arResult['ITEM_PRICE_SELECTED']) ? (int)$arResult['ITEM_PRICE_SELECTED'] : null;
+    if ($selectedIndex !== null && isset($arResult['ITEM_PRICES'][$selectedIndex])) {
+        $selectedPriceRow = $arResult['ITEM_PRICES'][$selectedIndex];
+    } else {
+        $selectedPriceRow = reset($arResult['ITEM_PRICES']);
+    }
+}
+
+if ($selectedPriceRow !== null && is_array($selectedPriceRow)) {
+    if (isset($selectedPriceRow['PRICE']) && is_numeric($selectedPriceRow['PRICE'])) {
+        $basePriceValue = (float)$selectedPriceRow['PRICE'];
+        $basePriceCurrency = $selectedPriceRow['CURRENCY'] ?? 'RUB';
+        $basePriceFormatted = $selectedPriceRow['PRINT_PRICE'] ?? $selectedPriceRow['PRICE_FORMATTED'] ?? null;
+    }
+}
+
+if ($basePriceValue === null && isset($arResult['MIN_PRICE']) && is_array($arResult['MIN_PRICE'])) {
+    if (isset($arResult['MIN_PRICE']['VALUE']) && is_numeric($arResult['MIN_PRICE']['VALUE'])) {
+        $basePriceValue = (float)$arResult['MIN_PRICE']['VALUE'];
+        $basePriceCurrency = $arResult['MIN_PRICE']['CURRENCY'] ?? 'RUB';
+        $basePriceFormatted = $arResult['MIN_PRICE']['PRINT_VALUE'] ?? null;
+    }
+}
+
+if ($basePriceValue === null && $catalogModuleLoaded) {
     $basePriceRow = \CPrice::GetBasePrice($arResult['ID']);
     if (is_array($basePriceRow) && isset($basePriceRow['PRICE'])) {
         $basePriceValue = (float)$basePriceRow['PRICE'];
@@ -159,14 +186,11 @@ if ($catalogModuleLoaded) {
     }
 }
 
-if ($basePriceValue === null && isset($arResult['ITEM_PRICES'][0]['BASE_PRICE'])) {
-    $basePriceValue = (float)$arResult['ITEM_PRICES'][0]['BASE_PRICE'];
-    $basePriceCurrency = $arResult['ITEM_PRICES'][0]['CURRENCY'] ?? 'RUB';
+if ($basePriceFormatted === null) {
+    $basePriceFormatted = $basePriceValue !== null
+        ? number_format($basePriceValue, 0, '.', ' ') . ' ' . htmlspecialcharsbx($basePriceCurrency)
+        : '0';
 }
-
-$basePriceFormatted = $basePriceValue !== null
-    ? number_format($basePriceValue, 0, '.', ' ') . ' ' . htmlspecialcharsbx($basePriceCurrency)
-    : '0';
 
 $initialPriceFormatted = $basePriceFormatted;
 if (is_string($favoritePriceFormatted) && $favoritePriceFormatted !== '') {

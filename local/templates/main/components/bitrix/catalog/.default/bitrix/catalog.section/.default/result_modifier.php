@@ -305,24 +305,86 @@ $formatCurrency = static function (float $value, string $currency): string {
     return number_format($value, 0, '.', ' ') . ' ' . $currency;
 };
 
+ $resolveItemPrice = static function (array $item) use ($formatCurrency): ?array {
+     $priceRow = null;
+     $prices = $item['ITEM_PRICES'] ?? null;
+     if (is_array($prices) && $prices !== []) {
+         $selected = isset($item['ITEM_PRICE_SELECTED']) ? (int)$item['ITEM_PRICE_SELECTED'] : null;
+         if ($selected !== null && isset($prices[$selected]) && is_array($prices[$selected])) {
+             $priceRow = $prices[$selected];
+         } else {
+             $priceRow = reset($prices);
+         }
+     }
+
+     if ($priceRow === null && isset($item['MIN_PRICE']) && is_array($item['MIN_PRICE'])) {
+         $min = $item['MIN_PRICE'];
+         $value = isset($min['VALUE']) && is_numeric($min['VALUE']) ? (float)$min['VALUE'] : null;
+         if ($value !== null) {
+             $currency = isset($min['CURRENCY']) && is_string($min['CURRENCY']) ? (string)$min['CURRENCY'] : 'RUB';
+             $formatted = isset($min['PRINT_VALUE']) && is_string($min['PRINT_VALUE'])
+                 ? $min['PRINT_VALUE']
+                 : $formatCurrency($value, $currency);
+             return [
+                 'VALUE' => $value,
+                 'CURRENCY' => $currency,
+                 'FORMATTED' => $formatted,
+             ];
+         }
+     }
+
+     if (is_array($priceRow)) {
+         $value = isset($priceRow['PRICE']) && is_numeric($priceRow['PRICE']) ? (float)$priceRow['PRICE'] : null;
+         if ($value !== null) {
+             $currency = isset($priceRow['CURRENCY']) && is_string($priceRow['CURRENCY']) ? (string)$priceRow['CURRENCY'] : 'RUB';
+             $formatted = null;
+             if (isset($priceRow['PRINT_PRICE']) && is_string($priceRow['PRINT_PRICE'])) {
+                 $formatted = $priceRow['PRINT_PRICE'];
+             } elseif (isset($priceRow['PRICE_FORMATTED']) && is_string($priceRow['PRICE_FORMATTED'])) {
+                 $formatted = $priceRow['PRICE_FORMATTED'];
+             }
+             if ($formatted === null) {
+                 $formatted = $formatCurrency($value, $currency);
+             }
+             return [
+                 'VALUE' => $value,
+                 'CURRENCY' => $currency,
+                 'FORMATTED' => $formatted,
+             ];
+         }
+     }
+
+     return null;
+ };
+
 if (!empty($arResult['ITEMS']) && \Bitrix\Main\Loader::includeModule('catalog')) {
-    $baseGroup = \CCatalogGroup::GetBaseGroup();
-    if (is_array($baseGroup) && isset($baseGroup['ID'])) {
-        $itemIds = [];
-        foreach ($arResult['ITEMS'] as $item) {
-            $itemId = (int)($item['ID'] ?? 0);
-            if ($itemId > 0) {
-                $itemIds[$itemId] = true;
-            }
+    $missingIds = [];
+    foreach ($arResult['ITEMS'] as $index => $item) {
+        $itemId = (int)($item['ID'] ?? 0);
+        if ($itemId <= 0) {
+            continue;
         }
 
-        if ($itemIds !== []) {
+        $resolved = $resolveItemPrice($item);
+        if ($resolved !== null) {
+            $arResult['ITEMS'][$index]['BASE_PRICE_VALUE'] = $resolved['VALUE'];
+            $arResult['ITEMS'][$index]['BASE_PRICE_CURRENCY'] = $resolved['CURRENCY'];
+            $arResult['ITEMS'][$index]['BASE_PRICE_FORMATTED'] = $resolved['FORMATTED'];
+            continue;
+        }
+
+        $missingIds[$itemId] = true;
+    }
+
+    if ($missingIds !== []) {
+        $baseGroup = \CCatalogGroup::GetBaseGroup();
+        if (is_array($baseGroup) && isset($baseGroup['ID'])) {
             $priceMap = [];
             $res = \CPrice::GetList(
                 [],
                 [
                     'CATALOG_GROUP_ID' => (int)$baseGroup['ID'],
-                    '@PRODUCT_ID' => array_keys($itemIds),
+                    '@PRODUCT_ID' => array_keys($missingIds),
                 ],
                 false,
                 false,
@@ -341,7 +403,7 @@ if (!empty($arResult['ITEMS']) && \Bitrix\Main\Loader::includeModule('catalog'))
 
             foreach ($arResult['ITEMS'] as $index => $item) {
                 $itemId = (int)($item['ID'] ?? 0);
-                if ($itemId <= 0) {
+                if ($itemId <= 0 || !isset($missingIds[$itemId])) {
                     continue;
                 }
                 if (!isset($priceMap[$itemId])) {

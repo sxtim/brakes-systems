@@ -46,13 +46,53 @@ class Configurator
             throw new SystemException('Catalog module is not available.');
         }
 
-        $basePrice = \CPrice::GetBasePrice($productId);
-        if (!is_array($basePrice) || !isset($basePrice['PRICE'])) {
-            return null;
+        $userGroups = self::resolveUserGroups($context);
+        $quantity = isset($context['QUANTITY']) && is_numeric($context['QUANTITY'])
+            ? max(1.0, (float)$context['QUANTITY'])
+            : 1.0;
+        $siteId = isset($context['SITE_ID']) && is_string($context['SITE_ID']) && $context['SITE_ID'] !== ''
+            ? $context['SITE_ID']
+            : (defined('SITE_ID') ? SITE_ID : 's1');
+
+        $optimal = \CCatalogProduct::GetOptimalPrice($productId, $quantity, $userGroups, 'N', [], $siteId);
+        $baseValue = null;
+        $currency = 'RUB';
+        $vatIncluded = 'N';
+        $vatRate = 0.0;
+
+        if (is_array($optimal)) {
+            $resultPrice = $optimal['RESULT_PRICE'] ?? null;
+            if (is_array($resultPrice)) {
+                if (isset($resultPrice['DISCOUNT_PRICE']) && is_numeric($resultPrice['DISCOUNT_PRICE'])) {
+                    $baseValue = (float)$resultPrice['DISCOUNT_PRICE'];
+                } elseif (isset($resultPrice['BASE_PRICE']) && is_numeric($resultPrice['BASE_PRICE'])) {
+                    $baseValue = (float)$resultPrice['BASE_PRICE'];
+                }
+                $currency = $resultPrice['CURRENCY'] ?? $currency;
+                $vatIncluded = $resultPrice['VAT_INCLUDED'] ?? $vatIncluded;
+                $vatRate = isset($resultPrice['VAT_RATE']) ? (float)$resultPrice['VAT_RATE'] : $vatRate;
+            }
+
+            if ($baseValue === null && isset($optimal['PRICE']) && is_array($optimal['PRICE'])) {
+                if (isset($optimal['PRICE']['PRICE']) && is_numeric($optimal['PRICE']['PRICE'])) {
+                    $baseValue = (float)$optimal['PRICE']['PRICE'];
+                }
+                $currency = $optimal['PRICE']['CURRENCY'] ?? $currency;
+                $vatIncluded = $optimal['PRICE']['VAT_INCLUDED'] ?? $vatIncluded;
+                $vatRate = isset($optimal['PRICE']['VAT_RATE']) ? (float)$optimal['PRICE']['VAT_RATE'] : $vatRate;
+            }
         }
 
-        $currency = $basePrice['CURRENCY'] ?? 'RUB';
-        $baseValue = (float)$basePrice['PRICE'];
+        if ($baseValue === null) {
+            $basePrice = \CPrice::GetBasePrice($productId);
+            if (!is_array($basePrice) || !isset($basePrice['PRICE'])) {
+                return null;
+            }
+            $currency = $basePrice['CURRENCY'] ?? $currency;
+            $baseValue = (float)$basePrice['PRICE'];
+            $vatIncluded = $basePrice['VAT_INCLUDED'] ?? $vatIncluded;
+            $vatRate = isset($basePrice['VAT_RATE']) ? (float)$basePrice['VAT_RATE'] : $vatRate;
+        }
         $markup = self::calculateMarkup($options);
         $finalValue = $baseValue + $markup;
 
@@ -62,8 +102,8 @@ class Configurator
             'DISCOUNT_PRICE' => $finalValue,
             'UNROUND_DISCOUNT_PRICE' => $finalValue,
             'CURRENCY' => $currency,
-            'VAT_INCLUDED' => $basePrice['VAT_INCLUDED'] ?? 'N',
-            'VAT_RATE' => isset($basePrice['VAT_RATE']) ? (float)$basePrice['VAT_RATE'] : 0,
+            'VAT_INCLUDED' => $vatIncluded,
+            'VAT_RATE' => $vatRate,
             'VAT_VALUE' => 0,
         ];
 
