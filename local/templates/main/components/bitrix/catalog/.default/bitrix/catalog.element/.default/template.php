@@ -197,6 +197,60 @@ if (is_string($favoritePriceFormatted) && $favoritePriceFormatted !== '') {
     $initialPriceFormatted = htmlspecialcharsback($favoritePriceFormatted);
 }
 
+$detailPriceNew = $initialPriceFormatted;
+$detailPriceOld = null;
+$detailDiscountPercent = null;
+
+if ($selectedPriceRow !== null && is_array($selectedPriceRow)) {
+    $currentValue = isset($selectedPriceRow['PRICE']) && is_numeric($selectedPriceRow['PRICE'])
+        ? (float)$selectedPriceRow['PRICE']
+        : null;
+    $baseValue = isset($selectedPriceRow['BASE_PRICE']) && is_numeric($selectedPriceRow['BASE_PRICE'])
+        ? (float)$selectedPriceRow['BASE_PRICE']
+        : null;
+
+    $currentFormatted = null;
+    if (isset($selectedPriceRow['PRINT_PRICE']) && is_string($selectedPriceRow['PRINT_PRICE'])) {
+        $currentFormatted = $selectedPriceRow['PRINT_PRICE'];
+    } elseif (isset($selectedPriceRow['PRICE_FORMATTED']) && is_string($selectedPriceRow['PRICE_FORMATTED'])) {
+        $currentFormatted = $selectedPriceRow['PRICE_FORMATTED'];
+    }
+
+    $baseFormatted = null;
+    if (isset($selectedPriceRow['PRINT_BASE_PRICE']) && is_string($selectedPriceRow['PRINT_BASE_PRICE'])) {
+        $baseFormatted = $selectedPriceRow['PRINT_BASE_PRICE'];
+    } elseif (isset($selectedPriceRow['BASE_PRICE_FORMATTED']) && is_string($selectedPriceRow['BASE_PRICE_FORMATTED'])) {
+        $baseFormatted = $selectedPriceRow['BASE_PRICE_FORMATTED'];
+    }
+
+    if ($currentFormatted !== null) {
+        $detailPriceNew = $currentFormatted;
+    }
+
+    $discountPercent = null;
+    if (isset($selectedPriceRow['DISCOUNT_DIFF_PERCENT']) && is_numeric($selectedPriceRow['DISCOUNT_DIFF_PERCENT'])) {
+        $discountPercent = (int)round((float)$selectedPriceRow['DISCOUNT_DIFF_PERCENT']);
+    } elseif ($currentValue !== null && $baseValue !== null && $baseValue > 0 && $currentValue < $baseValue) {
+        $discountPercent = (int)round((($baseValue - $currentValue) / $baseValue) * 100);
+    }
+
+    if (
+        $discountPercent !== null
+        && $discountPercent > 0
+        && $baseValue !== null
+        && $currentValue !== null
+        && $baseValue > $currentValue
+    ) {
+        $detailDiscountPercent = $discountPercent;
+        if ($baseFormatted !== null) {
+            $detailPriceOld = $baseFormatted;
+        } else {
+            $currency = $selectedPriceRow['CURRENCY'] ?? $basePriceCurrency ?? 'RUB';
+            $detailPriceOld = number_format($baseValue, 0, '.', ' ') . ' ' . htmlspecialcharsbx($currency);
+        }
+    }
+}
+
 $formatQuantity = static function (float $value): string {
     $rounded = round($value, 3);
     $intValue = (int)$rounded;
@@ -622,11 +676,13 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
                 </div>
             </div>
             <div class="main-details__price">
-<!--                <div class="main-details__price-top">-->
-<!--                    <span class="main-details__price-action">-25%</span>-->
-<!--                    <span class="main-details__price-old">170 000 ₽%</span>-->
-<!--                </div>-->
-                <span class="main-details__price-new"><?= $initialPriceFormatted ?></span>
+                <?php if ($detailPriceOld !== null && $detailDiscountPercent !== null): ?>
+                    <div class="main-details__price-top">
+                        <span class="main-details__price-action">-<?= $detailDiscountPercent ?>%</span>
+                        <span class="main-details__price-old"><?= $detailPriceOld ?></span>
+                    </div>
+                <?php endif; ?>
+                <span class="main-details__price-new"><?= $detailPriceNew ?></span>
             </div>
             <?php if (!$isPadsCategory && !$isDiscsCategory): ?>
                 <div class="main-details__feature">
