@@ -653,6 +653,12 @@
   background-color: #DB0212;
   transition: background-color 0.2s ease-in-out;
 }
+.main-cataloge__shoping-btn.is-in-basket {
+  background-color: #2FB644;
+}
+.main-cataloge__shoping-btn.is-in-basket:hover {
+  background-color: #279E3A;
+}
 
 .main-cataloge__shoping-text {
   position: relative;

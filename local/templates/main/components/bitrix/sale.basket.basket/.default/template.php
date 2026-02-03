@@ -40,6 +40,40 @@ $extractProps = static function (array $props): array {
     return $map;
 };
 
+$normalizePropValue = static function ($value): string {
+    if (is_array($value)) {
+        if (array_key_exists('VALUE', $value)) {
+            $value = $value['VALUE'];
+        } elseif (array_key_exists('value', $value)) {
+            $value = $value['value'];
+        } else {
+            $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return is_string($encoded) ? $encoded : '';
+        }
+    }
+
+    if (is_string($value)) {
+        $trimmed = trim($value);
+        if ($trimmed !== '' && $trimmed[0] === '{') {
+            $decoded = json_decode(htmlspecialcharsback($trimmed), true);
+            if (is_array($decoded)) {
+                if (array_key_exists('VALUE', $decoded)) {
+                    return (string)$decoded['VALUE'];
+                }
+                if (array_key_exists('value', $decoded)) {
+                    return (string)$decoded['value'];
+                }
+            }
+        }
+    }
+
+    if ($value === null) {
+        return '';
+    }
+
+    return (string)$value;
+};
+
 $extractPropsAll = static function ($propsAll): array {
     if (!is_array($propsAll)) {
         return [];
@@ -188,11 +222,11 @@ foreach ($items as $item) {
             }
         }
     }
-    $contextSectionId = (int)($propsMap['CONTEXT_SECTION_ID'] ?? 0);
-    $contextPath = trim((string)($propsMap['CONTEXT_PATH'] ?? ''), " \t\n\r\0\x0B/");
-    $contextLabel = (string)($propsMap['CONTEXT_LABEL'] ?? '');
+    $contextSectionId = (int)$normalizePropValue($propsMap['CONTEXT_SECTION_ID'] ?? 0);
+    $contextPath = trim($normalizePropValue($propsMap['CONTEXT_PATH'] ?? ''), " \t\n\r\0\x0B/");
+    $contextLabel = $normalizePropValue($propsMap['CONTEXT_LABEL'] ?? '');
 
-    $optionsRaw = $propsAllMap['OPTIONS_JSON'] ?? ($propsMap['OPTIONS_JSON'] ?? ($propsMap['OPTIONS'] ?? ''));
+    $optionsRaw = $normalizePropValue($propsAllMap['OPTIONS_JSON'] ?? ($propsMap['OPTIONS_JSON'] ?? ($propsMap['OPTIONS'] ?? '')));
     [$options, $selected, $optionsAttr] = $parseOptions($optionsRaw);
 
     $context = [];

@@ -99,9 +99,23 @@ function updateBasketCounter(summary) {
 }
 
 function notifyError(message) {
+  let text = message;
+  if (Array.isArray(text)) {
+    text = text.filter(Boolean).join(", ");
+  } else if (text && typeof text === "object") {
+    try {
+      text = JSON.stringify(text);
+    } catch (error) {
+      text = String(text);
+    }
+  }
+  if (typeof text !== "string" || text.trim() === "") {
+    text = "Не удалось добавить товар в корзину.";
+  }
+
   if (BX?.UI?.Notification?.Center) {
     BX.UI.Notification.Center.notify({
-      content: message,
+      content: text,
       autoHideDelay: 5000,
       position: "top-right",
     });
@@ -145,10 +159,20 @@ function handleAddToBasket(event) {
   }).then((response) => {
     const data = response?.data;
     if (!data || data.status !== "success") {
-      throw new Error("Unexpected response");
+      const errors = Array.isArray(data?.errors) ? data.errors.join(", ") : "";
+      notifyError(errors || "Не удалось добавить товар в корзину.");
+      button.classList.remove("is-processing");
+      return;
     }
 
     updateBasketCounter(data.summary || {});
+    const textNode = button.querySelector(".main-details__shoping-text, .main-cataloge__shoping-text");
+    if (textNode) {
+      textNode.textContent = "В корзине";
+    }
+    if (button.classList) {
+      button.classList.add("is-in-basket");
+    }
     button.classList.remove("is-processing");
   }).catch(() => {
     notifyError("Не удалось добавить товар в корзину.");

@@ -26,7 +26,7 @@ if (in_array($APPLICATION->GetCurPage(false), ['/basket/', '/personal/cart/'], t
    Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/basket-page.min.js"></script>');
 }
 if ($APPLICATION->GetCurPage(false) === '/personal/order/') {
-    Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/dev/order-page.css');
+    Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/order-page.min.css');
 }
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/auth.js?v='.time().'"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/favorites.js?v='.time().'"></script>');

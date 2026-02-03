@@ -147,6 +147,80 @@ if ($favoritePriceFormatted === null && !empty($optionsAttrPayload)) {
     }
 }
 
+$isInBasket = false;
+$normalizeBasketPath = static function (string $path): string {
+    $path = trim($path);
+    if ($path === '') {
+        return '';
+    }
+    return trim($path, "/ \t\n\r\0\x0B");
+};
+
+if (Loader::includeModule('sale')) {
+    $desiredOptions = $optionsAttrPayload;
+    $desiredSectionId = isset($contextSectionId) ? (int)$contextSectionId : 0;
+    $desiredSectionPath = isset($contextSectionPath) ? $normalizeBasketPath((string)$contextSectionPath) : '';
+
+    $basket = \Bitrix\Sale\Basket::loadItemsForFUser(\Bitrix\Sale\Fuser::getId(), SITE_ID);
+    foreach ($basket as $basketItem) {
+        if ((int)$basketItem->getProductId() !== (int)$arResult['ID']) {
+            continue;
+        }
+
+        $props = $basketItem->getPropertyCollection();
+        $getPropValue = static function ($collection, string $code): string {
+            if (!$collection) {
+                return '';
+            }
+            if (method_exists($collection, 'getItemByCode')) {
+                $prop = $collection->getItemByCode($code);
+                return $prop ? (string)$prop->getValue() : '';
+            }
+            if (method_exists($collection, 'getPropertyValues')) {
+                $values = $collection->getPropertyValues();
+                return isset($values[$code]) ? (string)$values[$code] : '';
+            }
+            if (method_exists($collection, 'getArray')) {
+                $data = $collection->getArray();
+                if (!empty($data['PROPS'])) {
+                    foreach ($data['PROPS'] as $prop) {
+                        if (($prop['CODE'] ?? '') === $code) {
+                            return (string)($prop['VALUE'] ?? '');
+                        }
+                    }
+                }
+            }
+            return '';
+        };
+
+        $itemSectionId = (int)$getPropValue($props, 'CONTEXT_SECTION_ID');
+        $itemSectionPath = $normalizeBasketPath($getPropValue($props, 'CONTEXT_PATH'));
+        if ($desiredSectionId > 0 && $itemSectionId !== $desiredSectionId) {
+            continue;
+        }
+        if ($desiredSectionPath !== '' && $itemSectionPath !== $desiredSectionPath) {
+            continue;
+        }
+
+        $rawOptions = $getPropValue($props, 'OPTIONS_JSON');
+        $itemOptions = [];
+        if ($rawOptions !== '') {
+            $decoded = json_decode($rawOptions, true);
+            $itemOptions = is_array($decoded) ? FavoritesManager::prepareOptionsPayload($decoded) : [];
+        }
+
+        if ($desiredOptions === [] && $itemOptions === []) {
+            $isInBasket = true;
+            break;
+        }
+
+        if ($desiredOptions !== [] && $itemOptions === $desiredOptions) {
+            $isInBasket = true;
+            break;
+        }
+    }
+}
+
 $basePriceValue = null;
 $basePriceCurrency = 'RUB';
 $basePriceFormatted = null;
@@ -716,8 +790,8 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
             <?php endif; ?>
             <?php if ($actionsAllowed): ?>
                 <div class="main-details__shoping" data-fls-like-product="<?=$arResult['ID']?>"<?php if ($contextSectionId > 0) { ?> data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>>
-                    <button data-fls-addtocart-button="" class="main-details__shoping-btn" data-options='<?=$optionsAttr?>'>
-                        <span class="main-details__shoping-text">В корзину</span>
+                    <button data-fls-addtocart-button="" class="main-details__shoping-btn<?= $isInBasket ? ' is-in-basket' : '' ?>" data-options='<?=$optionsAttr?>'>
+                        <span class="main-details__shoping-text"><?= $isInBasket ? 'В корзине' : 'В корзину' ?></span>
                     </button>
                     <button data-fls-like-image="" data-fls-like-button="" data-product-id="<?=$arResult['ID']?>" data-options='<?=$optionsAttr?>' <?php if ($contextSectionId > 0) { ?>data-context-section-id="<?=$contextSectionId?>"<?php } ?><?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?> class="main-details__shoping-like"></button>
                 </div>

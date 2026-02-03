@@ -76,6 +76,34 @@ AddEventHandler('sale', 'OnSaleComponentOrderJsData', static function (array &$a
     }
 
     $rows = &$arResult['JS_DATA']['GRID']['ROWS'];
+    $hiddenProps = [
+        'CONTEXT_SECTION_ID' => true,
+        'CONTEXT_PATH' => true,
+        'CONTEXT_LABEL' => true,
+        'OPTIONS_JSON' => true,
+        'OPTIONS' => true,
+    ];
+
+    foreach ($rows as &$row) {
+        if (empty($row['data']['PROPS']) || !is_array($row['data']['PROPS'])) {
+            continue;
+        }
+
+        $filtered = [];
+        foreach ($row['data']['PROPS'] as $prop) {
+            if (!is_array($prop)) {
+                continue;
+            }
+            $code = (string)($prop['CODE'] ?? '');
+            if ($code !== '' && isset($hiddenProps[$code])) {
+                continue;
+            }
+            $filtered[] = $prop;
+        }
+        $row['data']['PROPS'] = $filtered;
+    }
+    unset($row);
+
     $productIds = [];
     foreach ($rows as $row) {
         $productId = (int)($row['data']['PRODUCT_ID'] ?? 0);

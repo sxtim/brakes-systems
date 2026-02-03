@@ -888,6 +888,12 @@ body:not(.lg-from-hash)
 	background-color: #db0212;
 	transition: background-color 0.2s ease-in-out;
 }
+.main-details__shoping-btn.is-in-basket {
+	background-color: #2fb644;
+}
+.main-details__shoping-btn.is-in-basket:hover {
+	background-color: #279e3a;
+}
 
 .main-details__shoping-text {
 	position: relative;

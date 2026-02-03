@@ -22,6 +22,7 @@ class FavoritesManager
      */
     private static ?array $currentItems = null;
     private static ?bool $isAuthorized = null;
+    private static ?array $basketProductMap = null;
 
     public static function handleProlog(): void
     {
@@ -61,6 +62,28 @@ class FavoritesManager
         self::ensureLoaded();
 
         return array_keys(self::$currentItems);
+    }
+
+    private static function getBasketProductMap(): array
+    {
+        if (self::$basketProductMap !== null) {
+            return self::$basketProductMap;
+        }
+
+        self::$basketProductMap = [];
+        if (!Loader::includeModule('sale')) {
+            return self::$basketProductMap;
+        }
+
+        $basket = \Bitrix\Sale\Basket::loadItemsForFUser(\Bitrix\Sale\Fuser::getId(), SITE_ID);
+        foreach ($basket as $basketItem) {
+            $productId = (int)$basketItem->getProductId();
+            if ($productId > 0) {
+                self::$basketProductMap[$productId] = true;
+            }
+        }
+
+        return self::$basketProductMap;
     }
 
     public static function getClientState(): array
@@ -583,6 +606,10 @@ class FavoritesManager
             }
 
             $card = $item['CARD'];
+            $basketMap = self::getBasketProductMap();
+            if ($basketMap !== []) {
+                $card['IN_BASKET'] = isset($basketMap[$productId]);
+            }
             $card['PRICE_HTML'] = isset($item['PRICE_HTML']) && is_string($item['PRICE_HTML'])
                 ? htmlspecialcharsback($item['PRICE_HTML'])
                 : '';

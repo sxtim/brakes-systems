@@ -33,6 +33,7 @@ $basketItemId = isset($card['BASKET_ID']) ? (int)$card['BASKET_ID'] : 0;
 $basketQuantity = isset($card['BASKET_QUANTITY']) ? (float)$card['BASKET_QUANTITY'] : 0.0;
 $expandFeatures = !empty($card['EXPAND_FEATURES']);
 $contextLabel = isset($card['CONTEXT_LABEL']) ? (string)$card['CONTEXT_LABEL'] : '';
+$inBasket = !empty($card['IN_BASKET']);
 $contextParts = [];
 if ($contextSectionPath === '' && $detailUrl !== '') {
     $path = (string)parse_url($detailUrl, PHP_URL_PATH);
@@ -364,14 +365,14 @@ $cardStatusTooltip = $cardQuantityLabel !== '' ? 'Остаток: ' . $cardQuant
                         <?php endif; ?>
                         <button
                             data-fls-addtocart-button=""
-                            class="main-cataloge__shoping-btn"
+                            class="main-cataloge__shoping-btn<?= $inBasket ? ' is-in-basket' : '' ?>"
                             data-add-basket
                             data-options="<?=$optionsAttrForActions?>"
                             data-product-id="<?=$id?>"
                             <?php if ($contextSectionId > 0) { ?>data-context-section-id="<?=$contextSectionId?>"<?php } ?>
                             <?php if ($contextSectionPath !== '') { ?> data-context-path="<?=htmlspecialcharsbx($contextSectionPath)?>"<?php } ?>
                             <?php if ($contextLabel !== '') { ?> data-context-label="<?=htmlspecialcharsbx($contextLabel)?>"<?php } ?>>
-                            <span class="main-cataloge__shoping-text">В корзину</span>
+                            <span class="main-cataloge__shoping-text"><?= $inBasket ? 'В корзине' : 'В корзину' ?></span>
                             <img class="main-cataloge__shoping-img" src="<?=SITE_TEMPLATE_PATH?>/assets/img/shopping-icon.svg" alt="Img">
                         </button>
                     <?php else: ?>

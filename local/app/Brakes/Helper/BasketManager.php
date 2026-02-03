@@ -222,8 +222,37 @@ class BasketManager
     {
         $collection = $item->getPropertyCollection();
         $getValue = static function (string $code) use ($collection): string {
-            $prop = $collection?->getItemByCode($code);
-            return $prop ? (string)$prop->getValue() : '';
+            if (!$collection) {
+                return '';
+            }
+
+            if (method_exists($collection, 'getItemByCode')) {
+                $prop = $collection->getItemByCode($code);
+                return $prop ? (string)$prop->getValue() : '';
+            }
+
+            if (method_exists($collection, 'getPropertyValues')) {
+                $values = $collection->getPropertyValues();
+                if (is_array($values) && array_key_exists($code, $values)) {
+                    return self::normalizePropertyValue($values[$code]);
+                }
+            }
+
+            if (method_exists($collection, 'getArray')) {
+                $data = $collection->getArray();
+                if (is_array($data) && !empty($data['PROPS']) && is_array($data['PROPS'])) {
+                    foreach ($data['PROPS'] as $prop) {
+                        if (!is_array($prop)) {
+                            continue;
+                        }
+                        if ((string)($prop['CODE'] ?? '') === $code) {
+                            return self::normalizePropertyValue($prop['VALUE'] ?? '');
+                        }
+                    }
+                }
+            }
+
+            return '';
         };
 
         return [
@@ -246,7 +275,7 @@ class BasketManager
             $properties[] = [
                 'NAME' => 'Context Section ID',
                 'CODE' => 'CONTEXT_SECTION_ID',
-                'VALUE' => (string)$contextData['section_id'],
+                'VALUE' => self::normalizePropertyValue($contextData['section_id']),
                 'SORT' => 100,
             ];
         }
@@ -255,7 +284,7 @@ class BasketManager
             $properties[] = [
                 'NAME' => 'Context Section Path',
                 'CODE' => 'CONTEXT_PATH',
-                'VALUE' => $contextData['section_path'],
+                'VALUE' => self::normalizePropertyValue($contextData['section_path']),
                 'SORT' => 110,
             ];
         }
@@ -264,7 +293,7 @@ class BasketManager
             $properties[] = [
                 'NAME' => 'Context Label',
                 'CODE' => 'CONTEXT_LABEL',
-                'VALUE' => $contextData['context_label'],
+                'VALUE' => self::normalizePropertyValue($contextData['context_label']),
                 'SORT' => 120,
             ];
         }
@@ -273,7 +302,7 @@ class BasketManager
             $properties[] = [
                 'NAME' => 'Options',
                 'CODE' => self::OPTION_PROP_CODE,
-                'VALUE' => $contextData['options_json'],
+                'VALUE' => self::normalizePropertyValue($contextData['options_json']),
                 'SORT' => 130,
             ];
         }
@@ -304,7 +333,67 @@ class BasketManager
             return;
         }
 
-        $collection->setProperty($properties);
+        $preserveCodes = [
+            'CONTEXT_SECTION_ID' => true,
+            'CONTEXT_PATH' => true,
+            'CONTEXT_LABEL' => true,
+            self::OPTION_PROP_CODE => true,
+        ];
+        $merged = [];
+
+        if (method_exists($collection, 'getArray')) {
+            $data = $collection->getArray();
+            if (is_array($data) && !empty($data['PROPS']) && is_array($data['PROPS'])) {
+                foreach ($data['PROPS'] as $prop) {
+                    if (!is_array($prop)) {
+                        continue;
+                    }
+                    $code = (string)($prop['CODE'] ?? '');
+                    if ($code === '' || !isset($preserveCodes[$code])) {
+                        continue;
+                    }
+                    $value = self::normalizePropertyValue($prop['VALUE'] ?? '');
+                    $merged[$code] = [
+                        'NAME' => (string)($prop['NAME'] ?? $code),
+                        'CODE' => $code,
+                        'VALUE' => $value,
+                        'SORT' => (int)($prop['SORT'] ?? 0),
+                    ];
+                }
+            }
+        } elseif (method_exists($collection, 'getPropertyValues')) {
+            $values = $collection->getPropertyValues();
+            if (is_array($values)) {
+                foreach ($values as $code => $value) {
+                    if (!is_string($code) || $code === '' || !isset($preserveCodes[$code])) {
+                        continue;
+                    }
+                    $finalValue = self::normalizePropertyValue($value);
+                    $merged[$code] = [
+                        'NAME' => $code,
+                        'CODE' => $code,
+                        'VALUE' => $finalValue,
+                        'SORT' => 0,
+                    ];
+                }
+            }
+        }
+
+        foreach ($properties as $property) {
+            if (!is_array($property)) {
+                continue;
+            }
+            $code = (string)($property['CODE'] ?? '');
+            if ($code === '') {
+                continue;
+            }
+            if (array_key_exists('VALUE', $property)) {
+                $property['VALUE'] = self::normalizePropertyValue($property['VALUE']);
+            }
+            $merged[$code] = $property;
+        }
+
+        $collection->setProperty(array_values($merged));
     }
 
     private static function buildDisplayProperties(int $productId, array $options): array
@@ -507,12 +596,31 @@ class BasketManager
             return [];
         }
 
-        $prop = $collection->getItemByCode(self::OPTION_PROP_CODE);
-        if (!$prop) {
-            return [];
+        $raw = '';
+        if (method_exists($collection, 'getItemByCode')) {
+            $prop = $collection->getItemByCode(self::OPTION_PROP_CODE);
+            if ($prop) {
+                $raw = (string)$prop->getValue();
+            }
+        } elseif (method_exists($collection, 'getPropertyValues')) {
+            $values = $collection->getPropertyValues();
+            if (is_array($values) && array_key_exists(self::OPTION_PROP_CODE, $values)) {
+                $raw = self::normalizePropertyValue($values[self::OPTION_PROP_CODE]);
+            }
+        } elseif (method_exists($collection, 'getArray')) {
+            $data = $collection->getArray();
+            if (is_array($data) && !empty($data['PROPS']) && is_array($data['PROPS'])) {
+                foreach ($data['PROPS'] as $prop) {
+                    if (!is_array($prop)) {
+                        continue;
+                    }
+                    if ((string)($prop['CODE'] ?? '') === self::OPTION_PROP_CODE) {
+                        $raw = self::normalizePropertyValue($prop['VALUE'] ?? '');
+                        break;
+                    }
+                }
+            }
         }
-
-        $raw = (string)$prop->getValue();
         if ($raw === '') {
             return [];
         }
@@ -608,5 +716,23 @@ class BasketManager
         }
 
         return null;
+    }
+
+    private static function normalizePropertyValue(mixed $value): string
+    {
+        if (is_array($value) || is_object($value)) {
+            $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return is_string($encoded) ? $encoded : '';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'Y' : 'N';
+        }
+
+        if ($value === null) {
+            return '';
+        }
+
+        return (string)$value;
     }
 }

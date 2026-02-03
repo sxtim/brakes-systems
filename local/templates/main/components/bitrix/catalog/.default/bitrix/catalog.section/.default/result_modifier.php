@@ -7,6 +7,17 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
 
+$basketProductMap = [];
+if (\Bitrix\Main\Loader::includeModule('sale') && !empty($arResult['ITEMS'])) {
+    $basket = \Bitrix\Sale\Basket::loadItemsForFUser(\Bitrix\Sale\Fuser::getId(), SITE_ID);
+    foreach ($basket as $basketItem) {
+        $productId = (int)$basketItem->getProductId();
+        if ($productId > 0) {
+            $basketProductMap[$productId] = true;
+        }
+    }
+}
+
 $makeFileItem = static function (int $fileId): ?array {
     if ($fileId <= 0) {
         return null;
@@ -29,6 +40,12 @@ $makeFileItem = static function (int $fileId): ?array {
 };
 
 foreach ($arResult['ITEMS'] as $i => $item) {
+    if ($basketProductMap !== []) {
+        $itemId = (int)($item['ID'] ?? 0);
+        if ($itemId > 0) {
+            $arResult['ITEMS'][$i]['IN_BASKET'] = isset($basketProductMap[$itemId]);
+        }
+    }
     $imageData = null;
     $fileValues = $item['PROPERTIES']['LINK_PHOTO_FILE']['VALUE'] ?? [];
 

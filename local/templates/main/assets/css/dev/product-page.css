@@ -894,6 +894,12 @@ body:not(.lg-from-hash) .lg-outer.lg-start-zoom .lg-item:not(.lg-zoomable).lg-co
   background-color: #DB0212;
   transition: background-color 0.2s ease-in-out;
 }
+.main-details__shoping-btn.is-in-basket {
+  background-color: #2FB644;
+}
+.main-details__shoping-btn.is-in-basket:hover {
+  background-color: #279E3A;
+}
 
 .main-details__shoping-text {
   position: relative;
