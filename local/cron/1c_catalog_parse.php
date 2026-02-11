@@ -6,7 +6,14 @@ use Bitrix\Main\Loader;
 function brakes_1c_catalog_parse_run(array $options = []): array
 {
     if (empty($_SERVER['DOCUMENT_ROOT'])) {
-        $_SERVER['DOCUMENT_ROOT'] = (string)realpath(__DIR__ . '/../../');
+        $root = realpath(__DIR__ . '/../../');
+        if ($root === false) {
+            $root = realpath(getcwd());
+        }
+        if ($root === false) {
+            $root = dirname(__DIR__, 2);
+        }
+        $_SERVER['DOCUMENT_ROOT'] = (string)$root;
     }
 
     $iblockId = (int)($options['iblockId'] ?? 1);
@@ -26,17 +33,72 @@ function brakes_1c_catalog_parse_run(array $options = []): array
 
     Loader::includeModule('iblock');
 
-    $lockDir = dirname($logPath);
-    if (!is_dir($lockDir)) {
-        @mkdir($lockDir, 0775, true);
+    if (!function_exists('brakes_1c_parse_log_event')) {
+        function brakes_1c_parse_log_event(string $severity, string $message, array $context = []): void
+        {
+            if (!class_exists('CEventLog')) {
+                return;
+            }
+
+            $description = $message;
+            if ($context) {
+                $description .= ' | ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            }
+
+            CEventLog::Add([
+                'SEVERITY' => $severity,
+                'AUDIT_TYPE_ID' => 'BRKS_1C_PARSE',
+                'MODULE_ID' => 'brakes',
+                'ITEM_ID' => '1c_catalog_parse',
+                'DESCRIPTION' => $description,
+            ]);
+        }
     }
-    $lockPath = (string)($options['lockPath'] ?? ($lockDir . '/parse.lock'));
-    $lockHandle = @fopen($lockPath, 'c+');
-    if ($lockHandle === false) {
-        throw new RuntimeException('1c_catalog_parse: failed to open lock file ' . $lockPath);
+
+    $logDir = dirname($logPath);
+    if (!is_dir($logDir)) {
+        @mkdir($logDir, 0775, true);
     }
-    if (!flock($lockHandle, LOCK_EX)) {
-        throw new RuntimeException('1c_catalog_parse: failed to acquire lock ' . $lockPath);
+    // Always try to write logs (best-effort), like before.
+    $logWritable = true;
+
+    $lockName = (string)($options['lockName'] ?? 'brakes_1c_catalog_parse');
+    $lockTimeout = (int)($options['lockTimeout'] ?? 0);
+    $lockAcquired = true;
+    $lockError = null;
+    $connection = null;
+    $dbType = '';
+
+    try {
+        $connection = \Bitrix\Main\Application::getConnection();
+        $dbType = method_exists($connection, 'getType') ? (string)$connection->getType() : '';
+        if (in_array($dbType, ['mysql', 'mysqli'], true)) {
+            $helper = $connection->getSqlHelper();
+            $safeLock = $helper->forSql($lockName);
+            $lockAcquired = ((int)$connection->queryScalar("SELECT GET_LOCK('{$safeLock}', {$lockTimeout})") === 1);
+        }
+    } catch (\Throwable $exception) {
+        $lockAcquired = false;
+        $lockError = $exception->getMessage();
+    }
+
+    if (!$lockAcquired) {
+        $message = '1c_catalog_parse: lock not acquired';
+        if ($lockError !== null) {
+            $message .= ' error=' . $lockError;
+        }
+        if ($logWritable) {
+            @file_put_contents(
+                $logPath,
+                date('c') . ' src=' . $logPrefix . ' status=skipped_lock' . ($lockError ? ' error=' . $lockError : '') . PHP_EOL,
+                FILE_APPEND | LOCK_EX
+            );
+        }
+        brakes_1c_parse_log_event('WARNING', $message);
+        return [
+            'status' => 'skipped_lock',
+            'error' => $lockError,
+        ];
     }
 
     $normalizeCategory = static function (?string $raw): array {
@@ -835,26 +897,30 @@ function brakes_1c_catalog_parse_run(array $options = []): array
     if ($warnings) {
         $logLine .= implode(PHP_EOL, array_map(static fn ($w) => 'warn ' . $w, $warnings)) . PHP_EOL;
     }
-    $logDir = dirname($logPath);
-    if (!is_dir($logDir)) {
-        @mkdir($logDir, 0775, true);
+    if ($logWritable) {
+        if (!file_exists($logPath)) {
+            @touch($logPath);
+        }
+
+        if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+            @chmod($logPath, 0666);
+        }
+
+        $written = @file_put_contents($logPath, $logLine, FILE_APPEND | LOCK_EX);
+        if ($written === false) {
+            error_log('1c_catalog_parse: failed to append log to ' . $logPath);
+        }
     }
 
-    if (!file_exists($logPath)) {
-        @touch($logPath);
+    if ($connection && in_array($dbType, ['mysql', 'mysqli'], true)) {
+        try {
+            $helper = $connection->getSqlHelper();
+            $safeLock = $helper->forSql($lockName);
+            $connection->queryExecute("SELECT RELEASE_LOCK('{$safeLock}')");
+        } catch (\Throwable $exception) {
+            // ignore lock release errors
+        }
     }
-
-    if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
-        @chmod($logPath, 0666);
-    }
-
-    $written = @file_put_contents($logPath, $logLine, FILE_APPEND | LOCK_EX);
-    if ($written === false) {
-        error_log('1c_catalog_parse: failed to append log to ' . $logPath);
-    }
-
-    @flock($lockHandle, LOCK_UN);
-    @fclose($lockHandle);
 
     return [
         'elementsProcessed' => $elementsProcessed,
@@ -889,7 +955,6 @@ if (PHP_SAPI === 'cli' || realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE
     $result = brakes_1c_catalog_parse_run([
         'iblockId' => 1,
         'reactivate' => true,
-        'logPath' => $_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log',
         'logPrefix' => 'manual',
     ]);
     echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . PHP_EOL;

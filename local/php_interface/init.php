@@ -28,6 +28,312 @@ if (!\Bitrix\Main\Loader::includeModule('pull'))
     \Bitrix\Main\Config\Option::set('main', 'use_pull', 'N');
 }
 
+if (!function_exists('brakes_1c_parse_log_event')) {
+    function brakes_1c_parse_log_event(string $severity, string $message, array $context = []): void
+    {
+        if (!class_exists('CEventLog')) {
+            return;
+        }
+
+        $description = $message;
+        if ($context) {
+            $description .= ' | ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
+        CEventLog::Add([
+            'SEVERITY' => $severity,
+            'AUDIT_TYPE_ID' => 'BRKS_1C_PARSE',
+            'MODULE_ID' => 'brakes',
+            'ITEM_ID' => '1c_catalog_parse',
+            'DESCRIPTION' => $description,
+        ]);
+    }
+}
+
+if (!function_exists('brakes_1c_image_log_event')) {
+    function brakes_1c_image_log_event(string $severity, string $message, array $context = []): void
+    {
+        if (!class_exists('CEventLog')) {
+            return;
+        }
+
+        $description = $message;
+        if ($context) {
+            $description .= ' | ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
+        CEventLog::Add([
+            'SEVERITY' => $severity,
+            'AUDIT_TYPE_ID' => 'BRKS_1C_IMAGE',
+            'MODULE_ID' => 'brakes',
+            'ITEM_ID' => '1c_image_migrator',
+            'DESCRIPTION' => $description,
+        ]);
+    }
+}
+
+if (!function_exists('brakes_1c_images_extract_links')) {
+    function brakes_1c_images_extract_links(string $absFileName): array
+    {
+        $result = [];
+        if ($absFileName === '' || !is_file($absFileName)) {
+            return $result;
+        }
+
+        $reader = new \XMLReader();
+        if (!$reader->open($absFileName)) {
+            return $result;
+        }
+
+        $normalizeLinks = static function (string $raw): string {
+            $parts = array_filter(array_map('trim', explode(';', $raw)));
+            if (!$parts) {
+                return '';
+            }
+            return implode(';', array_values(array_unique($parts)));
+        };
+
+        while ($reader->read()) {
+            if ($reader->nodeType !== \XMLReader::ELEMENT) {
+                continue;
+            }
+            if ($reader->localName !== 'Товар') {
+                continue;
+            }
+
+            $xml = $reader->readOuterXML();
+            if ($xml === '') {
+                continue;
+            }
+
+            try {
+                $node = new \SimpleXMLElement($xml);
+            } catch (\Throwable $exception) {
+                continue;
+            }
+
+            $xmlId = trim((string)($node->Ид ?? ''));
+            if ($xmlId === '') {
+                continue;
+            }
+
+            $linksValue = '';
+            if (isset($node->ЗначенияРеквизитов)) {
+                foreach ($node->ЗначенияРеквизитов->ЗначениеРеквизита as $requisite) {
+                    $name = trim((string)($requisite->Наименование ?? ''));
+                    if ($name !== 'Ссылки на фото') {
+                        continue;
+                    }
+                    $linksValue = trim((string)($requisite->Значение ?? ''));
+                    break;
+                }
+            }
+
+            $linksValue = $normalizeLinks($linksValue);
+            if ($linksValue !== '') {
+                $result[$xmlId] = $linksValue;
+            }
+        }
+
+        $reader->close();
+        return $result;
+    }
+}
+
+if (!function_exists('brakes_1c_images_sync_from_import')) {
+    function brakes_1c_images_sync_from_import(string $absFileName, array $options = []): array
+    {
+        $iblockId = (int)($options['iblockId'] ?? 1);
+        $force = !empty($options['force']);
+
+        $linksByXml = brakes_1c_images_extract_links($absFileName);
+        if (!$linksByXml) {
+            return [
+                'found' => 0,
+                'updated' => 0,
+                'migrated' => 0,
+                'skipped' => 0,
+            ];
+        }
+
+        if (!\Bitrix\Main\Loader::includeModule('iblock')) {
+            throw new \RuntimeException('iblock module is not available');
+        }
+
+        $xmlIds = array_keys($linksByXml);
+        $updated = 0;
+        $migrated = 0;
+        $skipped = 0;
+
+        $chunks = array_chunk($xmlIds, 500);
+        foreach ($chunks as $chunk) {
+            $elementMap = [];
+            $res = \CIBlockElement::GetList(
+                [],
+                ['IBLOCK_ID' => $iblockId, '=XML_ID' => $chunk],
+                false,
+                false,
+                ['ID', 'XML_ID']
+            );
+            while ($row = $res->Fetch()) {
+                $elementMap[(string)$row['XML_ID']] = (int)$row['ID'];
+            }
+
+            foreach ($chunk as $xmlId) {
+                $elementId = $elementMap[$xmlId] ?? 0;
+                if ($elementId <= 0) {
+                    $skipped++;
+                    continue;
+                }
+
+                $newValue = $linksByXml[$xmlId] ?? '';
+                if ($newValue === '') {
+                    $skipped++;
+                    continue;
+                }
+
+                $currentValues = [];
+                $propRes = \CIBlockElement::GetProperty(
+                    $iblockId,
+                    $elementId,
+                    ['sort' => 'asc', 'id' => 'asc'],
+                    ['CODE' => 'LINK_PHOTO']
+                );
+                while ($prop = $propRes->Fetch()) {
+                    $val = trim((string)($prop['VALUE'] ?? ''));
+                    if ($val !== '') {
+                        $currentValues[] = $val;
+                    }
+                }
+                $currentValue = $currentValues ? trim((string)$currentValues[0]) : '';
+
+                if (!$force && $currentValue === $newValue) {
+                    $skipped++;
+                    continue;
+                }
+
+                \CIBlockElement::SetPropertyValueCode($elementId, 'LINK_PHOTO', $newValue);
+                $updated++;
+
+                if (class_exists(\App\Brakes\Helper\ImageMigrator::class)) {
+                    \App\Brakes\Helper\ImageMigrator::migrateElement($elementId, [
+                        'force' => true,
+                    ]);
+                    $migrated++;
+                }
+            }
+        }
+
+        return [
+            'found' => count($linksByXml),
+            'updated' => $updated,
+            'migrated' => $migrated,
+            'skipped' => $skipped,
+        ];
+    }
+}
+
+if (!function_exists('brakes_1c_images_schedule')) {
+    function brakes_1c_images_schedule(string $absFileName, array $meta = []): void
+    {
+        $runner = static function () use ($absFileName): void {
+            try {
+                $result = brakes_1c_images_sync_from_import($absFileName, [
+                    'iblockId' => 1,
+                ]);
+                brakes_1c_image_log_event('INFO', '1c image migrator finished', [
+                    'file' => $absFileName,
+                    'result' => $result,
+                ]);
+            } catch (\Throwable $exception) {
+                brakes_1c_image_log_event('ERROR', '1c image migrator failed', [
+                    'file' => $absFileName,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        };
+
+        brakes_1c_image_log_event('INFO', '1c image migrator scheduled', [
+            'source' => $meta['source'] ?? null,
+            'file' => $absFileName,
+        ]);
+
+        if (class_exists(\Bitrix\Main\Application::class)
+            && method_exists(\Bitrix\Main\Application::getInstance(), 'addBackgroundJob')
+        ) {
+            \Bitrix\Main\Application::getInstance()->addBackgroundJob($runner);
+        } else {
+            $runner();
+        }
+    }
+}
+
+if (!function_exists('brakes_1c_parse_run_safe')) {
+    function brakes_1c_parse_run_safe(array $options = []): void
+    {
+        try {
+            require_once $_SERVER['DOCUMENT_ROOT'] . '/local/cron/1c_catalog_parse.php';
+            if (function_exists('brakes_1c_catalog_parse_run')) {
+                $result = brakes_1c_catalog_parse_run($options);
+                brakes_1c_parse_log_event('INFO', '1c catalog parse finished', [
+                    'result' => $result,
+                ]);
+            } else {
+                brakes_1c_parse_log_event('ERROR', '1c catalog parse function not found');
+            }
+        } catch (\Throwable $exception) {
+            brakes_1c_parse_log_event('ERROR', '1c catalog parse failed', [
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+}
+
+if (!function_exists('brakes_1c_parse_schedule')) {
+    function brakes_1c_parse_schedule(array $options = [], array $meta = []): void
+    {
+        if (!class_exists(\Bitrix\Main\Config\Option::class)) {
+            brakes_1c_parse_run_safe($options);
+            return;
+        }
+
+        $moduleId = 'brakes';
+        \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_pending', 'Y');
+        \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_last_ts', (string)time());
+        if (!empty($meta['file'])) {
+            \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_last_file', (string)$meta['file']);
+        }
+        if (!empty($meta['source'])) {
+            \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_last_source', (string)$meta['source']);
+        }
+
+        brakes_1c_parse_log_event('INFO', '1c catalog parse scheduled', [
+            'source' => $meta['source'] ?? null,
+            'file' => $meta['file'] ?? null,
+            'options' => $options,
+        ]);
+
+        $runner = static function () use ($options, $moduleId): void {
+            \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_running', 'Y');
+            \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_pending', 'N');
+            try {
+                brakes_1c_parse_run_safe($options);
+            } finally {
+                \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_running', 'N');
+                \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_last_finish', (string)time());
+            }
+        };
+
+        if (class_exists(\Bitrix\Main\Application::class)
+            && method_exists(\Bitrix\Main\Application::getInstance(), 'addBackgroundJob')
+        ) {
+            \Bitrix\Main\Application::getInstance()->addBackgroundJob($runner);
+        } else {
+            $runner();
+        }
+    }
+}
+
 require_once __DIR__ . '/include/func.php';
 require_once __DIR__ . '/include/events.php';
 
@@ -253,49 +559,13 @@ AddEventHandler('sale', 'OnSaleComponentOrderJsData', static function (array &$a
 
 // После завершения 1С-импорта пересобираем привязки и активируем используемые ветки разделов.
 AddEventHandler('catalog', 'OnCompleteCatalogImport1C', static function (array $params = [], string $absFileName = ''): void {
-    if (!\Bitrix\Main\Loader::includeModule('iblock')) {
-        return;
-    }
-
-    require_once $_SERVER['DOCUMENT_ROOT'] . '/local/cron/1c_catalog_parse.php';
-    if (function_exists('brakes_1c_catalog_parse_run')) {
-        brakes_1c_catalog_parse_run([
-            'iblockId' => 1,
-            'reactivate' => true,
-            'logPath' => $_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log',
-            'logPrefix' => 'OnCompleteCatalogImport1C',
-        ]);
-    }
+    brakes_1c_parse_schedule([
+        'iblockId' => 1,
+        'reactivate' => true,
+        'logPath' => $_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log',
+        'logPrefix' => 'OnCompleteCatalogImport1C',
+    ], [
+        'source' => 'OnCompleteCatalogImport1C',
+        'file' => $absFileName,
+    ]);
 });
-
-/*
-AddEventHandler('iblock', 'OnAfterIBlockElementAdd', static function (array &$fields): void {
-    if ((int)($fields['IBLOCK_ID'] ?? 0) !== \App\Brakes\Helper\ImageMigrator::IBLOCK_ID) {
-        return;
-    }
-
-    $elementId = (int)($fields['ID'] ?? 0);
-    if ($elementId <= 0) {
-        return;
-    }
-
-    \App\Brakes\Helper\ImageMigrator::migrateElement($elementId);
-});
-
-AddEventHandler('iblock', 'OnAfterIBlockElementUpdate', static function (array &$fields): void {
-    if ((int)($fields['IBLOCK_ID'] ?? 0) !== \App\Brakes\Helper\ImageMigrator::IBLOCK_ID) {
-        return;
-    }
-
-    if (!empty($fields['RESULT']) && $fields['RESULT'] === false) {
-        return;
-    }
-
-    $elementId = (int)($fields['ID'] ?? 0);
-    if ($elementId <= 0) {
-        return;
-    }
-
-    \App\Brakes\Helper\ImageMigrator::migrateElement($elementId);
-});
-*/

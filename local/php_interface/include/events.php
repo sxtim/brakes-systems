@@ -9,21 +9,34 @@ use Rosinkas\Entity\RequestCoinsTable;
 EventManager::getInstance()->addEventHandler(
     'catalog',
     'OnSuccessCatalogImport1C',
-    function ($event) {
+    function (array $params = [], string $absFileName = ''): void {
+        if (!function_exists('brakes_1c_parse_schedule')) {
+            return;
+        }
 
+        if ($absFileName === '') {
+            return;
+        }
 
-//        $logger = new FileLogger(
-//            $_SERVER['DOCUMENT_ROOT'].'/logs/1c_exchange/'.(new DateTime(
-//            ))->format('dmy').'.log'
-//        );
-//
-//        $logger->debug(
-//            '{date}' . PHP_EOL . '{data}' . PHP_EOL,
-//            [
-//                'data' => [
-//                    'event' => $event,
-//                ],
-//            ]
-//        );
+        $baseName = basename($absFileName);
+        if (!preg_match('/^import___.+\\.xml$/i', $baseName)) {
+            return;
+        }
+
+        brakes_1c_parse_schedule([
+            'iblockId' => 1,
+            'reactivate' => true,
+            'logPath' => $_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log',
+            'logPrefix' => 'OnSuccessCatalogImport1C',
+        ], [
+            'source' => 'OnSuccessCatalogImport1C',
+            'file' => $absFileName,
+        ]);
+
+        if (function_exists('brakes_1c_images_schedule')) {
+            brakes_1c_images_schedule($absFileName, [
+                'source' => 'OnSuccessCatalogImport1C',
+            ]);
+        }
     }
 );
