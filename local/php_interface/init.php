@@ -72,6 +72,42 @@ if (!function_exists('brakes_1c_image_log_event')) {
     }
 }
 
+if (!function_exists('brakes_is_1c_exchange_request')) {
+    function brakes_is_1c_exchange_request(): bool
+    {
+        $script = (string)($_SERVER['SCRIPT_NAME'] ?? '');
+        if ($script === '') {
+            $script = (string)($_SERVER['PHP_SELF'] ?? '');
+        }
+        return str_ends_with($script, '/bitrix/admin/1c_exchange.php');
+    }
+}
+
+if (!function_exists('brakes_dispatch_background_job')) {
+    function brakes_dispatch_background_job(callable $runner): void
+    {
+        // catalog.import.1c finishes with die(), so addBackgroundJob is skipped there.
+        if (PHP_SAPI !== 'cli' && brakes_is_1c_exchange_request()) {
+            register_shutdown_function(static function () use ($runner): void {
+                if (function_exists('fastcgi_finish_request')) {
+                    @fastcgi_finish_request();
+                }
+                $runner();
+            });
+            return;
+        }
+
+        if (class_exists(\Bitrix\Main\Application::class)
+            && method_exists(\Bitrix\Main\Application::getInstance(), 'addBackgroundJob')
+        ) {
+            \Bitrix\Main\Application::getInstance()->addBackgroundJob($runner);
+            return;
+        }
+
+        $runner();
+    }
+}
+
 if (!function_exists('brakes_1c_images_extract_links')) {
     function brakes_1c_images_extract_links(string $absFileName): array
     {
@@ -258,13 +294,7 @@ if (!function_exists('brakes_1c_images_schedule')) {
             'file' => $absFileName,
         ]);
 
-        if (class_exists(\Bitrix\Main\Application::class)
-            && method_exists(\Bitrix\Main\Application::getInstance(), 'addBackgroundJob')
-        ) {
-            \Bitrix\Main\Application::getInstance()->addBackgroundJob($runner);
-        } else {
-            $runner();
-        }
+        brakes_dispatch_background_job($runner);
     }
 }
 
@@ -290,14 +320,32 @@ if (!function_exists('brakes_1c_parse_run_safe')) {
 }
 
 if (!function_exists('brakes_1c_parse_schedule')) {
-    function brakes_1c_parse_schedule(array $options = [], array $meta = []): void
+    function brakes_1c_parse_schedule(array $options = [], array $meta = [], bool $runNow = true): void
     {
         if (!class_exists(\Bitrix\Main\Config\Option::class)) {
-            brakes_1c_parse_run_safe($options);
+            if ($runNow) {
+                brakes_1c_parse_run_safe($options);
+            }
             return;
         }
 
         $moduleId = 'brakes';
+
+        // Prevent duplicate runs when both "rests" and "complete" triggers fire for the same exchange file.
+        // Important: do this BEFORE we touch pending/running flags.
+        $runFile = (string)($meta['file'] ?? '');
+        if ($runNow && $runFile !== '') {
+            $lastRunFile = (string)\Bitrix\Main\Config\Option::get($moduleId, '1c_parse_last_run_file', '');
+            $lastRunTs = (int)\Bitrix\Main\Config\Option::get($moduleId, '1c_parse_last_run_finish_ts', '0');
+            if ($lastRunFile !== '' && $lastRunFile === $runFile && $lastRunTs > 0 && (time() - $lastRunTs) < 900) {
+                brakes_1c_parse_log_event('INFO', '1c catalog parse skipped (duplicate)', [
+                    'source' => $meta['source'] ?? null,
+                    'file' => $runFile,
+                ]);
+                return;
+            }
+        }
+
         \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_pending', 'Y');
         \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_last_ts', (string)time());
         if (!empty($meta['file'])) {
@@ -310,27 +358,88 @@ if (!function_exists('brakes_1c_parse_schedule')) {
         brakes_1c_parse_log_event('INFO', '1c catalog parse scheduled', [
             'source' => $meta['source'] ?? null,
             'file' => $meta['file'] ?? null,
+            'runNow' => $runNow ? 'Y' : 'N',
             'options' => $options,
         ]);
 
-        $runner = static function () use ($options, $moduleId): void {
+        if (!$runNow) {
+            return;
+        }
+
+        $jobToken = (string)(microtime(true) . ':' . mt_rand(1000, 9999));
+        \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_job_token', $jobToken);
+
+        $runner = static function () use ($options, $moduleId, $jobToken, $runFile): void {
+            $currentToken = \Bitrix\Main\Config\Option::get($moduleId, '1c_parse_job_token', '');
+            if ($currentToken !== $jobToken) {
+                return;
+            }
+
+            if (\Bitrix\Main\Config\Option::get($moduleId, '1c_parse_running', 'N') === 'Y') {
+                return;
+            }
+
             \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_running', 'Y');
             \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_pending', 'N');
             try {
                 brakes_1c_parse_run_safe($options);
             } finally {
                 \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_running', 'N');
-                \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_last_finish', (string)time());
+                $finishTs = time();
+                \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_last_finish', (string)$finishTs);
+                if ($runFile !== '') {
+                    \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_last_run_file', $runFile);
+                    \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_last_run_finish_ts', (string)$finishTs);
+                }
             }
         };
 
-        if (class_exists(\Bitrix\Main\Application::class)
-            && method_exists(\Bitrix\Main\Application::getInstance(), 'addBackgroundJob')
-        ) {
-            \Bitrix\Main\Application::getInstance()->addBackgroundJob($runner);
-        } else {
-            $runner();
+        brakes_dispatch_background_job($runner);
+    }
+}
+
+if (!function_exists('brakes_1c_parse_try_fallback')) {
+    function brakes_1c_parse_try_fallback(): void
+    {
+        if (PHP_SAPI === 'cli' || brakes_is_1c_exchange_request()) {
+            return;
         }
+
+        if (!class_exists(\Bitrix\Main\Config\Option::class)) {
+            return;
+        }
+
+        $moduleId = 'brakes';
+        $pending = \Bitrix\Main\Config\Option::get($moduleId, '1c_parse_pending', 'N');
+        if ($pending !== 'Y') {
+            return;
+        }
+
+        if (\Bitrix\Main\Config\Option::get($moduleId, '1c_parse_running', 'N') === 'Y') {
+            return;
+        }
+
+        $lastTs = (int)\Bitrix\Main\Config\Option::get($moduleId, '1c_parse_last_ts', '0');
+        if ($lastTs <= 0 || (time() - $lastTs) < 120) {
+            return;
+        }
+
+        $lastFallback = (int)\Bitrix\Main\Config\Option::get($moduleId, '1c_parse_fallback_last_ts', '0');
+        if ($lastFallback > 0 && (time() - $lastFallback) < 30) {
+            return;
+        }
+        \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_fallback_last_ts', (string)time());
+
+        $lastFile = (string)\Bitrix\Main\Config\Option::get($moduleId, '1c_parse_last_file', '');
+        brakes_1c_parse_schedule([
+            'iblockId' => 1,
+            'reactivate' => true,
+            'logPath' => $_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log',
+            'logPrefix' => 'OnSuccessTimeoutFallback',
+        ], [
+            'source' => 'OnSuccessTimeoutFallback',
+            'file' => $lastFile,
+        ], true);
     }
 }
 
@@ -558,7 +667,12 @@ AddEventHandler('sale', 'OnSaleComponentOrderJsData', static function (array &$a
 });
 
 // После завершения 1С-импорта пересобираем привязки и активируем используемые ветки разделов.
-AddEventHandler('catalog', 'OnCompleteCatalogImport1C', static function (array $params = [], string $absFileName = ''): void {
+AddEventHandler('catalog', 'OnCompleteCatalogImport1C', static function ($params = null, $absFileName = ''): void {
+    $absFileName = (string)$absFileName;
+    if ($absFileName === '' && class_exists(\Bitrix\Main\Config\Option::class)) {
+        $absFileName = (string)\Bitrix\Main\Config\Option::get('brakes', '1c_parse_last_file', '');
+    }
+
     brakes_1c_parse_schedule([
         'iblockId' => 1,
         'reactivate' => true,
@@ -568,4 +682,8 @@ AddEventHandler('catalog', 'OnCompleteCatalogImport1C', static function (array $
         'source' => 'OnCompleteCatalogImport1C',
         'file' => $absFileName,
     ]);
+});
+
+AddEventHandler('main', 'OnAfterEpilog', static function (): void {
+    brakes_1c_parse_try_fallback();
 });
