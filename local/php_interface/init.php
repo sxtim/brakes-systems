@@ -40,9 +40,10 @@ if (
             \Bitrix\Main\Loader::includeModule('iblock');
             \CTimeZone::Disable();
             try {
-                $timeStamp = function_exists('ConvertTimeStamp')
-                    ? (string)ConvertTimeStamp($timestamp, 'FULL')
-                    : date('Y-m-d H:i:s', $timestamp);
+                // NOTE: mode=deactivate passes UNIX timestamp, MySQL expects DATETIME in Y-m-d H:i:s.
+                // ConvertTimeStamp() can return locale-specific format like "15.02.2026 17:40:15",
+                // which breaks SQL comparisons, so we always use explicit MySQL datetime format here.
+                $timeStamp = date('Y-m-d H:i:s', $timestamp);
                 $connection = \Bitrix\Main\Application::getConnection();
                 $helper = $connection->getSqlHelper();
                 $safeTs = $helper->forSql($timeStamp);
