@@ -10,6 +10,7 @@
 - Стандартный импорт 1С создаёт/обновляет элементы в инфоблоке (в нашем кейсе `IBLOCK_ID=1`).
 - Парсер НЕ читает XML. Он читает только БД и работает с тем, что уже импортировано стандартным модулем 1С.
 - Мигратор фото берёт ссылки из выгрузки 1С и приводит их к виду, удобному для сайта.
+- В текущей выгрузке `rests___*.xml` остатки приходят одной цифрой на товар/предложение (без разбиения по складам).
 
 ## Цепочка запуска
 
@@ -67,7 +68,7 @@
 
 ## Важный нюанс: mode=deactivate
 
-В `local/php_interface/init.php` есть защита, которая перехватывает `mode=deactivate` в `1c_exchange.php` и возвращает `success`.
+В `local/php_interface/init.php` есть обработка `mode=deactivate` в `1c_exchange.php`.
 
 Причина:
 
@@ -75,8 +76,9 @@
 
 Следствие:
 
-- "Удалённые в 1С" товары не будут автоматически деактивироваться стандартным механизмом `mode=deactivate`.
-- Если бизнес-требование такое есть, это делается отдельной логикой (не через общий `deactivate`).
+- Мы НЕ трогаем разделы (чтобы не "погасить" кастомное дерево).
+- Мы деактивируем только элементы (товары) `IBLOCK_ID=1` по `timestamp` из `mode=deactivate` (если запрос пришёл в контексте полной выгрузки, после `rests`/`complete`).
+- Парсер в обмене настроен так, чтобы реактивировать секции, но НЕ включать обратно элементы (`reactivateElements=false`).
 
 ## Производительность (когда станет 1500+ товаров)
 
@@ -117,4 +119,3 @@ php -r '$_SERVER["DOCUMENT_ROOT"]="/var/www/www-root/data/www/brakes-systems.ru"
 ```bash
 php -r '$_SERVER["DOCUMENT_ROOT"]="/var/www/www-root/data/www/brakes-systems.ru";require $_SERVER["DOCUMENT_ROOT"]."/bitrix/modules/main/include/prolog_before.php";$rs=CEventLog::GetList(["ID"=>"DESC"],["AUDIT_TYPE_ID"=>["BRKS_1C_PARSE","BRKS_1C_IMAGE"]],false,["nTopCount"=>20],["ID","TIMESTAMP_X","AUDIT_TYPE_ID","REQUEST_URI","DESCRIPTION"]);while($e=$rs->Fetch()){echo $e["ID"]." ".$e["TIMESTAMP_X"]." ".$e["AUDIT_TYPE_ID"]." ".$e["REQUEST_URI"].\"\\n\".$e[\"DESCRIPTION\"].\"\\n---\\n\";}' 
 ```
-
