@@ -1,22 +1,116 @@
 <?php
 
-// Защита от массовой деактивации при 1С-обмене (mode=deactivate&timestamp=...),
-// т.к. у нас есть собственное дерево разделов "категория → марка → модель → кузов",
-// которого нет в 1С, и оно может быть случайно "погашено" стандартным механизмом.
+// Безопасная обработка mode=deactivate при 1С-обмене (catalog):
+// - стандартный механизм деактивирует и элементы, и разделы, которых не было в полной выгрузке;
+// - у нас есть собственное дерево разделов "категория → марка → модель → кузов", которого нет в 1С,
+//   поэтому разделы деактивировать нельзя;
+// - при этом деактивация ТОВАРОВ (элементов) может быть нужна ("пропал из полной выгрузки → снять с витрины").
+// Здесь мы деактивируем только элементы IBLOCK_ID=1 и возвращаем success, не трогая разделы.
 if (
     !empty($_SERVER['SCRIPT_NAME'])
     && substr((string)$_SERVER['SCRIPT_NAME'], -strlen('/bitrix/admin/1c_exchange.php')) === '/bitrix/admin/1c_exchange.php'
     && (($_REQUEST['type'] ?? '') === 'catalog')
     && (($_REQUEST['mode'] ?? '') === 'deactivate')
 ) {
+    $timestamp = (int)($_REQUEST['timestamp'] ?? 0);
+    $iblockId = 1;
+    $deactivated = 0;
+    $error = null;
+    $skippedReason = null;
+    $coverage = null;
+
+    try {
+        if ($timestamp > 0 && class_exists(\Bitrix\Main\Loader::class)) {
+            // Safety: perform element-only deactivate only in a full-exchange context
+            // (after rests or complete). This prevents mass deactivation on "changed-only" exchanges.
+            $now = time();
+            $restsTs = class_exists(\Bitrix\Main\Config\Option::class)
+                ? (int)\Bitrix\Main\Config\Option::get('brakes', '1c_last_rests_ts', '0')
+                : 0;
+            $completeTs = class_exists(\Bitrix\Main\Config\Option::class)
+                ? (int)\Bitrix\Main\Config\Option::get('brakes', '1c_last_complete_ts', '0')
+                : 0;
+
+            if (
+                ($restsTs <= 0 || ($now - $restsTs) > 6 * 3600)
+                && ($completeTs <= 0 || ($now - $completeTs) > 6 * 3600)
+            ) {
+                $skippedReason = 'no_full_exchange_context';
+            } else {
+            \Bitrix\Main\Loader::includeModule('iblock');
+            \CTimeZone::Disable();
+            try {
+                $timeStamp = function_exists('ConvertTimeStamp')
+                    ? (string)ConvertTimeStamp($timestamp, 'FULL')
+                    : date('Y-m-d H:i:s', $timestamp);
+                $connection = \Bitrix\Main\Application::getConnection();
+                $helper = $connection->getSqlHelper();
+                $safeTs = $helper->forSql($timeStamp);
+
+                // Extra safety: skip deactivate if this looks like a partial ("changed-only") exchange.
+                // In a full exchange, most elements get touched and have TIMESTAMP_X >= exchange start timestamp.
+                $totalActive = (int)$connection->queryScalar(
+                    "SELECT COUNT(1) FROM b_iblock_element WHERE IBLOCK_ID=" . (int)$iblockId . " AND ACTIVE='Y'"
+                );
+                $touched = (int)$connection->queryScalar(
+                    "SELECT COUNT(1) FROM b_iblock_element WHERE IBLOCK_ID=" . (int)$iblockId . " AND ACTIVE='Y' AND TIMESTAMP_X >= '" . $safeTs . "'"
+                );
+                $ratio = $totalActive > 0 ? ($touched / $totalActive) : 0.0;
+                $coverage = ['totalActive' => $totalActive, 'touched' => $touched, 'ratio' => $ratio];
+
+                if ($totalActive > 0 && $ratio < 0.7) {
+                    $skippedReason = 'low_coverage';
+                } else {
+                // Deactivate only elements which were not updated since the exchange start timestamp.
+                $sql = "UPDATE b_iblock_element SET ACTIVE='N' "
+                    . "WHERE IBLOCK_ID=" . (int)$iblockId . " AND ACTIVE='Y' AND TIMESTAMP_X < '" . $safeTs . "'";
+                $connection->queryExecute($sql);
+
+                // Best-effort count of affected rows (driver may return 0 for some engines).
+                $deactivated = method_exists($connection, 'getAffectedRowsCount')
+                    ? (int)$connection->getAffectedRowsCount()
+                    : 0;
+                }
+            } finally {
+                \CTimeZone::Enable();
+            }
+            }
+        }
+    } catch (\Throwable $exception) {
+        $error = $exception->getMessage();
+    }
+
     $logPath = $_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log';
     $logLine = date('c')
         . ' src=1c_exchange_guard'
+        . ' mode=deactivate'
+        . ' iblock=' . (int)$iblockId
+        . ' deactivated=' . (int)$deactivated
+        . ' ts=' . $timestamp
+        . ($skippedReason ? ' skipped=' . $skippedReason : '')
+        . ($error ? ' error=' . $error : '')
         . ' ip=' . ($_SERVER['REMOTE_ADDR'] ?? '-')
         . ' qs=' . ($_SERVER['QUERY_STRING'] ?? '-')
         . ' ua=' . ($_SERVER['HTTP_USER_AGENT'] ?? '-')
         . PHP_EOL;
     @file_put_contents($logPath, $logLine, FILE_APPEND | LOCK_EX);
+
+    if (class_exists('CEventLog')) {
+        CEventLog::Add([
+            'SEVERITY' => $error ? 'ERROR' : 'INFO',
+            'AUDIT_TYPE_ID' => 'BRKS_1C_DEACT',
+            'MODULE_ID' => 'brakes',
+            'ITEM_ID' => '1c_exchange_guard',
+            'DESCRIPTION' => '1c deactivate handled | ' . json_encode([
+                'iblockId' => $iblockId,
+                'timestamp' => $timestamp,
+                'deactivated' => $deactivated,
+                'skipped' => $skippedReason,
+                'coverage' => $coverage,
+                'error' => $error,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
+    }
 
     header('Content-Type: text/plain; charset=windows-1251');
     echo "success\n";
@@ -433,7 +527,8 @@ if (!function_exists('brakes_1c_parse_try_fallback')) {
         $lastFile = (string)\Bitrix\Main\Config\Option::get($moduleId, '1c_parse_last_file', '');
         brakes_1c_parse_schedule([
             'iblockId' => 1,
-            'reactivate' => true,
+            'reactivateSections' => true,
+            'reactivateElements' => false,
             'logPath' => $_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log',
             'logPrefix' => 'OnSuccessTimeoutFallback',
         ], [
@@ -673,9 +768,15 @@ AddEventHandler('catalog', 'OnCompleteCatalogImport1C', static function ($params
         $absFileName = (string)\Bitrix\Main\Config\Option::get('brakes', '1c_parse_last_file', '');
     }
 
+    if (class_exists(\Bitrix\Main\Config\Option::class)) {
+        \Bitrix\Main\Config\Option::set('brakes', '1c_last_complete_ts', (string)time());
+        \Bitrix\Main\Config\Option::set('brakes', '1c_last_complete_file', (string)$absFileName);
+    }
+
     brakes_1c_parse_schedule([
         'iblockId' => 1,
-        'reactivate' => true,
+        'reactivateSections' => true,
+        'reactivateElements' => false,
         'logPath' => $_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log',
         'logPrefix' => 'OnCompleteCatalogImport1C',
     ], [

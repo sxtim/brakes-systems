@@ -17,7 +17,12 @@ function brakes_1c_catalog_parse_run(array $options = []): array
     }
 
     $iblockId = (int)($options['iblockId'] ?? 1);
+    // Backward-compatible switch:
+    // - reactivate=true previously meant: activate used sections + activate inactive elements.
+    // - now you can control them separately via reactivateSections/reactivateElements.
     $reactivate = (bool)($options['reactivate'] ?? false);
+    $reactivateSections = array_key_exists('reactivateSections', $options) ? (bool)$options['reactivateSections'] : $reactivate;
+    $reactivateElements = array_key_exists('reactivateElements', $options) ? (bool)$options['reactivateElements'] : $reactivate;
     $syncOemNumbers = (bool)($options['syncOemNumbers'] ?? true);
     $syncCategoryProperty = (bool)($options['syncCategoryProperty'] ?? true);
     $logPath = (string)($options['logPath'] ?? ($_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log'));
@@ -555,7 +560,7 @@ function brakes_1c_catalog_parse_run(array $options = []): array
 
     while ($data = $rsData->fetch()) {
         $elementId = (int)$data['ID'];
-        if ($reactivate && ($data['ACTIVE'] ?? 'Y') !== 'Y') {
+        if ($reactivateElements && ($data['ACTIVE'] ?? 'Y') !== 'Y') {
             $elementsToActivate[$elementId] = true;
         }
 
@@ -843,7 +848,7 @@ function brakes_1c_catalog_parse_run(array $options = []): array
     }
 
     $sectionsActivated = 0;
-    if ($reactivate) {
+    if ($reactivateSections) {
         foreach (array_keys($sectionsToActivate) as $sectionId) {
             $res = $bs->Update((int)$sectionId, ['ACTIVE' => 'Y'], false);
             if ($res) {
@@ -853,7 +858,7 @@ function brakes_1c_catalog_parse_run(array $options = []): array
             }
         }
 
-        if ($elementsToActivate) {
+        if ($reactivateElements && $elementsToActivate) {
             $element = new CIBlockElement();
             foreach (array_keys($elementsToActivate) as $elementId) {
                 if ($element->Update((int)$elementId, ['ACTIVE' => 'Y'])) {
