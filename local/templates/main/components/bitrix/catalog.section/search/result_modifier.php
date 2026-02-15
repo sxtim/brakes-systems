@@ -80,6 +80,19 @@ if ($query !== '' && !empty($items) && is_array($items)) {
     $queryTokens = preg_split('/[^0-9a-zа-я]+/iu', $normalizedQuery, -1, PREG_SPLIT_NO_EMPTY);
     $queryTokens = is_array($queryTokens) ? array_values(array_unique($queryTokens)) : [];
 
+    // Handle hyphen/underscore-separated model codes like "uni-k" -> "unik".
+    $collapsedQueryToken = preg_replace('/[^0-9a-zа-я]+/iu', '', $normalizedQuery);
+    if (is_string($collapsedQueryToken) && $collapsedQueryToken !== '' && strlen($collapsedQueryToken) >= 3) {
+        if (!in_array($collapsedQueryToken, $queryTokens, true)) {
+            $queryTokens[] = $collapsedQueryToken;
+        }
+    }
+
+    // Avoid matching by 1-letter tokens (e.g. "k" from "uni-k") which often cause noise.
+    $queryTokensForMatching = array_values(array_filter($queryTokens, static function ($token): bool {
+        return is_string($token) && strlen($token) >= 2;
+    }));
+
     $normalizeCategory = static function (string $value) use ($normalize): string {
         $value = $normalize($value);
         if ($value === '') {
@@ -120,15 +133,21 @@ if ($query !== '' && !empty($items) && is_array($items)) {
         return $parts;
     };
 
-    $getContextTokens = static function (array $item) use ($normalize, $getContextParts): array {
+    $isStrongBodyToken = static function (string $token): bool {
+        // Examples: f15, wk2, u70, v3, g20
+        return preg_match('/\\d/', $token) && preg_match('/[a-zа-я]/iu', $token);
+    };
+
+    $getContextTokens = static function (array $item) use ($normalize, $getContextParts, $isStrongBodyToken): array {
         $parts = $getContextParts($item);
         $count = count($parts);
         if ($count < 3) {
-            return ['mark' => '', 'model' => ''];
+            return ['mark' => '', 'model' => '', 'body_tokens' => []];
         }
 
         $markSlug = (string)($parts[$count - 3] ?? '');
         $modelSlug = (string)($parts[$count - 2] ?? '');
+        $bodySlug = (string)($parts[$count - 1] ?? '');
         $categorySlug = ($count >= 4) ? (string)($parts[$count - 4] ?? '') : '';
 
         if ($categorySlug !== '' && strncmp($markSlug, $categorySlug . '_', strlen($categorySlug) + 1) === 0) {
@@ -146,12 +165,48 @@ if ($query !== '' && !empty($items) && is_array($items)) {
             $modelSlug = substr($modelSlug, strlen($prefix));
         }
 
+        $markSlugForPrefix = $markSlug;
+        $modelSlugForPrefix = $modelSlug;
+
         $markSlug = preg_replace('/[^0-9a-zа-я]+/iu', '', $markSlug);
         $modelSlug = preg_replace('/[^0-9a-zа-я]+/iu', '', $modelSlug);
+
+        $bodyTokens = [];
+        if ($bodySlug !== '') {
+            $bodyPrefix = '';
+            if ($categorySlug !== '') {
+                $bodyPrefix = $categorySlug . '_';
+            }
+            if ($markSlugForPrefix !== '') {
+                $bodyPrefix .= $markSlugForPrefix . '_';
+            }
+            if ($modelSlugForPrefix !== '') {
+                $bodyPrefix .= $modelSlugForPrefix . '_';
+            }
+            if ($bodyPrefix !== '' && strncmp($bodySlug, $bodyPrefix, strlen($bodyPrefix)) === 0) {
+                $bodySlug = substr($bodySlug, strlen($bodyPrefix));
+            }
+
+            $bodySlug = $normalize($bodySlug);
+            $parts = preg_split('/[^0-9a-zа-я]+/iu', $bodySlug, -1, PREG_SPLIT_NO_EMPTY);
+            if (is_array($parts)) {
+                foreach ($parts as $part) {
+                    $part = trim((string)$part);
+                    if ($part === '' || strlen($part) < 2) {
+                        continue;
+                    }
+                    if (!$isStrongBodyToken($part)) {
+                        continue;
+                    }
+                    $bodyTokens[$part] = true;
+                }
+            }
+        }
 
         return [
             'mark' => $normalize($markSlug),
             'model' => $normalize($modelSlug),
+            'body_tokens' => array_keys($bodyTokens),
         ];
     };
 
@@ -194,13 +249,16 @@ if ($query !== '' && !empty($items) && is_array($items)) {
 
     $allMarkTokens = [];
     $allModelTokens = [];
+    $allBodyTokens = [];
     $itemMarkTokens = [];
     $itemModelTokens = [];
+    $itemBodyTokens = [];
     $itemCategoryCodes = [];
     foreach ($items as $index => $item) {
         $tokens = $getContextTokens($item);
         $markToken = $tokens['mark'] ?? '';
         $modelToken = $tokens['model'] ?? '';
+        $bodyTokens = $tokens['body_tokens'] ?? [];
 
         if ($markToken !== '') {
             $allMarkTokens[$markToken] = true;
@@ -211,6 +269,15 @@ if ($query !== '' && !empty($items) && is_array($items)) {
             $itemModelTokens[$index] = $modelToken;
         }
 
+        if (is_array($bodyTokens) && $bodyTokens !== []) {
+            $itemBodyTokens[$index] = $bodyTokens;
+            foreach ($bodyTokens as $bodyToken) {
+                if (is_string($bodyToken) && $bodyToken !== '') {
+                    $allBodyTokens[$bodyToken] = true;
+                }
+            }
+        }
+
         if ($queryCategoryCode !== '') {
             $itemCategoryCodes[$index] = $getItemCategoryCode($item);
         }
@@ -218,58 +285,163 @@ if ($query !== '' && !empty($items) && is_array($items)) {
 
     $matchedMarks = [];
     $matchedModels = [];
-    foreach ($queryTokens as $token) {
+    $matchedBodies = [];
+    foreach ($queryTokensForMatching as $token) {
         if (isset($allMarkTokens[$token])) {
             $matchedMarks[$token] = true;
         }
         if (isset($allModelTokens[$token])) {
             $matchedModels[$token] = true;
         }
+        if (isset($allBodyTokens[$token])) {
+            $matchedBodies[$token] = true;
+        }
     }
 
-    if ($matchedMarks !== [] && $matchedModels !== []) {
-        $filteredItems = [];
-        foreach ($items as $index => $item) {
+    $isLikelyPartNumberToken = static function (string $token) use ($normalize): bool {
+        $token = $normalize($token);
+        if ($token === '' || strlen($token) < 4) {
+            return false;
+        }
+        if (!preg_match('/\\d/', $token)) {
+            return false;
+        }
+        if (preg_match('/[a-zа-я]/iu', $token)) {
+            return true;
+        }
+
+        // Digits-only: allow longer tokens (avoid collapsing on short numbers like "15").
+        return strlen($token) >= 6;
+    };
+
+    $queryLooksLikePartNumber = false;
+    foreach ($queryTokensForMatching as $token) {
+        if ($isLikelyPartNumberToken($token)) {
+            $queryLooksLikePartNumber = true;
+            break;
+        }
+    }
+
+    // "Better noisy than missing": apply strictest filter first, but fall back if it would empty the list.
+    $originalItems = $items;
+
+    $filterByMarkModel = static function (array $source) use ($itemMarkTokens, $itemModelTokens, $matchedMarks, $matchedModels): array {
+        $filtered = [];
+        foreach ($source as $index => $item) {
             $markToken = $itemMarkTokens[$index] ?? '';
             $modelToken = $itemModelTokens[$index] ?? '';
             if ($markToken !== '' && $modelToken !== '' && isset($matchedMarks[$markToken]) && isset($matchedModels[$modelToken])) {
-                $filteredItems[] = $item;
+                $filtered[$index] = $item;
             }
         }
-        $arResult['ITEMS'] = $filteredItems;
-        $items = $filteredItems;
-    } elseif ($matchedMarks !== []) {
-        $filteredItems = [];
-        foreach ($items as $index => $item) {
+        return $filtered;
+    };
+
+    $filterByMark = static function (array $source) use ($itemMarkTokens, $matchedMarks): array {
+        $filtered = [];
+        foreach ($source as $index => $item) {
             $markToken = $itemMarkTokens[$index] ?? '';
             if ($markToken !== '' && isset($matchedMarks[$markToken])) {
-                $filteredItems[] = $item;
+                $filtered[$index] = $item;
             }
         }
-        $arResult['ITEMS'] = $filteredItems;
-        $items = $filteredItems;
-    } elseif ($matchedModels !== []) {
-        $filteredItems = [];
-        foreach ($items as $index => $item) {
+        return $filtered;
+    };
+
+    $filterByModel = static function (array $source) use ($itemModelTokens, $matchedModels): array {
+        $filtered = [];
+        foreach ($source as $index => $item) {
             $modelToken = $itemModelTokens[$index] ?? '';
             if ($modelToken !== '' && isset($matchedModels[$modelToken])) {
-                $filteredItems[] = $item;
+                $filtered[$index] = $item;
             }
         }
-        $arResult['ITEMS'] = $filteredItems;
-        $items = $filteredItems;
+        return $filtered;
+    };
+
+    if ($matchedMarks !== [] && $matchedModels !== []) {
+        $filtered = $filterByMarkModel($originalItems);
+        if ($filtered !== []) {
+            $items = $filtered;
+        } else {
+            $filtered = $filterByMark($originalItems);
+            if ($filtered !== []) {
+                $items = $filtered;
+            } else {
+                $filtered = $filterByModel($originalItems);
+                $items = $filtered !== [] ? $filtered : $originalItems;
+            }
+        }
+    } elseif ($matchedMarks !== []) {
+        $filtered = $filterByMark($originalItems);
+        if ($filtered !== []) {
+            $items = $filtered;
+        }
+    } elseif ($matchedModels !== []) {
+        $filtered = $filterByModel($originalItems);
+        if ($filtered !== []) {
+            $items = $filtered;
+        }
+    }
+
+    $arResult['ITEMS'] = $items;
+
+    if ($matchedBodies !== []) {
+        $queryHasStrongToken = false;
+        foreach ($queryTokensForMatching as $token) {
+            if ($isStrongBodyToken($token)) {
+                $queryHasStrongToken = true;
+                break;
+            }
+        }
+
+        // Apply body tokens as:
+        // - a refinement when mark/model matched;
+        // - a standalone filter only for strong alnum codes like "f15", "wk2", "u70".
+        if (($matchedMarks !== [] || $matchedModels !== []) || $queryHasStrongToken) {
+            $filteredItems = [];
+            foreach ($items as $index => $item) {
+                $bodyTokens = $itemBodyTokens[$index] ?? [];
+                if (!is_array($bodyTokens) || $bodyTokens === []) {
+                    continue;
+                }
+                foreach ($bodyTokens as $bodyToken) {
+                    if (isset($matchedBodies[$bodyToken])) {
+                        $filteredItems[$index] = $item;
+                        break;
+                    }
+                }
+            }
+
+            if ($filteredItems !== []) {
+                $arResult['ITEMS'] = $filteredItems;
+                $items = $filteredItems;
+            }
+        }
     }
 
     if ($queryCategoryCode !== '' && $items !== []) {
+        $itemsBeforeCategory = $items;
         $filteredItems = [];
         foreach ($items as $index => $item) {
             $itemCategoryCode = $itemCategoryCodes[$index] ?? $getItemCategoryCode($item);
             if ($itemCategoryCode !== '' && $itemCategoryCode === $queryCategoryCode) {
-                $filteredItems[] = $item;
+                $filteredItems[$index] = $item;
             }
         }
-        $arResult['ITEMS'] = $filteredItems;
-        $items = $filteredItems;
+        if ($filteredItems !== []) {
+            $arResult['ITEMS'] = $filteredItems;
+            $items = $filteredItems;
+        } else {
+            $arResult['ITEMS'] = $itemsBeforeCategory;
+            $items = $itemsBeforeCategory;
+        }
+    }
+
+    // Normalize keys for templates/pagers.
+    if ($items !== []) {
+        $arResult['ITEMS'] = array_values($items);
+        $items = $arResult['ITEMS'];
     }
 }
 
