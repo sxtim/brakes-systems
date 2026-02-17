@@ -13,6 +13,22 @@ class BasketManager
 {
     private const IBLOCK_ID = 1;
     private const OPTION_PROP_CODE = 'OPTIONS_JSON';
+    private const LEGACY_OPTION_PROP_CODE = 'OPTIONS';
+    private const OPTION_HASH_PROP_CODE = 'OPTIONS_HASH';
+
+    private static function buildContextKey(int $sectionId, string $sectionPath): string
+    {
+        if ($sectionId > 0) {
+            return 's:' . $sectionId;
+        }
+
+        $path = self::normalizePath($sectionPath);
+        if ($path !== '') {
+            return 'p:' . $path;
+        }
+
+        return 's:0';
+    }
 
     public static function addProduct(int $productId, float $quantity, array $context = [], array $options = []): array
     {
@@ -22,18 +38,20 @@ class BasketManager
 
         self::ensureModules();
 
-        $contextData = self::normalizeContext($context, $options);
+        $normalizedOptions = self::normalizeOptionsMap($options);
+        $optionsHash = self::hashOptionsMap($normalizedOptions);
+        $contextData = self::normalizeContext($context, $options, $optionsHash);
         $basket = Basket::loadItemsForFUser(Fuser::getId(), SITE_ID);
-        $existing = self::findMatchingItem($basket, $productId, $contextData);
+        $existing = self::findMatchingItemByContextAndOptions($basket, $productId, $optionsHash, $contextData);
 
         if ($existing) {
-            $existing->setField('QUANTITY', $existing->getQuantity() + $quantity);
-            self::applyContextProperties($existing, $contextData);
-            self::applyDisplayProperties($existing, $options);
-            self::syncCustomPrice($existing, $options);
-            $basket->save();
-
-            return self::getSummaryFromBasket($basket);
+            // Idempotent add: if the same product+options are already in basket,
+            // don't create duplicates or silently bump quantity. Quantity is managed in basket UI.
+            return [
+                'summary' => self::getSummaryFromBasket($basket),
+                'alreadyInBasket' => true,
+                'basketItemId' => (int)$existing->getId(),
+            ];
         }
 
         $item = $basket->createItem('catalog', $productId);
@@ -53,7 +71,11 @@ class BasketManager
         self::syncCustomPrice($item, $options);
         $basket->save();
 
-        return self::getSummaryFromBasket($basket);
+        return [
+            'summary' => self::getSummaryFromBasket($basket),
+            'alreadyInBasket' => false,
+            'basketItemId' => (int)$item->getId(),
+        ];
     }
 
     public static function updateQuantity(int $basketItemId, float $quantity): array
@@ -111,6 +133,96 @@ class BasketManager
         return self::getSummaryFromBasket($basket);
     }
 
+    /**
+     * Checks whether the given product+options+context configurations already exist in the current basket.
+     * Used by UI sync (e.g. after back/forward navigation) to mark "В корзине" without creating duplicates.
+     *
+     * Input items format:
+     *  [
+     *    ['productId' => 123, 'options' => '{"options":{...}}', 'context' => ['section_id' => 10, 'section_path' => '...']],
+     *    ...
+     *  ]
+     */
+    public static function checkItems(array $items): array
+    {
+        self::ensureModules();
+
+        $basket = Basket::loadItemsForFUser(Fuser::getId(), SITE_ID);
+
+        // Build a quick lookup: productId -> optionsHash -> contextKey -> basketItemId
+        $index = [];
+        foreach ($basket as $basketItem) {
+            $pid = (int)$basketItem->getProductId();
+            if ($pid <= 0) {
+                continue;
+            }
+            $hash = self::getItemOptionsHash($basketItem);
+            if ($hash === '') {
+                $hash = 'empty';
+            }
+
+            $signature = self::getItemSignature($basketItem);
+            $contextKey = self::buildContextKey((int)($signature['section_id'] ?? 0), (string)($signature['section_path'] ?? ''));
+
+            $index[$pid][$hash][$contextKey] = (int)$basketItem->getId();
+        }
+
+        $result = [];
+        foreach ($items as $entry) {
+            if (!is_array($entry)) {
+                $result[] = ['inBasket' => false, 'basketItemId' => 0];
+                continue;
+            }
+
+            $productId = (int)($entry['productId'] ?? 0);
+            $rawOptions = $entry['options'] ?? null;
+            $rawContext = $entry['context'] ?? null;
+
+            $options = [];
+            if (is_array($rawOptions)) {
+                $options = $rawOptions;
+            } elseif (is_string($rawOptions) && trim($rawOptions) !== '') {
+                $decoded = json_decode($rawOptions, true);
+                if (is_array($decoded)) {
+                    $options = $decoded;
+                }
+            }
+
+            $normalized = self::normalizeOptionsMap($options);
+            $hash = self::hashOptionsMap($normalized);
+
+            $context = [];
+            if (is_array($rawContext)) {
+                $context = $rawContext;
+            } elseif (is_string($rawContext) && trim($rawContext) !== '') {
+                $decoded = json_decode($rawContext, true);
+                if (is_array($decoded)) {
+                    $context = $decoded;
+                }
+            }
+
+            $contextKey = self::buildContextKey(
+                (int)($context['section_id'] ?? 0),
+                (string)($context['section_path'] ?? '')
+            );
+
+            $basketItemId = 0;
+            if ($productId > 0 && isset($index[$productId][$hash][$contextKey])) {
+                $basketItemId = (int)$index[$productId][$hash][$contextKey];
+            }
+
+            $result[] = [
+                'inBasket' => $basketItemId > 0,
+                'basketItemId' => $basketItemId,
+            ];
+        }
+
+        return [
+            'items' => $result,
+            'summary' => self::getSummaryFromBasket($basket),
+        ];
+    }
+
     private static function getSummaryFromBasket(Basket $basket): array
     {
         $count = 0.0;
@@ -134,7 +246,7 @@ class BasketManager
         }
     }
 
-    private static function normalizeContext(array $context, array $options): array
+    private static function normalizeContext(array $context, array $options, string $optionsHash = ''): array
     {
         $sectionId = isset($context['section_id']) ? (int)$context['section_id'] : 0;
         $sectionPath = isset($context['section_path']) ? (string)$context['section_path'] : '';
@@ -162,6 +274,7 @@ class BasketManager
             'section_path' => $sectionPath,
             'context_label' => $contextLabel,
             'options_json' => $optionsJson,
+            'options_hash' => trim($optionsHash),
         ];
     }
 
@@ -218,6 +331,45 @@ class BasketManager
         return null;
     }
 
+    private static function findMatchingItemByContextAndOptions(Basket $basket, int $productId, string $optionsHash, array $contextData): ?BasketItemBase
+    {
+        $targetKey = self::buildContextKey((int)($contextData['section_id'] ?? 0), (string)($contextData['section_path'] ?? ''));
+
+        foreach ($basket as $item) {
+            if ((int)$item->getProductId() !== $productId) {
+                continue;
+            }
+
+            $signature = self::getItemSignature($item);
+            $existingKey = self::buildContextKey((int)($signature['section_id'] ?? 0), (string)($signature['section_path'] ?? ''));
+            if ($existingKey !== $targetKey) {
+                continue;
+            }
+
+            $existingHash = self::getItemOptionsHash($item);
+            if ($existingHash === $optionsHash) {
+                return $item;
+            }
+        }
+
+        return null;
+    }
+
+    private static function getItemOptionsHash(BasketItemBase $item): string
+    {
+        $collection = $item->getPropertyCollection();
+        if ($collection) {
+            $raw = trim(self::extractPropertyRawValue($collection, self::OPTION_HASH_PROP_CODE));
+            if ($raw !== '') {
+                return $raw;
+            }
+        }
+
+        $options = self::extractOptionsFromItem($item);
+        $normalized = self::normalizeOptionsMap($options);
+        return self::hashOptionsMap($normalized);
+    }
+
     private static function getItemSignature(BasketItemBase $item): array
     {
         $collection = $item->getPropertyCollection();
@@ -226,15 +378,10 @@ class BasketManager
                 return '';
             }
 
-            if (method_exists($collection, 'getItemByCode')) {
-                $prop = $collection->getItemByCode($code);
-                return $prop ? (string)$prop->getValue() : '';
-            }
-
             if (method_exists($collection, 'getPropertyValues')) {
                 $values = $collection->getPropertyValues();
                 if (is_array($values) && array_key_exists($code, $values)) {
-                    return self::normalizePropertyValue($values[$code]);
+                    return self::normalizeBasketPropValue($values[$code]);
                 }
             }
 
@@ -246,7 +393,7 @@ class BasketManager
                             continue;
                         }
                         if ((string)($prop['CODE'] ?? '') === $code) {
-                            return self::normalizePropertyValue($prop['VALUE'] ?? '');
+                            return self::normalizeBasketPropValue($prop['VALUE'] ?? '');
                         }
                     }
                 }
@@ -307,6 +454,15 @@ class BasketManager
             ];
         }
 
+        if (!empty($contextData['options_hash'])) {
+            $properties[] = [
+                'NAME' => 'Options Hash',
+                'CODE' => self::OPTION_HASH_PROP_CODE,
+                'VALUE' => self::normalizePropertyValue($contextData['options_hash']),
+                'SORT' => 131,
+            ];
+        }
+
         if ($properties !== []) {
             $collection->setProperty($properties);
         }
@@ -338,6 +494,8 @@ class BasketManager
             'CONTEXT_PATH' => true,
             'CONTEXT_LABEL' => true,
             self::OPTION_PROP_CODE => true,
+            self::LEGACY_OPTION_PROP_CODE => true,
+            self::OPTION_HASH_PROP_CODE => true,
         ];
         $merged = [];
 
@@ -352,7 +510,8 @@ class BasketManager
                     if ($code === '' || !isset($preserveCodes[$code])) {
                         continue;
                     }
-                    $value = self::normalizePropertyValue($prop['VALUE'] ?? '');
+                    // Preserve original basket property values as scalars (Bitrix can return arrays like ['VALUE' => '...']).
+                    $value = self::normalizeBasketPropValue($prop['VALUE'] ?? '');
                     $merged[$code] = [
                         'NAME' => (string)($prop['NAME'] ?? $code),
                         'CODE' => $code,
@@ -368,7 +527,7 @@ class BasketManager
                     if (!is_string($code) || $code === '' || !isset($preserveCodes[$code])) {
                         continue;
                     }
-                    $finalValue = self::normalizePropertyValue($value);
+                    $finalValue = self::normalizeBasketPropValue($value);
                     $merged[$code] = [
                         'NAME' => $code,
                         'CODE' => $code,
@@ -596,30 +755,9 @@ class BasketManager
             return [];
         }
 
-        $raw = '';
-        if (method_exists($collection, 'getItemByCode')) {
-            $prop = $collection->getItemByCode(self::OPTION_PROP_CODE);
-            if ($prop) {
-                $raw = (string)$prop->getValue();
-            }
-        } elseif (method_exists($collection, 'getPropertyValues')) {
-            $values = $collection->getPropertyValues();
-            if (is_array($values) && array_key_exists(self::OPTION_PROP_CODE, $values)) {
-                $raw = self::normalizePropertyValue($values[self::OPTION_PROP_CODE]);
-            }
-        } elseif (method_exists($collection, 'getArray')) {
-            $data = $collection->getArray();
-            if (is_array($data) && !empty($data['PROPS']) && is_array($data['PROPS'])) {
-                foreach ($data['PROPS'] as $prop) {
-                    if (!is_array($prop)) {
-                        continue;
-                    }
-                    if ((string)($prop['CODE'] ?? '') === self::OPTION_PROP_CODE) {
-                        $raw = self::normalizePropertyValue($prop['VALUE'] ?? '');
-                        break;
-                    }
-                }
-            }
+        $raw = self::extractPropertyRawValue($collection, self::OPTION_PROP_CODE);
+        if ($raw === '') {
+            $raw = self::extractPropertyRawValue($collection, self::LEGACY_OPTION_PROP_CODE);
         }
         if ($raw === '') {
             return [];
@@ -627,6 +765,71 @@ class BasketManager
 
         $decoded = json_decode($raw, true);
         return is_array($decoded) ? $decoded : [];
+    }
+
+    private static function extractPropertyRawValue(object $collection, string $code): string
+    {
+        if (method_exists($collection, 'getPropertyValues')) {
+            $values = $collection->getPropertyValues();
+            if (is_array($values) && array_key_exists($code, $values)) {
+                return trim(self::normalizeBasketPropValue($values[$code]));
+            }
+        }
+
+        if (method_exists($collection, 'getArray')) {
+            $data = $collection->getArray();
+            if (is_array($data) && !empty($data['PROPS']) && is_array($data['PROPS'])) {
+                foreach ($data['PROPS'] as $prop) {
+                    if (!is_array($prop)) {
+                        continue;
+                    }
+                    if ((string)($prop['CODE'] ?? '') === $code) {
+                        return trim(self::normalizeBasketPropValue($prop['VALUE'] ?? ''));
+                    }
+                }
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Basket property values can come back as arrays (e.g. ['VALUE' => '...']).
+     * We need to unwrap them into a stable scalar string for comparisons/indexing.
+     */
+    private static function normalizeBasketPropValue(mixed $value): string
+    {
+        if (is_object($value)) {
+            $value = get_object_vars($value);
+        }
+
+        if (is_array($value)) {
+            if (array_key_exists('VALUE', $value)) {
+                return self::normalizeBasketPropValue($value['VALUE']);
+            }
+            if (array_key_exists('value', $value)) {
+                return self::normalizeBasketPropValue($value['value']);
+            }
+            if (array_key_exists('TEXT', $value)) {
+                return self::normalizeBasketPropValue($value['TEXT']);
+            }
+            if (count($value) === 1) {
+                return self::normalizeBasketPropValue(reset($value));
+            }
+
+            $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return is_string($encoded) ? $encoded : '';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'Y' : 'N';
+        }
+
+        if ($value === null) {
+            return '';
+        }
+
+        return (string)$value;
     }
 
     private static function normalizeOptionsMap(array $options): array
@@ -649,7 +852,24 @@ class BasketManager
             $normalized[$key] = $value;
         }
 
+        ksort($normalized);
+
         return $normalized;
+    }
+
+    private static function hashOptionsMap(array $options): string
+    {
+        if ($options === []) {
+            return 'empty';
+        }
+
+        ksort($options);
+        $encoded = json_encode($options, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (!is_string($encoded) || $encoded === '') {
+            return 'empty';
+        }
+
+        return md5($encoded);
     }
 
     private static function calculatePriceData(int $productId, array $options, float $quantity = 1.0): ?array

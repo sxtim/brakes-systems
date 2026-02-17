@@ -852,6 +852,12 @@
     display: none;
   }
 }
+
+@media (min-width: 87.5rem) {
+  .search-page .main-cataloge__body.view-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
 @media (max-width: 29.99875em) {
   .choose-auto__spollers-title.spollers__title {
     font-size: 1rem;

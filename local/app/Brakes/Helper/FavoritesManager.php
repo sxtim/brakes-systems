@@ -10,6 +10,7 @@ use Bitrix\Main\SystemException;
 use Bitrix\Main\Web\Cookie;
 use CCatalogGroup;
 use CPrice;
+use App\Brakes\Helper\StockProvider;
 
 class FavoritesManager
 {
@@ -288,24 +289,12 @@ class FavoritesManager
         }
 
         $catalogData = [];
-        if (class_exists('CCatalogProduct')) {
-            $catalogRes = \CCatalogProduct::GetList(
-                [],
-                ['@ID' => $ids],
-                false,
-                false,
-                ['ID', 'QUANTITY', 'AVAILABLE']
-            );
-            while ($row = $catalogRes->Fetch()) {
-                $rowId = (int)($row['ID'] ?? 0);
-                if ($rowId <= 0) {
-                    continue;
-                }
-                $catalogData[$rowId] = [
-                    'QUANTITY' => isset($row['QUANTITY']) ? (float)$row['QUANTITY'] : null,
-                    'AVAILABLE' => $row['AVAILABLE'] ?? null,
-                ];
-            }
+        $stockMap = StockProvider::getMap($ids);
+        foreach ($stockMap as $rowId => $stock) {
+            $catalogData[(int)$rowId] = [
+                'QUANTITY' => $stock['CATALOG_QUANTITY'] ?? null,
+                'AVAILABLE' => $stock['CATALOG_AVAILABLE'] ?? null,
+            ];
         }
 
         $select = [
@@ -608,7 +597,10 @@ class FavoritesManager
             $card = $item['CARD'];
             $basketMap = self::getBasketProductMap();
             if ($basketMap !== []) {
-                $card['IN_BASKET'] = isset($basketMap[$productId]);
+                $url = (string)($item['URL'] ?? $card['DETAIL_PAGE_URL'] ?? '');
+                $isSystemsItem = $url !== '' && (strpos($url, '/tormoznye_sistemy/') !== false || strpos($url, 'tormoznye_sistemy') !== false);
+                // Systems cards have selectable options; product-level IN_BASKET would block adding other configurations.
+                $card['IN_BASKET'] = $isSystemsItem ? false : isset($basketMap[$productId]);
             }
             $card['PRICE_HTML'] = isset($item['PRICE_HTML']) && is_string($item['PRICE_HTML'])
                 ? htmlspecialcharsback($item['PRICE_HTML'])

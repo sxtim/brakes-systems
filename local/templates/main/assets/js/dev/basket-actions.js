@@ -1,5 +1,6 @@
 const ADD_TO_BASKET_SELECTOR = "[data-add-basket], [data-fls-addtocart-button]";
 const BASKET_COUNTER_SELECTOR = "[data-fls-addtocart]";
+const BASKET_URL = "/personal/cart/";
 
 function getClosestContextNode(node) {
   if (!node) {
@@ -87,6 +88,20 @@ function stringifyOptions(options) {
   }
 }
 
+function buildContextKey(context) {
+  const ctx = context && typeof context === "object" ? context : {};
+  const sectionId = parseInt(ctx.section_id || 0, 10) || 0;
+  const rawPath = String(ctx.section_path || "");
+  const sectionPath = rawPath.replace(/^\/+|\/+$/g, "");
+  if (sectionId > 0) {
+    return `s:${sectionId}`;
+  }
+  if (sectionPath) {
+    return `p:${sectionPath}`;
+  }
+  return "s:0";
+}
+
 function updateBasketCounter(summary) {
   if (!summary || typeof summary.count === "undefined") {
     return;
@@ -96,6 +111,106 @@ function updateBasketCounter(summary) {
   if (counter) {
     counter.textContent = String(summary.count);
   }
+}
+
+function setButtonState(button, inBasket) {
+  if (!button) {
+    return;
+  }
+
+  const textNode = button.querySelector(
+    ".main-details__shoping-text, .main-cataloge__shoping-text"
+  );
+
+  if (inBasket) {
+    if (textNode) {
+      textNode.textContent = "В корзине";
+    }
+    button.classList?.add("is-in-basket");
+  } else {
+    if (textNode) {
+      textNode.textContent = "В корзину";
+    }
+    button.classList?.remove("is-in-basket");
+  }
+}
+
+function setButtonsStateByConfig(productId, optionsRaw, context, inBasket) {
+  if (!productId) {
+    return;
+  }
+  const targetCtxKey = buildContextKey(context);
+  const all = document.querySelectorAll(ADD_TO_BASKET_SELECTOR);
+  all.forEach((btn) => {
+    const pid = resolveProductId(btn);
+    if (pid !== productId) {
+      return;
+    }
+    const btnOptions = btn?.dataset?.options || "";
+    if ((optionsRaw || "") !== (btnOptions || "")) {
+      return;
+    }
+    const btnCtxKey = buildContextKey(resolveContext(btn));
+    if (btnCtxKey !== targetCtxKey) {
+      return;
+    }
+    setButtonState(btn, inBasket);
+  });
+}
+
+function syncButtonsWithBasket() {
+  if (!BX?.ajax?.runComponentAction) {
+    return;
+  }
+
+  const buttons = Array.from(document.querySelectorAll(ADD_TO_BASKET_SELECTOR));
+  if (buttons.length === 0) {
+    return;
+  }
+
+  const items = [];
+  const boundButtons = [];
+
+  buttons.forEach((button) => {
+    const productId = resolveProductId(button);
+    if (!productId) {
+      return;
+    }
+    items.push({
+      productId,
+      options: button?.dataset?.options || "",
+      context: resolveContext(button),
+    });
+    boundButtons.push(button);
+  });
+
+  if (items.length === 0) {
+    return;
+  }
+
+  BX.ajax
+    .runComponentAction("brakes:basket.actions", "check", {
+      mode: "class",
+      data: { items },
+    })
+    .then((response) => {
+      const data = response?.data;
+      if (!data || data.status !== "success") {
+        return;
+      }
+
+      updateBasketCounter(data.summary || {});
+
+      const states = Array.isArray(data.items) ? data.items : [];
+      states.forEach((state, index) => {
+        const btn = boundButtons[index];
+        if (!btn) {
+          return;
+        }
+        setButtonState(btn, Boolean(state?.inBasket));
+      });
+    })
+    .catch(() => {});
 }
 
 function notifyError(message) {
@@ -130,6 +245,15 @@ function handleAddToBasket(event) {
 
   event.preventDefault();
   event.stopPropagation();
+
+  if (button.classList?.contains("is-processing")) {
+    return;
+  }
+
+  if (button.classList && button.classList.contains("is-in-basket")) {
+    window.location.href = BASKET_URL;
+    return;
+  }
 
   if (!BX?.ajax?.runComponentAction) {
     return;
@@ -166,13 +290,9 @@ function handleAddToBasket(event) {
     }
 
     updateBasketCounter(data.summary || {});
-    const textNode = button.querySelector(".main-details__shoping-text, .main-cataloge__shoping-text");
-    if (textNode) {
-      textNode.textContent = "В корзине";
-    }
-    if (button.classList) {
-      button.classList.add("is-in-basket");
-    }
+    setButtonState(button, true);
+    // Keep UI consistent on pages with repeated cards (catalog/search/favorites/etc).
+    setButtonsStateByConfig(productId, optionsPayload, context, true);
     button.classList.remove("is-processing");
   }).catch(() => {
     notifyError("Не удалось добавить товар в корзину.");
@@ -182,13 +302,17 @@ function handleAddToBasket(event) {
 
 document.addEventListener("click", handleAddToBasket, true);
 
-if (BX?.ajax?.runComponentAction) {
-  BX.ajax.runComponentAction("brakes:basket.actions", "summary", {
-    mode: "class",
-  }).then((response) => {
-    const data = response?.data;
-    if (data?.status === "success") {
-      updateBasketCounter(data.summary || {});
-    }
-  }).catch(() => {});
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", syncButtonsWithBasket);
+} else {
+  syncButtonsWithBasket();
 }
+
+// When returning via back/forward cache, the DOM can be restored with stale "В корзину" labels.
+// Re-check basket state to keep buttons consistent with header counter.
+window.addEventListener("pageshow", (event) => {
+  const nav = performance.getEntriesByType("navigation")[0];
+  if (event?.persisted || nav?.type === "back_forward") {
+    syncButtonsWithBasket();
+  }
+});

@@ -204,8 +204,9 @@ $formatCurrency = static function (float $value, string $currency): string {
 $basketTotalValue = 0.0;
 $basketTotalCurrency = null;
 
-$keys = [];
-$metaByKey = [];
+$rowKeys = [];
+$metaByRowKey = [];
+$favoriteKeys = [];
 
 foreach ($items as $item) {
     $productId = (int)($item['PRODUCT_ID'] ?? 0);
@@ -237,13 +238,23 @@ foreach ($items as $item) {
         $context['section_path'] = $contextPath;
     }
 
-    $key = class_exists(FavoritesManager::class)
+    $favoriteKey = class_exists(FavoritesManager::class)
         ? FavoritesManager::buildFavoriteKey($productId, $context)
         : (string)$productId;
 
-    $keys[] = $key;
-    $metaByKey[$key] = [
+    // IMPORTANT:
+    // In basket we can have multiple rows with the same product + same context but different option sets.
+    // Favorites key does NOT include options, so we must not use it as a unique row key here.
+    $basketItemId = (int)($item['ID'] ?? 0);
+    if ($basketItemId <= 0) {
+        continue;
+    }
+    $rowKey = 'b:' . $basketItemId;
+
+    $rowKeys[] = $rowKey;
+    $metaByRowKey[$rowKey] = [
         'item' => $item,
+        'favorite_key' => $favoriteKey,
         'context_section_id' => $contextSectionId,
         'context_path' => $contextPath,
         'context_label' => $contextLabel,
@@ -251,17 +262,21 @@ foreach ($items as $item) {
         'selected' => $selected,
         'options_attr' => $optionsAttr,
     ];
+
+    if ($favoriteKey !== '') {
+        $favoriteKeys[$favoriteKey] = true;
+    }
 }
 
-$cardsByKey = [];
-if (class_exists(FavoritesManager::class) && $keys !== []) {
-    $favoriteItems = FavoritesManager::getFavoritesProductsData($keys);
+$cardsByFavoriteKey = [];
+if (class_exists(FavoritesManager::class) && $favoriteKeys !== []) {
+    $favoriteItems = FavoritesManager::getFavoritesProductsData(array_keys($favoriteKeys));
     foreach ($favoriteItems as $favoriteItem) {
         $key = (string)($favoriteItem['FAVORITES_KEY'] ?? '');
         if ($key === '' || empty($favoriteItem['CARD'])) {
             continue;
         }
-        $cardsByKey[$key] = $favoriteItem['CARD'];
+        $cardsByFavoriteKey[$key] = $favoriteItem['CARD'];
     }
 }
 
@@ -273,15 +288,16 @@ if (class_exists(FavoritesManager::class) && $keys !== []) {
                 <h1 class="main__title"><?php $APPLICATION->ShowTitle(false); ?></h1>
                 <div class="basket__body">
                     <div class="basket__products main-cataloge__body view-list">
-                        <?php foreach ($keys as $key) {
-                            if (!isset($metaByKey[$key])) {
+                        <?php foreach ($rowKeys as $rowKey) {
+                            if (!isset($metaByRowKey[$rowKey])) {
                                 continue;
                             }
 
-                            $meta = $metaByKey[$key];
+                            $meta = $metaByRowKey[$rowKey];
                             $item = $meta['item'];
 
-                            $card = $cardsByKey[$key] ?? [];
+                            $favoriteKey = (string)($meta['favorite_key'] ?? '');
+                            $card = $favoriteKey !== '' ? ($cardsByFavoriteKey[$favoriteKey] ?? []) : [];
                             $productId = (int)($item['PRODUCT_ID'] ?? 0);
                             if ($productId <= 0) {
                                 continue;

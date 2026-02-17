@@ -630,6 +630,16 @@ function setOptionsAttribute(scope, payload) {
 
   buyButtons.forEach((button) => {
     button.setAttribute("data-options", value);
+
+    // Options change means a different configuration; reset "in basket" state
+    // so user can add the new config even if previous one was already in basket.
+    if (button.classList) {
+      button.classList.remove("is-in-basket");
+    }
+    const textNode = button.querySelector(".main-details__shoping-text, .main-cataloge__shoping-text");
+    if (textNode) {
+      textNode.textContent = "В корзину";
+    }
   });
 
   favoriteButtons.forEach((button) => {

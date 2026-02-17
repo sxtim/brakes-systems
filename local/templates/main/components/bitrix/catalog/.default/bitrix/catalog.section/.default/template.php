@@ -130,6 +130,8 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 'CONTEXT_SECTION_ID' => $contextSectionId,
                 'CONTEXT_SECTION_PATH' => $contextSectionPath,
                 'CONTEXT_LABEL' => $contextLabel,
+                'CATALOG_QUANTITY' => $item['CATALOG_QUANTITY'] ?? null,
+                'CATALOG_AVAILABLE' => $item['CATALOG_AVAILABLE'] ?? null,
                 'IMAGE' => $item['IMAGE'] ?? null,
                 'IMG' => $item['IMG'] ?? '',
                 'PRICE_HTML' => $priceFormatted,

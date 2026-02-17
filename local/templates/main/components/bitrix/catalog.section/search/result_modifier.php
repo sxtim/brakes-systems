@@ -12,53 +12,10 @@ $context = $GLOBALS['catalogSearchContext'] ?? [
     'sample' => [],
 ];
 
-$items = $arResult['ITEMS'] ?? [];
-
-if ($items !== [] && \Bitrix\Main\Loader::includeModule('catalog')) {
-    $itemIds = [];
-    foreach ($items as $item) {
-        $itemId = (int)($item['ID'] ?? 0);
-        if ($itemId > 0) {
-            $itemIds[$itemId] = true;
-        }
-    }
-    $itemIds = array_keys($itemIds);
-
-    if ($itemIds !== [] && class_exists('CCatalogProduct')) {
-        $quantities = [];
-        $res = \CCatalogProduct::GetList(
-            [],
-            ['@ID' => $itemIds],
-            false,
-            false,
-            ['ID', 'QUANTITY', 'AVAILABLE']
-        );
-        while ($row = $res->Fetch()) {
-            $id = (int)($row['ID'] ?? 0);
-            if ($id <= 0) {
-                continue;
-            }
-            $quantities[$id] = [
-                'QUANTITY' => isset($row['QUANTITY']) ? (float)$row['QUANTITY'] : null,
-                'AVAILABLE' => $row['AVAILABLE'] ?? null,
-            ];
-        }
-
-        if ($quantities !== []) {
-            foreach ($arResult['ITEMS'] as $index => $item) {
-                $id = (int)($item['ID'] ?? 0);
-                if ($id <= 0 || !isset($quantities[$id])) {
-                    continue;
-                }
-                $arResult['ITEMS'][$index]['CATALOG_QUANTITY'] = $quantities[$id]['QUANTITY'];
-                $arResult['ITEMS'][$index]['CATALOG_AVAILABLE'] = $quantities[$id]['AVAILABLE'];
-            }
-        }
-    }
-}
-
 $arResult['SEARCH_CONTEXT'] = $context;
 $GLOBALS['CATALOG_SEARCH_CONTEXT'] = $context;
+
+$items = $arResult['ITEMS'] ?? [];
 
 // Filter expanded contexts by mark token in search query (only for search page).
 $query = trim((string)($context['query'] ?? ''));

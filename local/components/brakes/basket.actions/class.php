@@ -34,6 +34,12 @@ class BasketActionsComponent extends CBitrixComponent implements Controllerable
                     new ActionFilter\Csrf(),
                 ],
             ],
+            'check' => [
+                'prefilters' => [
+                    new ActionFilter\HttpMethod([ActionFilter\HttpMethod::METHOD_POST]),
+                    new ActionFilter\Csrf(),
+                ],
+            ],
             'update' => [
                 'prefilters' => [
                     new ActionFilter\HttpMethod([ActionFilter\HttpMethod::METHOD_POST]),
@@ -48,7 +54,12 @@ class BasketActionsComponent extends CBitrixComponent implements Controllerable
             ],
             'summary' => [
                 'prefilters' => [
-                    new ActionFilter\HttpMethod([ActionFilter\HttpMethod::METHOD_GET]),
+                    // runComponentAction uses POST by default; allow GET for lightweight polling if needed.
+                    new ActionFilter\HttpMethod([
+                        ActionFilter\HttpMethod::METHOD_GET,
+                        ActionFilter\HttpMethod::METHOD_POST,
+                    ]),
+                    new ActionFilter\Csrf(),
                 ],
             ],
         ];
@@ -70,11 +81,16 @@ class BasketActionsComponent extends CBitrixComponent implements Controllerable
         try {
             $context = $this->getRequestArray('context');
             $options = $this->getRequestArray('options');
-            $summary = BasketManager::addProduct($productId, $quantity, $context, $options);
+            $result = BasketManager::addProduct($productId, $quantity, $context, $options);
+            $summary = is_array($result['summary'] ?? null) ? $result['summary'] : [];
+            $alreadyInBasket = !empty($result['alreadyInBasket']);
+            $basketItemId = (int)($result['basketItemId'] ?? 0);
 
             return [
                 'status' => 'success',
                 'summary' => $summary,
+                'alreadyInBasket' => $alreadyInBasket,
+                'basketItemId' => $basketItemId,
             ];
         } catch (SystemException | \Throwable $exception) {
             $this->errors->setError(new Error($exception->getMessage()));
@@ -132,6 +148,24 @@ class BasketActionsComponent extends CBitrixComponent implements Controllerable
             'status' => 'success',
             'summary' => BasketManager::getSummary(),
         ];
+    }
+
+    public function checkAction(): array
+    {
+        try {
+            $items = $this->getRequestArray('items');
+            $result = BasketManager::checkItems($items);
+
+            return [
+                'status' => 'success',
+                'items' => $result['items'] ?? [],
+                'summary' => $result['summary'] ?? [],
+            ];
+        } catch (SystemException | \Throwable $exception) {
+            $this->errors->setError(new Error($exception->getMessage()));
+        }
+
+        return $this->buildErrorResponse();
     }
 
     private function buildErrorResponse(): array

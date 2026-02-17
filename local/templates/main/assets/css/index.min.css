@@ -914,3 +914,9 @@
 	display: block;
 	width: 100%;
 }
+
+@media (min-width: 87.5rem) {
+	.search-page .main-cataloge__body.view-grid {
+		grid-template-columns: repeat(4, 1fr);
+	}
+}

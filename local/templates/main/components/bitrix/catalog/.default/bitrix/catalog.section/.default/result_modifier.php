@@ -2,6 +2,7 @@
 
 use App\Brakes\Helper\FavoritesManager;
 use App\Brakes\Helper\Image;
+use App\Brakes\Helper\StockProvider;
 
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
@@ -9,11 +10,102 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 
 $basketProductMap = [];
 if (\Bitrix\Main\Loader::includeModule('sale') && !empty($arResult['ITEMS'])) {
+    $normalizeBasketPropValue = null;
+    $normalizeBasketPropValue = static function ($value) use (&$normalizeBasketPropValue): string {
+        if (is_object($value)) {
+            $value = get_object_vars($value);
+        }
+        if (is_array($value)) {
+            if (array_key_exists('VALUE', $value)) {
+                return $normalizeBasketPropValue($value['VALUE']);
+            }
+            if (array_key_exists('value', $value)) {
+                return $normalizeBasketPropValue($value['value']);
+            }
+            if (array_key_exists('TEXT', $value)) {
+                return $normalizeBasketPropValue($value['TEXT']);
+            }
+            if (count($value) === 1) {
+                return $normalizeBasketPropValue(reset($value));
+            }
+            $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return is_string($encoded) ? $encoded : '';
+        }
+        if (is_bool($value)) {
+            return $value ? 'Y' : 'N';
+        }
+        if ($value === null) {
+            return '';
+        }
+        return (string)$value;
+    };
+
+    $normalizePath = static function (string $path): string {
+        $path = trim($path);
+        if ($path === '') {
+            return '';
+        }
+        return trim($path, "/ \t\n\r\0\x0B");
+    };
+
+    $buildContextKey = static function (int $sectionId, string $sectionPath) use ($normalizePath): string {
+        if ($sectionId > 0) {
+            return 's:' . $sectionId;
+        }
+
+        $path = $normalizePath($sectionPath);
+        if ($path !== '') {
+            return 'p:' . $path;
+        }
+
+        return 's:0';
+    };
+
+    $getPropValue = static function ($collection, string $code) use ($normalizeBasketPropValue): string {
+        if (!$collection) {
+            return '';
+        }
+
+        if (method_exists($collection, 'getPropertyValues')) {
+            $values = $collection->getPropertyValues();
+            if (is_array($values) && array_key_exists($code, $values)) {
+                return $normalizeBasketPropValue($values[$code]);
+            }
+        }
+
+        if (method_exists($collection, 'getArray')) {
+            $data = $collection->getArray();
+            if (is_array($data) && !empty($data['PROPS']) && is_array($data['PROPS'])) {
+                foreach ($data['PROPS'] as $prop) {
+                    if (!is_array($prop)) {
+                        continue;
+                    }
+                    if ((string)($prop['CODE'] ?? '') === $code) {
+                        return $normalizeBasketPropValue($prop['VALUE'] ?? '');
+                    }
+                }
+            }
+        }
+
+        return '';
+    };
+
     $basket = \Bitrix\Sale\Basket::loadItemsForFUser(\Bitrix\Sale\Fuser::getId(), SITE_ID);
     foreach ($basket as $basketItem) {
         $productId = (int)$basketItem->getProductId();
         if ($productId > 0) {
-            $basketProductMap[$productId] = true;
+            $props = $basketItem->getPropertyCollection();
+            $sectionId = (int)$getPropValue($props, 'CONTEXT_SECTION_ID');
+            $sectionPath = $normalizePath($getPropValue($props, 'CONTEXT_PATH'));
+            $contextKey = $buildContextKey($sectionId, $sectionPath);
+
+            $optionsHash = trim($getPropValue($props, 'OPTIONS_HASH'));
+            if ($optionsHash === '') {
+                // Legacy fallback: if there is no hash, treat as no-options for catalog cards (pads/discs/etc).
+                $optionsHash = 'empty';
+            }
+
+            $basketProductMap[$productId][$optionsHash][$contextKey] = true;
         }
     }
 }
@@ -42,8 +134,16 @@ $makeFileItem = static function (int $fileId): ?array {
 foreach ($arResult['ITEMS'] as $i => $item) {
     if ($basketProductMap !== []) {
         $itemId = (int)($item['ID'] ?? 0);
-        if ($itemId > 0) {
-            $arResult['ITEMS'][$i]['IN_BASKET'] = isset($basketProductMap[$itemId]);
+        $detailUrl = (string)($item['DETAIL_PAGE_URL'] ?? '');
+        $isSystemsItem = $detailUrl !== '' && (strpos($detailUrl, '/tormoznye_sistemy/') !== false || strpos($detailUrl, 'tormoznye_sistemy') !== false);
+        if ($itemId > 0 && !$isSystemsItem) {
+            $sectionId = (int)($item['CONTEXT_SECTION_ID'] ?? 0);
+            $sectionPath = (string)($item['CONTEXT_SECTION_PATH'] ?? '');
+            $contextKey = $buildContextKey($sectionId, $sectionPath);
+            $arResult['ITEMS'][$i]['IN_BASKET'] = isset($basketProductMap[$itemId]['empty'][$contextKey]);
+        } elseif ($itemId > 0 && $isSystemsItem) {
+            // Systems cards have selectable options; product-level IN_BASKET would block adding other configurations.
+            $arResult['ITEMS'][$i]['IN_BASKET'] = false;
         }
     }
     $imageData = null;
@@ -128,6 +228,29 @@ foreach ($arResult['ITEMS'] as $i => $item) {
         $arResult['ITEMS'][$i]['IMG'] = $imageData['src'] ?? '';
     }
 
+}
+
+// Ensure stock/availability is present for all cards consistently across the site.
+// We prefer a single provider for this data to avoid "В наличии" vs "Под заказ" mismatches.
+if (!empty($arResult['ITEMS'])) {
+    $ids = [];
+    foreach ($arResult['ITEMS'] as $item) {
+        $id = (int)($item['ID'] ?? 0);
+        if ($id > 0) {
+            $ids[$id] = true;
+        }
+    }
+    $stockMap = StockProvider::getMap(array_keys($ids));
+    if ($stockMap !== []) {
+        foreach ($arResult['ITEMS'] as $idx => $item) {
+            $id = (int)($item['ID'] ?? 0);
+            if ($id <= 0 || !isset($stockMap[$id])) {
+                continue;
+            }
+            $arResult['ITEMS'][$idx]['CATALOG_QUANTITY'] = $stockMap[$id]['CATALOG_QUANTITY'] ?? null;
+            $arResult['ITEMS'][$idx]['CATALOG_AVAILABLE'] = $stockMap[$id]['CATALOG_AVAILABLE'] ?? null;
+        }
+    }
 }
 
 // Expand items by body-level sections to provide a strict mark/model/body context.

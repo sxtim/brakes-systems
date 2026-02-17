@@ -172,20 +172,29 @@ if (Loader::includeModule('sale')) {
             if (!$collection) {
                 return '';
             }
-            if (method_exists($collection, 'getItemByCode')) {
-                $prop = $collection->getItemByCode($code);
-                return $prop ? (string)$prop->getValue() : '';
-            }
             if (method_exists($collection, 'getPropertyValues')) {
                 $values = $collection->getPropertyValues();
-                return isset($values[$code]) ? (string)$values[$code] : '';
+                if (is_array($values) && array_key_exists($code, $values)) {
+                    $value = $values[$code];
+                    if (is_array($value) || is_object($value)) {
+                        $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                        return is_string($encoded) ? $encoded : '';
+                    }
+                    return (string)$value;
+                }
+                return '';
             }
             if (method_exists($collection, 'getArray')) {
                 $data = $collection->getArray();
                 if (!empty($data['PROPS'])) {
                     foreach ($data['PROPS'] as $prop) {
                         if (($prop['CODE'] ?? '') === $code) {
-                            return (string)($prop['VALUE'] ?? '');
+                            $value = $prop['VALUE'] ?? '';
+                            if (is_array($value) || is_object($value)) {
+                                $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                                return is_string($encoded) ? $encoded : '';
+                            }
+                            return (string)$value;
                         }
                     }
                 }
