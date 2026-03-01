@@ -34,8 +34,11 @@ if ($query !== '' && !empty($items) && is_array($items)) {
     };
 
     $normalizedQuery = $normalize($query);
-    $queryTokens = preg_split('/[^0-9a-zа-я]+/iu', $normalizedQuery, -1, PREG_SPLIT_NO_EMPTY);
-    $queryTokens = is_array($queryTokens) ? array_values(array_unique($queryTokens)) : [];
+    // Keep original order for bigram building; keep unique list for normal matching.
+    $queryTokensOrdered = preg_split('/[^0-9a-zа-я]+/iu', $normalizedQuery, -1, PREG_SPLIT_NO_EMPTY);
+    $queryTokensOrdered = is_array($queryTokensOrdered) ? array_values($queryTokensOrdered) : [];
+
+    $queryTokens = $queryTokensOrdered !== [] ? array_values(array_unique($queryTokensOrdered)) : [];
 
     // Handle hyphen/underscore-separated model codes like "uni-k" -> "unik".
     $collapsedQueryToken = preg_replace('/[^0-9a-zа-я]+/iu', '', $normalizedQuery);
@@ -252,6 +255,56 @@ if ($query !== '' && !empty($items) && is_array($items)) {
         }
         if (isset($allBodyTokens[$token])) {
             $matchedBodies[$token] = true;
+        }
+    }
+
+    // If nothing matched by tokens, try minimal enrichment: build bigrams from the query.
+    // Example: "land cruiser 300" -> add "landcruiser" so it can match the model slug "land_cruiser".
+    if ($matchedMarks === [] && $matchedModels === [] && $matchedBodies === [] && $queryTokensOrdered !== []) {
+        $bigrams = [];
+
+        // Build from ordered tokens (not unique) so adjacency is preserved.
+        $tokensForBigrams = array_values(array_filter($queryTokensOrdered, static function ($token): bool {
+            return is_string($token) && strlen($token) >= 2;
+        }));
+
+        $count = count($tokensForBigrams);
+        for ($i = 0; $i + 1 < $count; $i++) {
+            $left = (string)$tokensForBigrams[$i];
+            $right = (string)$tokensForBigrams[$i + 1];
+            $bigram = $left . $right;
+
+            // Avoid creating purely numeric bigrams; keep alnum or alpha-only.
+            if ($bigram === '' || !preg_match('/[a-zа-я]/iu', $bigram)) {
+                continue;
+            }
+            if (strlen($bigram) < 3) {
+                continue;
+            }
+            $bigrams[$bigram] = true;
+        }
+
+        if ($bigrams !== []) {
+            foreach (array_keys($bigrams) as $token) {
+                $queryTokensForMatching[] = $token;
+            }
+            $queryTokensForMatching = array_values(array_unique($queryTokensForMatching));
+
+            // Recompute matches with enriched tokens.
+            $matchedMarks = [];
+            $matchedModels = [];
+            $matchedBodies = [];
+            foreach ($queryTokensForMatching as $token) {
+                if (isset($allMarkTokens[$token])) {
+                    $matchedMarks[$token] = true;
+                }
+                if (isset($allModelTokens[$token])) {
+                    $matchedModels[$token] = true;
+                }
+                if (isset($allBodyTokens[$token])) {
+                    $matchedBodies[$token] = true;
+                }
+            }
         }
     }
 

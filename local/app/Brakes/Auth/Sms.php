@@ -2,14 +2,37 @@
 
 namespace App\Brakes\Auth;
 
-use Bitrix\Main\Web\HttpClient;
+use Bitrix\Main\Loader;
+use Bitrix\MessageService\Sender\SmsManager;
 
 class Sms
 {
-    /**
-     * @const string API ID для доступа к sms.ru
-     */
-    private const API_ID = '35217E9E-961F-326C-84AC-E582EECB2E33'; // TODO: Вынести в настройки модуля
+    private static function normalizePhone(string $phone): string
+    {
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+        if ($phone === null) {
+            return '';
+        }
+
+        if (strlen($phone) === 11 && $phone[0] === '8') {
+            $phone[0] = '7';
+        } elseif (strlen($phone) === 10) {
+            $phone = '7' . $phone;
+        }
+
+        return $phone;
+    }
+
+    private static function log(string $message, array $context = []): void
+    {
+        $logPath = $_SERVER['DOCUMENT_ROOT'] . '/upload/sms_log.txt';
+        $line = date('Y-m-d H:i:s') . ' - ' . $message;
+        if ($context !== []) {
+            $line .= ' | ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+        $line .= PHP_EOL;
+        @error_log($line, 3, $logPath);
+    }
 
     /**
      * Отправка SMS-сообщения.
@@ -20,48 +43,41 @@ class Sms
      */
     public static function send(string $phone, string $text)
     {
-        $phone = preg_replace('/[^0-9]/', '', $phone);
-        
-        $url = 'https://sms.ru/sms/send';
-        $params = [
-            'api_id' => self::API_ID,
-            'to' => $phone,
-            'msg' => $text,
-            'json' => 1
-        ];
-
-        $httpClient = new HttpClient();
-        $httpClient->setTimeout(10);
-
-        try {
-            $response = $httpClient->post($url, $params);
-            $error = $httpClient->getError();
-        } catch (\Exception $e) {
-            $response = false;
-            $error = ['exception' => $e->getMessage()];
-        }
-
-        // Логируем запрос и ответ
-        $logMessage = date('Y-m-d H:i:s') . " - SMS.RU Request (HttpClient):\n"
-            . "URL: {$url}\n"
-            . "Params: " . print_r($params, true) . "\n"
-            . "HTTP Client Error: " . print_r($error, true) . "\n"
-            . "Response: " . print_r($response, true) . "\n"
-            . "-------------------------\n";
-        
-        $logPath = $_SERVER['DOCUMENT_ROOT'] . '/upload/sms_log.txt';
-        error_log($logMessage, 3, $logPath);
-
-        if ($response === false) {
+        $phone = self::normalizePhone($phone);
+        if ($phone === '' || trim($text) === '') {
+            self::log('sms_send_error', ['reason' => 'empty_phone_or_text']);
             return false;
         }
 
-        $json = json_decode($response, true);
-
-        if ($json && $json['status'] === 'OK') {
-            return $json['sms'][$phone]['sms_id'];
+        if (!Loader::includeModule('messageservice')) {
+            self::log('sms_send_error', ['reason' => 'messageservice_module_not_loaded']);
+            return false;
         }
 
-        return false;
+        $result = SmsManager::sendMessage([
+            'MESSAGE_TO' => '+' . $phone,
+            'MESSAGE_BODY' => $text,
+        ]);
+
+        $isSuccess = is_object($result) && method_exists($result, 'isSuccess') && $result->isSuccess();
+        if (!$isSuccess) {
+            $errors = [];
+            if (is_object($result) && method_exists($result, 'getErrorMessages')) {
+                $errors = $result->getErrorMessages();
+            }
+            self::log('sms_send_error', [
+                'phone' => '+' . $phone,
+                'errors' => $errors,
+            ]);
+            return false;
+        }
+
+        $messageId = (is_object($result) && method_exists($result, 'getId')) ? (string)$result->getId() : '';
+        self::log('sms_send_ok', [
+            'phone' => '+' . $phone,
+            'messageId' => $messageId,
+        ]);
+
+        return $messageId !== '' ? $messageId : true;
     }
 }

@@ -4,11 +4,14 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED!==true) die();
 use Bitrix\Main\Engine\Contract\Controllerable;
 use Bitrix\Main\Engine\ActionFilter;
 use Bitrix\Main\Application;
+use Bitrix\Main\Data\Cache;
 use Bitrix\Main\UserTable;
 use App\Brakes\Auth\Sms;
 
 class BrakesAuthLoginComponent extends CBitrixComponent implements Controllerable
 {
+    private const RESEND_COOLDOWN_SECONDS = 60;
+
     public function configureActions()
     {
         return [
@@ -30,6 +33,52 @@ class BrakesAuthLoginComponent extends CBitrixComponent implements Controllerabl
     private function generateCode(): int
     {
         return rand(1000, 9999);
+    }
+
+    private function getCooldownCacheMeta(string $normalizedPhone): array
+    {
+        return [
+            'id' => 'sms_resend_' . md5($normalizedPhone),
+            'dir' => '/sms_auth_rate_limit',
+        ];
+    }
+
+    private function getResendCooldownLeft(string $normalizedPhone): int
+    {
+        $cacheMeta = $this->getCooldownCacheMeta($normalizedPhone);
+        $cache = Cache::createInstance();
+
+        if (!$cache->initCache(self::RESEND_COOLDOWN_SECONDS, $cacheMeta['id'], $cacheMeta['dir'])) {
+            return 0;
+        }
+
+        $vars = (array)$cache->getVars();
+        $availableAt = isset($vars['availableAt']) ? (int)$vars['availableAt'] : 0;
+        if ($availableAt <= 0) {
+            return self::RESEND_COOLDOWN_SECONDS;
+        }
+
+        $left = $availableAt - time();
+        if ($left <= 0) {
+            $cache->clean($cacheMeta['id'], $cacheMeta['dir']);
+            return 0;
+        }
+
+        return $left;
+    }
+
+    private function markResendCooldown(string $normalizedPhone): void
+    {
+        $cacheMeta = $this->getCooldownCacheMeta($normalizedPhone);
+        $cache = Cache::createInstance();
+        if ($cache->initCache(self::RESEND_COOLDOWN_SECONDS, $cacheMeta['id'], $cacheMeta['dir'])) {
+            $cache->clean($cacheMeta['id'], $cacheMeta['dir']);
+        }
+
+        $cache->startDataCache(self::RESEND_COOLDOWN_SECONDS, $cacheMeta['id'], $cacheMeta['dir']);
+        $cache->endDataCache([
+            'availableAt' => time() + self::RESEND_COOLDOWN_SECONDS,
+        ]);
     }
 
     public function executeComponent()
@@ -61,22 +110,24 @@ class BrakesAuthLoginComponent extends CBitrixComponent implements Controllerabl
             return ['status' => 'error', 'message' => 'Пользователь с таким номером не найден или неактивен.'];
         }
 
-        $code = 1234; // DEBUG: постоянный код для тестирования
-        $smsSent = true; // DEBUG: эмуляция отправки SMS
+        $cooldownLeft = $this->getResendCooldownLeft($normalizedPhone);
+        if ($cooldownLeft > 0) {
+            return [
+                'status' => 'error',
+                'message' => 'Повторная отправка возможна через ' . $cooldownLeft . ' сек.',
+            ];
+        }
+
+        $code = $this->generateCode();
+        $smsSent = Sms::send($normalizedPhone, 'Код подтверждения: ' . $code) !== false;
+        if (!$smsSent) {
+            return ['status' => 'error', 'message' => 'Не удалось отправить SMS. Попробуйте позже.'];
+        }
+
+        $this->markResendCooldown($normalizedPhone);
 
         $cache = \Bitrix\Main\Data\Cache::createInstance();
         $cacheId = 'sms_code_' . preg_replace('/[^0-9]/', '', $normalizedPhone);
-        
-        // Логируем создание кэша
-        $logMessage = date('Y-m-d H:i:s') . " - Creating cache for login:\n"
-            . "Normalized Phone: {$normalizedPhone}\n"
-            . "Cache ID: {$cacheId}\n"
-            . "Code: 1234\n"
-            . "User ID: " . $user['ID'] . "\n"
-            . "-------------------------\n";
-        
-        $logPath = $_SERVER['DOCUMENT_ROOT'] . '/upload/sms_log.txt';
-        error_log($logMessage, 3, $logPath);
         $cacheTime = 300;
 
         $cacheData = [
@@ -90,11 +141,7 @@ class BrakesAuthLoginComponent extends CBitrixComponent implements Controllerabl
         $cache->startDataCache($cacheTime, $cacheId, '/sms_auth');
         $cache->endDataCache($cacheData);
 
-        if ($smsSent) {
-            return ['status' => 'success', 'message' => 'Код для входа отправлен на ваш номер.'];
-        } else {
-            return ['status' => 'error', 'message' => 'Не удалось отправить SMS. Попробуйте позже.'];
-        }
+        return ['status' => 'success', 'message' => 'Код для входа отправлен на ваш номер.'];
     }
 
     public function verifyCodeAction()
