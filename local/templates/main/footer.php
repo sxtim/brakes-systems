@@ -4,7 +4,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
 ?>
-<footer data-fls-footer="" class="footer">
+<footer data-fls-footer="" class="footer footer--unified">
     <div class="footer__container">
         <div class="footer__inner">
             <div class="footer__content">
@@ -26,10 +26,10 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                     <h4 class="footer__content-title">Информация</h4>
                     <ul class="footer__content-list">
                         <li class="footer__content-li">
-                            <a class="footer__content-link" href="#">О нас</a>
+                            <a class="footer__content-link" href="/about/">О нас</a>
                         </li>
                         <li class="footer__content-li">
-                            <a class="footer__content-link" href="contacts-page.html">Контакты / Схема проезда</a>
+                            <a class="footer__content-link" href="/contacts/">Контакты / Схема проезда</a>
                         </li>
                         <li class="footer__content-li">
                             <a class="footer__content-link" href="#">Сотрудничество</a>
@@ -49,7 +49,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                             <a class="footer__content-link" href="#">Гарантия</a>
                         </li>
                         <li class="footer__content-li">
-                            <a class="footer__content-link" href="#">Оформление заказа</a>
+                            <a class="footer__content-link" href="/personal/order/">Оформление заказа</a>
                         </li>
                     </ul>
                 </div>
@@ -87,6 +87,14 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 </div>
             </div>
         </div>
+        <img class="footer__bg-image footer__bg-image--desktop"
+             src="<?= SITE_TEMPLATE_PATH ?>/assets/img/bg_footer.png"
+             alt=""
+             aria-hidden="true">
+        <img class="footer__bg-image footer__bg-image--mobile"
+             src="<?= SITE_TEMPLATE_PATH ?>/assets/img/bg_footer1.png"
+             alt=""
+             aria-hidden="true">
     </div>
 </footer>
 </div>

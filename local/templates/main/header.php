@@ -41,6 +41,13 @@ Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/popup.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/contacts-page.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/login-page.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/basket-page.min.css');
+$unifiedCssAbsolutePath = $_SERVER['DOCUMENT_ROOT'] . SITE_TEMPLATE_PATH . '/assets/css/dev/header-footer-unified.css';
+$unifiedCssVersion = file_exists($unifiedCssAbsolutePath) ? filemtime($unifiedCssAbsolutePath) : time();
+Asset::getInstance()->addString(
+    '<link rel="stylesheet" href="' . SITE_TEMPLATE_PATH . '/assets/css/dev/header-footer-unified.css?v=' . $unifiedCssVersion . '">',
+    false,
+    \Bitrix\Main\Page\AssetLocation::AFTER_CSS
+);
 
 $favoritesClientState = FavoritesManager::getClientState();
 $basketSummary = BasketManager::getSummary();
@@ -91,7 +98,7 @@ $bodyClass = $APPLICATION->GetCurPage(false) === '/personal/order/' ? 'bx-soa-or
 <body<?= $bodyClass !== '' ? ' class="'.$bodyClass.'"' : '' ?>>
 <?php $APPLICATION->ShowPanel(); ?>
 <div class="wrapper">
-    <header data-fls-header="" class="header">
+    <header data-fls-header="" class="header header--unified">
         <div class="header__top">
             <div class="header__container header__top-container">
                 <div class="burger" id="burger">

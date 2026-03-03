@@ -1,0 +1,287 @@
+/* Stage 1: unified header/footer visual layer without behavior changes */
+
+.header--unified .header__top-nav--unified {
+  background-color: #fff;
+}
+
+.header--unified .header__top-list--unified {
+  width: 100%;
+}
+
+.header--unified .header__top-nav--unified .header__top-item {
+  width: 100%;
+}
+
+.header--unified .header__top-nav--unified .header__nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header--unified .header__top-nav--unified .header__nav-link-text {
+  display: inline-block;
+  text-transform: uppercase;
+}
+
+.header--unified .header__top-nav--unified .header__nav-link-arrow {
+  display: none;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.header--unified .header__top-phone--unified {
+  margin-bottom: 1.4375rem;
+}
+
+.header--unified .header__top-phone--unified a {
+  font-size: 2.0625rem;
+  line-height: 1;
+}
+
+.header--unified .header__contacts--unified {
+  align-items: flex-end;
+}
+
+.footer--unified {
+  position: relative;
+  overflow: hidden;
+  background-image: none;
+  background-color: #fff;
+}
+
+.footer--unified .footer__container {
+  position: relative;
+}
+
+.footer--unified .footer__inner {
+  position: relative;
+  z-index: 2;
+}
+
+.footer--unified .footer__bg-image {
+  position: absolute;
+  right: -23.75rem;
+  top: -3.75rem;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+}
+
+.footer--unified .footer__bg-image--mobile {
+  display: none;
+}
+
+@media (max-width: 75em) {
+  .header--unified .burger {
+    display: flex !important;
+    order: 2;
+  }
+
+  .header--unified .header__sign {
+    order: 1;
+  }
+
+  .header--unified .header__top-nav--unified {
+    position: absolute;
+    top: 3.75rem;
+    right: -100%;
+    background: #fbfbfb;
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    z-index: 10;
+    overflow-y: auto;
+    height: calc(100dvh - 4.0625rem);
+    transition: all 0.3s ease-in-out;
+    opacity: 0;
+    visibility: hidden;
+    padding: 1.5625rem 1.25rem;
+    display: flex !important;
+  }
+
+  .header--unified .header__top-nav--unified.active {
+    opacity: 1;
+    visibility: visible;
+    right: 0;
+  }
+
+  .header--unified .header__top-nav--unified .header__top-list--unified {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 1.5625rem;
+    width: 100%;
+    padding: 0;
+  }
+
+  .header--unified .header__top-nav--unified .header__top-item {
+    width: 100%;
+    text-align: center;
+    border-bottom: 0.125rem solid #dedede;
+  }
+
+  .header--unified .header__top-nav--unified .header__top-item:last-child {
+    border-bottom: none;
+  }
+
+  .header--unified .header__top-nav--unified .header__nav-link {
+    display: flex;
+    width: 100%;
+    text-align: right;
+    height: 4.5rem;
+    align-items: center;
+    justify-content: flex-end;
+    font-weight: 600;
+    font-size: 1.1875rem;
+    line-height: 1.2;
+    padding: 0.625rem 0.3125rem;
+  }
+
+  .header--unified .header__top-nav--unified .header__top-item--primary .header__nav-link-arrow {
+    display: inline-flex;
+  }
+
+  .header--unified .header__top-phone--unified {
+    display: flex;
+    width: fit-content;
+    margin-left: auto;
+    margin-bottom: 1.4375rem;
+  }
+
+  .header--unified .header__top-phone--unified a {
+    font-size: 1.75rem;
+    letter-spacing: 0.02em;
+    padding: 0.75rem 0.875rem;
+  }
+
+  .header--unified .header__contacts--unified {
+    display: flex;
+  }
+
+  .header--unified .header__top-nav--unified .header__sign-link,
+  .header--unified .header__top-nav--unified .header__sign-user {
+    font-size: 1.125rem;
+  }
+}
+
+@media (max-width: 47.99875em) {
+  .header--unified .header__top-nav--unified {
+    background-color: #fbfbfb;
+    padding: 5.1875rem 1.6875rem 3.3125rem;
+  }
+
+  .header--unified .header__top-nav--unified .header__top-list--unified {
+    margin-bottom: 3.0625rem;
+  }
+
+  .header--unified .header__top-nav--unified .header__top-item--primary .header__nav-link-arrow {
+    display: inline-flex;
+  }
+
+  .header--unified .header__top-nav--unified .header__top-item .header__nav-link {
+    width: 100%;
+    justify-content: flex-end;
+    font-size: 0.9375rem;
+    height: 3.75rem;
+  }
+
+  .header--unified .header__top-phone--unified {
+    width: fit-content;
+    margin-left: auto;
+    margin-bottom: 1.4375rem;
+  }
+
+  .header--unified .header__top-phone--unified a {
+    font-size: 1.5rem;
+    letter-spacing: 0.02em;
+    padding: 0.625rem 0.75rem;
+  }
+
+  .header--unified .header__top-nav--unified .header__sign-link,
+  .header--unified .header__top-nav--unified .header__sign-user {
+    font-size: 0.875rem;
+  }
+
+  .footer--unified .footer__bg-image--desktop {
+    display: none;
+  }
+
+  .footer--unified .footer__bg-image--mobile {
+    display: block;
+    right: -15.625rem;
+    top: auto;
+    bottom: -3.125rem;
+  }
+}
+
+@media (min-width: 75.0625em) {
+  .header--unified .header__top-container {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .header--unified .burger {
+    display: none !important;
+  }
+
+  .header--unified .header__top-nav--unified,
+  .header--unified .header__top-nav--unified.active {
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    transform: none !important;
+    width: auto;
+    height: auto;
+    max-width: none;
+    background: transparent;
+    padding: 0;
+    opacity: 1;
+    visibility: visible;
+    overflow: visible;
+    z-index: 2;
+    display: flex !important;
+    align-items: center;
+    margin-right: auto;
+  }
+
+  .header--unified .header__top-nav--unified .header__top-list--unified {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: clamp(0.5rem, 1.1vw, 1.5rem);
+    width: auto;
+    margin: 0;
+    padding: 0;
+  }
+
+  .header--unified .header__top-nav--unified .header__top-item {
+    width: auto;
+    border: none;
+  }
+
+  .header--unified .header__top-nav--unified .header__nav-link {
+    font-weight: 600;
+    font-size: 1.0625rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    justify-content: center;
+    width: auto;
+    text-align: center;
+    padding: 0.5rem 0;
+  }
+
+  .header--unified .header__top-nav--unified .header__nav-link-arrow {
+    display: none;
+  }
+
+  .header--unified .header__sign {
+    position: relative;
+    z-index: 3;
+    margin-left: 1.25rem;
+    min-width: max-content;
+  }
+}

@@ -291,64 +291,200 @@ function menuInit() {
 document.querySelector("[data-fls-menu]") ? window.addEventListener("load", menuInit) : null;
 const burger = document.getElementById("burger");
 const nav = document.getElementById("header__top-nav");
-burger.addEventListener("click", () => {
-  nav.classList.toggle("active");
-  burger.classList.toggle("active");
-});
+if (burger && nav) {
+  const desktopHeaderMedia = window.matchMedia("(min-width: 1201px)");
+  const resetDesktopHeaderMenu = () => {
+    if (!desktopHeaderMedia.matches) {
+      return;
+    }
+    nav.classList.remove("active");
+    burger.classList.remove("active");
+  };
+
+  if (typeof desktopHeaderMedia.addEventListener === "function") {
+    desktopHeaderMedia.addEventListener("change", resetDesktopHeaderMenu);
+  } else if (typeof desktopHeaderMedia.addListener === "function") {
+    desktopHeaderMedia.addListener(resetDesktopHeaderMenu);
+  }
+
+  resetDesktopHeaderMenu();
+
+  burger.addEventListener("click", () => {
+    nav.classList.toggle("active");
+    burger.classList.toggle("active");
+  });
+}
 const searchMobile = document.getElementById("header__search-mobile");
 const searchBox = document.querySelector(".header__search-box");
-searchMobile.addEventListener("click", (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  searchMobile.classList.toggle("active");
-  searchBox.classList.toggle("active");
-});
-document.addEventListener("click", (e) => {
-  if (!searchMobile.contains(e.target) && !searchBox.contains(e.target)) {
-    searchMobile.classList.remove("active");
-    searchBox.classList.remove("active");
-  }
-});
+if (searchMobile && searchBox) {
+  searchMobile.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    searchMobile.classList.toggle("active");
+    searchBox.classList.toggle("active");
+  });
+  document.addEventListener("click", (e) => {
+    if (!searchMobile.contains(e.target) && !searchBox.contains(e.target)) {
+      searchMobile.classList.remove("active");
+      searchBox.classList.remove("active");
+    }
+  });
+}
 const FAVORITES_SCROLL_CLASS = "favorites-popup-open";
 const favoriteBtn = document.querySelector(".header__like");
 const favoriteBox = document.querySelector(".favorit-box");
 const favoriteClose = document.querySelector(".favorit-box__close");
-favoriteBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  const willOpen = !favoriteBox.classList.contains("active");
-  favoriteBox.classList.toggle("active");
-  favoriteBtn.classList.toggle("active");
-  document.documentElement.classList.toggle(FAVORITES_SCROLL_CLASS, willOpen);
-});
-favoriteBox.addEventListener("click", (e) => {
-  e.stopPropagation();
-});
-document.addEventListener("click", (e) => {
-  const isClickInsideFavorite = favoriteBox.contains(e.target) || favoriteBtn.contains(e.target);
-  if (!isClickInsideFavorite) {
+if (favoriteBtn && favoriteBox && favoriteClose) {
+  favoriteBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = !favoriteBox.classList.contains("active");
+    favoriteBox.classList.toggle("active");
+    favoriteBtn.classList.toggle("active");
+    document.documentElement.classList.toggle(FAVORITES_SCROLL_CLASS, willOpen);
+  });
+  favoriteBox.addEventListener("click", (e) => {
+    e.stopPropagation();
+  });
+  document.addEventListener("click", (e) => {
+    const isClickInsideFavorite = favoriteBox.contains(e.target) || favoriteBtn.contains(e.target);
+    if (!isClickInsideFavorite) {
+      favoriteBox.classList.remove("active");
+      favoriteBtn.classList.remove("active");
+      document.documentElement.classList.remove(FAVORITES_SCROLL_CLASS);
+    }
+  });
+  favoriteClose.addEventListener("click", () => {
     favoriteBox.classList.remove("active");
     favoriteBtn.classList.remove("active");
     document.documentElement.classList.remove(FAVORITES_SCROLL_CLASS);
+  });
+  const favoritesBody = document.querySelector(".favorit-box__body");
+  if (favoritesBody) {
+    favoritesBody.addEventListener("click", function(e) {
+      const deleteBtn = e.target.closest(".favorit-box__delete");
+      if (deleteBtn) {
+        const item = deleteBtn.closest(".favorit-box__item");
+        if (item) {
+          item.remove();
+        }
+      }
+    });
   }
-});
-favoriteClose.addEventListener("click", () => {
-  favoriteBtn.classList.remove("active");
-  favoriteBox.classList.remove("active");
-  document.documentElement.classList.remove(FAVORITES_SCROLL_CLASS);
-});
-document.querySelector(".favorit-box__body").addEventListener("click", function(e) {
-  const deleteBtn = e.target.closest(".favorit-box__delete");
-  if (deleteBtn) {
-    const item = deleteBtn.closest(".favorit-box__item");
-    if (item) {
-      item.remove();
-    }
-  }
-});
+}
 class DynamicAdapt {
   constructor() {
     this.type = "max";
     this.init();
+  }
+  init() {
+    this.objects = [];
+    this.daClassname = "--dynamic";
+    this.nodes = [...document.querySelectorAll("[data-fls-dynamic]")];
+    this.nodes.forEach((node) => {
+      const data = node.dataset.flsDynamic.trim();
+      const dataArray = data.split(`,`);
+      const object = {};
+      object.element = node;
+      object.parent = node.parentNode;
+      object.destinationParent = dataArray[3] && node.closest(dataArray[3].trim()) || document;
+      dataArray[3] && dataArray[3].trim();
+      const destinationSelector = dataArray[0] ? dataArray[0].trim() : null;
+      if (destinationSelector) {
+        const destination = object.destinationParent.querySelector(destinationSelector);
+        if (destination) {
+          object.destination = destination;
+        }
+      }
+      object.breakpoint = dataArray[1] ? dataArray[1].trim() : "767.98";
+      object.place = dataArray[2] ? dataArray[2].trim() : "last";
+      object.index = this.indexInParent(object.parent, object.element);
+      this.objects.push(object);
+    });
+    this.arraySort(this.objects);
+    this.mediaQueries = this.objects.map(({ breakpoint }) => `(${this.type}-width: ${breakpoint / 16}em),${breakpoint}`).filter((item, index, self) => self.indexOf(item) === index);
+    this.mediaQueries.forEach((media) => {
+      const mediaSplit = media.split(",");
+      const matchMedia = window.matchMedia(mediaSplit[0]);
+      const mediaBreakpoint = mediaSplit[1];
+      const objectsFilter = this.objects.filter(({ breakpoint }) => breakpoint === mediaBreakpoint);
+      matchMedia.addEventListener("change", () => {
+        this.mediaHandler(matchMedia, objectsFilter);
+      });
+      this.mediaHandler(matchMedia, objectsFilter);
+    });
+  }
+  mediaHandler(matchMedia, objects) {
+    if (matchMedia.matches) {
+      objects.forEach((object) => {
+        if (object.destination) {
+          this.moveTo(object.place, object.element, object.destination);
+        }
+      });
+    } else {
+      objects.forEach(({ parent, element, index }) => {
+        if (element.classList.contains(this.daClassname)) {
+          this.moveBack(parent, element, index);
+        }
+      });
+    }
+  }
+  moveTo(place, element, destination) {
+    element.classList.add(this.daClassname);
+    const targetPlace = place === "last" || place === "first" ? place : parseInt(place, 10);
+    if (targetPlace === "last" || targetPlace >= destination.children.length) {
+      destination.append(element);
+    } else if (targetPlace === "first") {
+      destination.prepend(element);
+    } else {
+      destination.children[targetPlace].before(element);
+    }
+  }
+  moveBack(parent, element, index) {
+    element.classList.remove(this.daClassname);
+    if (parent.children[index] !== void 0) {
+      parent.children[index].before(element);
+    } else {
+      parent.append(element);
+    }
+  }
+  indexInParent(parent, element) {
+    return [...parent.children].indexOf(element);
+  }
+  arraySort(arr) {
+    if (this.type === "min") {
+      arr.sort((a, b) => {
+        if (a.breakpoint === b.breakpoint) {
+          if (a.place === b.place) {
+            return 0;
+          }
+          if (a.place === "first" || b.place === "last") {
+            return -1;
+          }
+          if (a.place === "last" || b.place === "first") {
+            return 1;
+          }
+          return 0;
+        }
+        return a.breakpoint - b.breakpoint;
+      });
+    } else {
+      arr.sort((a, b) => {
+        if (a.breakpoint === b.breakpoint) {
+          if (a.place === b.place) {
+            return 0;
+          }
+          if (a.place === "first" || b.place === "last") {
+            return 1;
+          }
+          if (a.place === "last" || b.place === "first") {
+            return -1;
+          }
+          return 0;
+        }
+        return b.breakpoint - a.breakpoint;
+      });
+      return;
+    }
   }
   init() {
     this.objects = [];

@@ -4,24 +4,68 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
 ?>
-<nav class="header__top-nav" id="header__top-nav">
-    <ul class="header__top-list">
+<nav class="header__top-nav header__top-nav--unified" id="header__top-nav">
+    <ul class="header__top-list header__top-list--unified">
         <?php
+        $normalizeTitle = static function (string $title): string {
+            $title = trim(strip_tags($title));
+            $title = preg_replace('/\s+/u', ' ', $title) ?? $title;
+            if (function_exists('mb_strtolower')) {
+                return mb_strtolower($title);
+            }
+            return strtolower($title);
+        };
 
-        foreach ($arResult['ITEMS'] as $item) {
-        ?>
-            <li>
-                <a href="<?=$item[1]?>" class="header__nav-link"><?=$item[0]?></a>
+        $sourceMap = [];
+        foreach ((array)$arResult['ITEMS'] as $item) {
+            $srcTitle = (string)($item[0] ?? '');
+            $srcUrl = (string)($item[1] ?? '');
+            if ($srcTitle === '') {
+                continue;
+            }
+            $sourceMap[$normalizeTitle($srcTitle)] = [
+                'TITLE' => $srcTitle,
+                'URL' => $srcUrl !== '' ? $srcUrl : '#',
+            ];
+        }
+
+        $orderedItems = [
+            ['TITLE' => 'ПРОДУКЦИЯ', 'URL' => '/catalog/'],
+            ['TITLE' => 'ДОСТАВКА И ОПЛАТА', 'URL' => '#'],
+            ['TITLE' => 'О НАС', 'URL' => '/about/'],
+            ['TITLE' => 'ГАРАНТИЯ', 'URL' => '#'],
+            ['TITLE' => 'СОТРУДНИЧЕСТВО', 'URL' => '#'],
+            ['TITLE' => 'КОНТАКТЫ', 'URL' => '/contacts/'],
+        ];
+
+        $isFirstItem = true;
+        foreach ($orderedItems as $orderedItem) {
+            $orderedTitle = (string)$orderedItem['TITLE'];
+            $orderedUrl = (string)$orderedItem['URL'];
+            $matched = $sourceMap[$normalizeTitle($orderedTitle)] ?? null;
+            $title = $orderedTitle;
+            $url = $matched['URL'] ?? $orderedUrl;
+            ?>
+            <li class="header__top-item<?= $isFirstItem ? ' header__top-item--primary' : '' ?>">
+                <a href="<?= htmlspecialcharsbx($url) ?>" class="header__nav-link">
+                    <?php if ($isFirstItem): ?>
+                        <img class="header__nav-link-arrow"
+                             src="<?= SITE_TEMPLATE_PATH ?>/assets/img/arrow_bottom.svg"
+                             alt=""
+                             aria-hidden="true">
+                    <?php endif; ?>
+                    <span class="header__nav-link-text"><?= htmlspecialcharsbx($title) ?></span>
+                </a>
             </li>
-        <?php
-
+            <?php
+            $isFirstItem = false;
         }
         ?>
     </ul>
-    <div class="header__top-phone">
+    <div class="header__top-phone header__top-phone--unified">
         <a href="tel:84955555555">8 495 555-55-55</a>
     </div>
-    <div class="header__contacts">
+    <div class="header__contacts header__contacts--unified">
         <p class="header__contacts-text">Присоединяйтесь к
             нам:</p>
         <ul class="header__contacts-list">
