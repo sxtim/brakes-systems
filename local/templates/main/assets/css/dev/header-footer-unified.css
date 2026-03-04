@@ -1,5 +1,12 @@
 /* Stage 1: unified header/footer visual layer without behavior changes */
 
+.header--unified {
+  position: sticky;
+  top: 0;
+  z-index: 1090;
+  background-color: #fff;
+}
+
 .header--unified .header__top-nav--unified {
   background-color: #fff;
 }
@@ -72,9 +79,26 @@
 }
 
 @media (max-width: 75em) {
+  .header--unified {
+    position: sticky;
+    top: 0;
+    z-index: 1090;
+  }
+
+  .header--unified .header__top {
+    position: relative;
+    z-index: 1092;
+  }
+
+  .header--unified .header__bottom {
+    z-index: 1093;
+  }
+
   .header--unified .burger {
     display: flex !important;
     order: 2;
+    position: relative;
+    z-index: 1097;
   }
 
   .header--unified .header__sign {
@@ -89,7 +113,7 @@
     width: 100%;
     flex-direction: column;
     align-items: center;
-    z-index: 10;
+    z-index: 1096;
     overflow-y: auto;
     height: calc(100dvh - 4.0625rem);
     transition: all 0.3s ease-in-out;
@@ -97,6 +121,28 @@
     visibility: hidden;
     padding: 1.5625rem 1.25rem;
     display: flex !important;
+  }
+
+  .header--unified .menu__icon,
+  .header--unified .icon-menu {
+    position: relative;
+    z-index: 1097;
+  }
+
+  .header--unified .menu__body {
+    z-index: 1096;
+  }
+
+  html[data-fls-menu-open] .header--unified .menu__body {
+    z-index: 1096;
+  }
+
+  .header--unified .favorit-box {
+    z-index: 1091;
+  }
+
+  .header--unified .header__search-box.active {
+    z-index: 1098;
   }
 
   .header--unified .header__top-nav--unified.active {
@@ -214,7 +260,48 @@
   }
 }
 
+@media (max-width: 29.99875em) {
+  /* Override legacy mobile behavior: favorites panel must be hidden until explicit open */
+  .header--unified .favorit-box {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: auto !important;
+    bottom: 3.75rem;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(100%);
+    transition: transform 0.3s ease, opacity 0.2s ease, visibility 0.2s ease;
+    height: calc(100dvh - 7.8125rem);
+  }
+
+  .header--unified .favorit-box.active {
+    top: auto !important;
+    bottom: 3.75rem;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0);
+    height: calc(100dvh - 7.8125rem);
+  }
+}
+
 @media (min-width: 75.0625em) {
+  .header--unified .header__menu {
+    position: relative;
+  }
+
+  .header--unified .menu__body {
+    top: var(--header-menu-top, 9.375rem);
+    height: calc(100dvh - var(--header-menu-top, 9.375rem));
+  }
+
+  html[data-fls-menu-open] .header--unified .menu__body {
+    top: var(--header-menu-top, 9.375rem);
+    height: calc(100dvh - var(--header-menu-top, 9.375rem));
+  }
+
   .header--unified .header__top-container {
     position: relative;
     display: flex;
@@ -283,5 +370,12 @@
     z-index: 3;
     margin-left: 1.25rem;
     min-width: max-content;
+  }
+}
+
+@media (min-width: 75.0625em) and (max-width: 90em) {
+  .header--unified .menu__list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2.5rem 1.5rem;
   }
 }

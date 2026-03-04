@@ -5,7 +5,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 }
 
 foreach ($arResult['SECTIONS'] as $i => $item) {
-    $arResult['SECTIONS'][$i]['SVG'] = CFile::GetPath($item['UF_SVG']);
+    $arResult['SECTIONS'][$i]['SVG'] = (string)CFile::GetPath($item['UF_SVG']);
 }
 
 // Hide technical "other" section only in the header catalog menu.

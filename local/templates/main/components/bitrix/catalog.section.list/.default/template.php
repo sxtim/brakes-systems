@@ -53,11 +53,13 @@ $sectionsTree = $buildTree(is_array($arResult['SECTIONS'] ?? null) ? $arResult['
                     <div data-fls-spollers="99999,max" class="spollers">
                         <details class="menu-spollers__item spollers__item">
                             <summary class="menu-spollers__title spollers__title">
-                                <div class="spollers__icon-box">
-                                    <img class="spollers__title-icon"
-                                         src="<?= htmlspecialcharsbx($category['SVG']) ?>"
-                                         alt="Image">
-                                </div>
+                                <?php if ((string)($category['SVG'] ?? '') !== ''): ?>
+                                    <div class="spollers__icon-box">
+                                        <img class="spollers__title-icon"
+                                             src="<?= htmlspecialcharsbx((string)$category['SVG']) ?>"
+                                             alt="">
+                                    </div>
+                                <?php endif; ?>
                                 <p class="spollers__title-text">
                                     <?= htmlspecialcharsbx($category['NAME']) ?>
                                 </p>

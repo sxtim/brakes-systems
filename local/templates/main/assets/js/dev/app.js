@@ -285,10 +285,29 @@ function menuInit() {
     if (bodyLockStatus && e.target.closest("[data-fls-menu]")) {
       bodyLockToggle();
       document.documentElement.toggleAttribute("data-fls-menu-open");
+      requestAnimationFrame(updateHeaderMenuOffset);
+      setTimeout(updateHeaderMenuOffset, 0);
+      setTimeout(updateHeaderMenuOffset, 350);
     }
   });
 }
 document.querySelector("[data-fls-menu]") ? window.addEventListener("load", menuInit) : null;
+
+const updateHeaderMenuOffset = () => {
+  const header = document.querySelector(".header.header--unified");
+  if (!header) {
+    return;
+  }
+
+  const rect = header.getBoundingClientRect();
+  const bottom = Math.max(0, rect.bottom);
+  document.documentElement.style.setProperty("--header-menu-top", `${bottom.toFixed(2)}px`);
+};
+
+window.addEventListener("load", updateHeaderMenuOffset);
+window.addEventListener("resize", updateHeaderMenuOffset);
+window.addEventListener("scroll", updateHeaderMenuOffset, { passive: true });
+
 const burger = document.getElementById("burger");
 const nav = document.getElementById("header__top-nav");
 if (burger && nav) {

@@ -200,7 +200,7 @@ $bodyClass = $APPLICATION->GetCurPage(false) === '/personal/order/' ? 'bx-soa-or
                         )
                     );?>
                 </div>
-                <form class="header__search" action="/search/" method="get">
+                <form id="header-search-form" class="header__search" action="/search/" method="get">
                     <button class="header__search-mobile search-mobile"
                             id="header__search-mobile"
                             type="button">
@@ -211,10 +211,10 @@ $bodyClass = $APPLICATION->GetCurPage(false) === '/personal/order/' ? 'bx-soa-or
                     </button>
                     <div class="header__search-box"
                          data-fls-dynamic=".header__bottom-container, 479.98, 0">
-                        <input class="header__search-input" type="text" name="q"
+                        <input class="header__search-input" type="text" name="q" form="header-search-form"
                                value="<?= htmlspecialcharsbx((string)($_REQUEST['q'] ?? '')) ?>"
                                placeholder="Поиск">
-                        <button class="header__search-btn" type="submit">
+                        <button class="header__search-btn" type="submit" form="header-search-form">
                             <svg class="header__search-icon">
                                 <use xlink:href="<?= SITE_TEMPLATE_PATH ?>/assets/img/spritemap.svg#sprite-search"></use>
                             </svg>
