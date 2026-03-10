@@ -105,10 +105,15 @@ $bodyClass = $APPLICATION->GetCurPage(false) === '/personal/order/' ? 'bx-soa-or
                     <span></span>
                 </div>
 
-                <?$APPLICATION->IncludeComponent(
-                        "brakes:menu",
-                        "main"
-                );?>
+                <?php
+                $APPLICATION->IncludeComponent(
+                    'brakes:menu',
+                    'header_unified',
+                    [
+                        'ROOT_MENU_TYPE' => 'top',
+                    ]
+                );
+                ?>
 
                 <div class="header__sign"
                      data-fls-dynamic=".header__top-nav, 479.98, 0">

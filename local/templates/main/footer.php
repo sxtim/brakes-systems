@@ -24,34 +24,27 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                 </div>
                 <div class="footer__content-item">
                     <h4 class="footer__content-title">Информация</h4>
-                    <ul class="footer__content-list">
-                        <li class="footer__content-li">
-                            <a class="footer__content-link" href="/about/">О нас</a>
-                        </li>
-                        <li class="footer__content-li">
-                            <a class="footer__content-link" href="/contacts/">Контакты / Схема проезда</a>
-                        </li>
-                        <li class="footer__content-li">
-                            <a class="footer__content-link" href="#">Сотрудничество</a>
-                        </li>
-                        <li class="footer__content-li">
-                            <a class="footer__content-link" href="#">Политика обработки персональных данных</a>
-                        </li>
-                    </ul>
+                    <?php
+                    $APPLICATION->IncludeComponent(
+                        'brakes:menu',
+                        'footer_links',
+                        [
+                            'ROOT_MENU_TYPE' => 'footer_info',
+                        ]
+                    );
+                    ?>
                 </div>
                 <div class="footer__content-item">
                     <h4 class="footer__content-title">Заказ</h4>
-                    <ul class="footer__content-list">
-                        <li class="footer__content-li">
-                            <a class="footer__content-link" href="#">Доставка и оплата</a>
-                        </li>
-                        <li class="footer__content-li">
-                            <a class="footer__content-link" href="#">Гарантия</a>
-                        </li>
-                        <li class="footer__content-li">
-                            <a class="footer__content-link" href="/personal/order/">Оформление заказа</a>
-                        </li>
-                    </ul>
+                    <?php
+                    $APPLICATION->IncludeComponent(
+                        'brakes:menu',
+                        'footer_links',
+                        [
+                            'ROOT_MENU_TYPE' => 'footer_order',
+                        ]
+                    );
+                    ?>
                 </div>
             </div>
             <div class="footer__social">
