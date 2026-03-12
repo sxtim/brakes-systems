@@ -54,38 +54,6 @@ if ( ! defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
      $seenGalleryFiles[$fileId] = true;
  };
 
- $appendOriginalFileToGallery = static function (int $fileId) use (&$arResult, &$seenGalleryFiles): void {
-     if ($fileId <= 0 || isset($seenGalleryFiles[$fileId])) {
-         return;
-     }
-
-     $fileArray = \CFile::GetFileArray($fileId);
-     $src = is_array($fileArray) && !empty($fileArray['SRC'])
-         ? (string)$fileArray['SRC']
-         : (string)\CFile::GetPath($fileId);
-     if ($src === '') {
-         return;
-     }
-
-     $width = is_array($fileArray) ? (int)($fileArray['WIDTH'] ?? 0) : 0;
-     $height = is_array($fileArray) ? (int)($fileArray['HEIGHT'] ?? 0) : 0;
-
-     $item = [
-         'src' => $src,
-         'width' => $width,
-         'height' => $height,
-         'cached' => false,
-     ];
-
-     $arResult['GALLERY'][] = [
-         'id' => $fileId,
-         'main' => $item,
-         'thumb' => $item,
-         'original' => $src,
-     ];
-     $seenGalleryFiles[$fileId] = true;
- };
-
  $fileProperty = $arResult['PROPERTIES']['LINK_PHOTO_FILE']['VALUE'] ?? [];
  if (is_array($fileProperty) && !empty($fileProperty)) {
      foreach ($fileProperty as $fileId) {
@@ -105,7 +73,7 @@ if ($arResult['GALLERY'] === []) {
     }
 
     if ($detailFileId > 0) {
-        $appendOriginalFileToGallery($detailFileId);
+        $appendResizedFileToGallery($detailFileId);
     }
 
     $getPropertyFileIds = static function (string $code) use ($arParams, $arResult): array {
@@ -143,7 +111,7 @@ if ($arResult['GALLERY'] === []) {
     }
 
     foreach ($morePhotoIds as $fileId) {
-        $appendOriginalFileToGallery((int)$fileId);
+        $appendResizedFileToGallery((int)$fileId);
     }
 
     if ($detailFileId <= 0) {
@@ -155,7 +123,7 @@ if ($arResult['GALLERY'] === []) {
             $previewFileId = (int)$previewPicture;
         }
         if ($previewFileId > 0) {
-            $appendOriginalFileToGallery($previewFileId);
+            $appendResizedFileToGallery($previewFileId);
         }
     }
 }

@@ -320,6 +320,11 @@ class FavoritesManager
                 return null;
             }
 
+            $resized = Image::resizeByPreset($fileId, Image::PRESET_CATALOG_TILE);
+            if (is_array($resized) && !empty($resized['src'])) {
+                return $resized;
+            }
+
             $fileArray = \CFile::GetFileArray($fileId);
             $src = is_array($fileArray) && !empty($fileArray['SRC'])
                 ? (string)$fileArray['SRC']
