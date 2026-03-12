@@ -364,10 +364,13 @@ body:not(.lg-from-hash)
 
 .lg-on {
 	scroll-behavior: unset;
+	overflow: hidden;
+	overscroll-behavior: none;
 }
 
 .lg-overlay-open {
 	overflow: hidden;
+	overscroll-behavior: none;
 }
 
 .lg-toolbar,
@@ -423,7 +426,7 @@ body:not(.lg-from-hash)
 	position: fixed;
 	top: 0;
 	left: 0;
-	z-index: 1050;
+	z-index: 2010;
 	text-align: left;
 	opacity: 0.001;
 	outline: none;
@@ -589,7 +592,7 @@ body:not(.lg-from-hash)
 	left: 0;
 	right: 0;
 	bottom: 0;
-	z-index: 1040;
+	z-index: 2000;
 	background-color: #000;
 	opacity: 0;
 	will-change: auto;

@@ -2252,7 +2252,8 @@ function initGallery() {
       //plugins: [lgZoom, lgThumbnail],
       licenseKey: KEY,
       selector: "a",
-      speed: 500
+      speed: 500,
+      hideScrollbar: true
     });
   }
 }
