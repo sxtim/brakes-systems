@@ -90,7 +90,7 @@ Asset::getInstance()->addString(
 <html lang="ru">
 <head>
     <?php $APPLICATION->ShowHead(); ?>
-    <title><?php $APPLICATION->ShowTitle(false); ?></title>
+    <title><?php $APPLICATION->ShowTitle(); ?></title>
 </head>
 <?php
 $bodyClass = $APPLICATION->GetCurPage(false) === '/personal/order/' ? 'bx-soa-order-page' : '';
