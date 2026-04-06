@@ -77,9 +77,12 @@ class ImageMigrator
             ];
         }
 
+        $targetRows = self::getTargetRows($elementId);
         if (!$force) {
-            $targetValues = self::getTargetValues($elementId);
-            $targetIds = array_filter(array_map('intval', $targetValues));
+            $targetIds = array_filter(array_map(
+                static fn(array $row): int => (int)($row['fileId'] ?? 0),
+                $targetRows
+            ));
             if (!empty($targetIds)) {
                 return [
                     'status' => 'skipped',
@@ -145,10 +148,11 @@ class ImageMigrator
 
         self::$internalUpdate = true;
         try {
+            $propertyValue = self::buildReplacementPropertyValue($targetRows, $fileValues);
             \CIBlockElement::SetPropertyValueCode(
                 $elementId,
                 self::TARGET_PROPERTY_CODE,
-                $fileValues
+                $propertyValue
             );
         } catch (\Throwable $exception) {
             self::$internalUpdate = false;
@@ -300,7 +304,7 @@ class ImageMigrator
         return array_values(array_unique($values));
     }
 
-    private static function getTargetValues(int $elementId): array
+    private static function getTargetRows(int $elementId): array
     {
         $values = [];
 
@@ -312,10 +316,46 @@ class ImageMigrator
         );
 
         while ($row = $res->Fetch()) {
-            $values[] = $row['VALUE'];
+            $values[] = [
+                'fileId' => (int)($row['VALUE'] ?? 0),
+                'valueId' => (int)($row['PROPERTY_VALUE_ID'] ?? 0),
+            ];
         }
 
         return $values;
+    }
+
+    /**
+     * Replace the whole multiple file property in a single Bitrix call:
+     * mark all current values for deletion and append the new file arrays.
+     *
+     * @param array<int, array{fileId:int, valueId:int}> $targetRows
+     * @param array<string, array{VALUE: array<string, mixed>, DESCRIPTION: string}> $fileValues
+     *
+     * @return array<int|string, array<string, mixed>>
+     */
+    private static function buildReplacementPropertyValue(array $targetRows, array $fileValues): array
+    {
+        $propertyValue = [];
+
+        foreach ($targetRows as $row) {
+            $valueId = (int)($row['valueId'] ?? 0);
+            if ($valueId <= 0) {
+                continue;
+            }
+
+            $propertyValue[$valueId] = [
+                'VALUE' => [
+                    'del' => 'Y',
+                ],
+            ];
+        }
+
+        foreach ($fileValues as $key => $value) {
+            $propertyValue[$key] = $value;
+        }
+
+        return $propertyValue;
     }
 
     private static function normalizePath(string $path): ?string

@@ -276,8 +276,9 @@ if (!function_exists('brakes_1c_images_sync_from_import')) {
     {
         $iblockId = (int)($options['iblockId'] ?? 1);
         $force = !empty($options['force']);
-
-        $linksByXml = brakes_1c_images_extract_links($absFileName);
+        $linksByXml = isset($options['linksByXml']) && is_array($options['linksByXml'])
+            ? $options['linksByXml']
+            : brakes_1c_images_extract_links($absFileName);
         if (!$linksByXml) {
             return [
                 'found' => 0,
@@ -364,17 +365,344 @@ if (!function_exists('brakes_1c_images_sync_from_import')) {
     }
 }
 
+if (!function_exists('brakes_1c_images_extract_file_pictures')) {
+    function brakes_1c_images_extract_file_pictures(string $absFileName): array
+    {
+        $result = [];
+        if ($absFileName === '' || !is_file($absFileName)) {
+            return $result;
+        }
+
+        $reader = new \XMLReader();
+        if (!$reader->open($absFileName)) {
+            return $result;
+        }
+
+        while ($reader->read()) {
+            if ($reader->nodeType !== \XMLReader::ELEMENT || $reader->localName !== 'Товар') {
+                continue;
+            }
+
+            $xml = $reader->readOuterXML();
+            if ($xml === '') {
+                continue;
+            }
+
+            try {
+                $node = new \SimpleXMLElement($xml);
+            } catch (\Throwable $exception) {
+                continue;
+            }
+
+            $xmlId = trim((string)($node->Ид ?? ''));
+            if ($xmlId === '') {
+                continue;
+            }
+
+            $pictures = [];
+            foreach ($node->Картинка as $pictureNode) {
+                $value = trim((string)$pictureNode);
+                if ($value !== '') {
+                    $pictures[] = $value;
+                }
+            }
+
+            if ($pictures !== []) {
+                $result[$xmlId] = array_values(array_unique($pictures));
+            }
+        }
+
+        $reader->close();
+        return $result;
+    }
+}
+
+if (!function_exists('brakes_1c_images_normalize_source_path')) {
+    function brakes_1c_images_normalize_source_path(string $baseDir, string $path): ?string
+    {
+        $path = trim(str_replace('\\', '/', $path));
+        if ($path === '') {
+            return null;
+        }
+
+        $relative = ltrim($path, '/');
+        $candidate = rtrim($baseDir, '/') . '/' . $relative;
+        if (is_file($candidate)) {
+            return $candidate;
+        }
+
+        $candidate = rtrim($_SERVER['DOCUMENT_ROOT'], '/') . '/' . $relative;
+        if (is_file($candidate)) {
+            return $candidate;
+        }
+
+        return null;
+    }
+}
+
+if (!function_exists('brakes_1c_images_load_target_rows')) {
+    function brakes_1c_images_load_target_rows(int $iblockId, int $elementId): array
+    {
+        $rows = [];
+        $propRes = \CIBlockElement::GetProperty(
+            $iblockId,
+            $elementId,
+            ['sort' => 'asc', 'id' => 'asc'],
+            ['CODE' => 'LINK_PHOTO_FILE']
+        );
+        while ($prop = $propRes->Fetch()) {
+            $fileId = (int)($prop['VALUE'] ?? 0);
+            $originalName = '';
+
+            if ($fileId > 0) {
+                $file = \CFile::GetFileArray($fileId);
+                if (is_array($file)) {
+                    $originalName = basename((string)($file['ORIGINAL_NAME'] ?? $file['FILE_NAME'] ?? ''));
+                }
+            }
+
+            $rows[] = [
+                'fileId' => $fileId,
+                'valueId' => (int)($prop['PROPERTY_VALUE_ID'] ?? 0),
+                'originalName' => $originalName,
+            ];
+        }
+
+        return $rows;
+    }
+}
+
+if (!function_exists('brakes_1c_images_same_target_set')) {
+    function brakes_1c_images_same_target_set(array $targetRows, array $picturePaths): bool
+    {
+        $currentNames = [];
+        foreach ($targetRows as $row) {
+            $name = trim((string)($row['originalName'] ?? ''));
+            if ($name !== '') {
+                $currentNames[] = $name;
+            }
+        }
+
+        $sourceNames = [];
+        foreach ($picturePaths as $path) {
+            $path = trim(str_replace('\\', '/', (string)$path));
+            if ($path !== '') {
+                $sourceNames[] = basename($path);
+            }
+        }
+
+        return $currentNames !== [] && $currentNames === $sourceNames;
+    }
+}
+
+if (!function_exists('brakes_1c_images_build_replacement_property_value')) {
+    function brakes_1c_images_build_replacement_property_value(array $targetRows, array $fileValues): array
+    {
+        $propertyValue = [];
+
+        foreach ($targetRows as $row) {
+            $valueId = (int)($row['valueId'] ?? 0);
+            if ($valueId <= 0) {
+                continue;
+            }
+
+            $propertyValue[$valueId] = [
+                'VALUE' => [
+                    'del' => 'Y',
+                ],
+            ];
+        }
+
+        foreach ($fileValues as $key => $value) {
+            $propertyValue[$key] = $value;
+        }
+
+        return $propertyValue;
+    }
+}
+
+if (!function_exists('brakes_1c_images_apply_file_pictures')) {
+    function brakes_1c_images_apply_file_pictures(int $elementId, string $xmlId, array $picturePaths, array $options = []): array
+    {
+        $iblockId = (int)($options['iblockId'] ?? 1);
+        $baseDir = (string)($options['baseDir'] ?? '');
+        $force = !empty($options['force']);
+        $dryRun = !empty($options['dryRun']);
+
+        if ($picturePaths === []) {
+            return [
+                'status' => 'no_pictures',
+                'elementId' => $elementId,
+                'xmlId' => $xmlId,
+            ];
+        }
+
+        $targetRows = brakes_1c_images_load_target_rows($iblockId, $elementId);
+        if (!$force && brakes_1c_images_same_target_set($targetRows, $picturePaths)) {
+            return [
+                'status' => 'skip_same',
+                'elementId' => $elementId,
+                'xmlId' => $xmlId,
+            ];
+        }
+
+        $fileValues = [];
+        $resolvedFiles = [];
+        $errors = [];
+
+        foreach ($picturePaths as $index => $picturePath) {
+            $absolutePath = brakes_1c_images_normalize_source_path($baseDir, $picturePath);
+            if ($absolutePath === null) {
+                $errors[] = "file not found: {$picturePath}";
+                continue;
+            }
+
+            $fileArray = \CFile::MakeFileArray($absolutePath);
+            if (!is_array($fileArray)) {
+                $errors[] = "failed to prepare file: {$absolutePath}";
+                continue;
+            }
+
+            $fileArray['MODULE_ID'] = 'iblock';
+            $fileValues['n' . $index] = [
+                'VALUE' => $fileArray,
+                'DESCRIPTION' => '',
+            ];
+            $resolvedFiles[] = $absolutePath;
+        }
+
+        if ($fileValues === []) {
+            return [
+                'status' => 'error',
+                'elementId' => $elementId,
+                'xmlId' => $xmlId,
+                'errors' => $errors,
+            ];
+        }
+
+        if ($dryRun) {
+            return [
+                'status' => 'dry_run',
+                'elementId' => $elementId,
+                'xmlId' => $xmlId,
+                'files' => $resolvedFiles,
+                'errors' => $errors,
+                'count' => count($fileValues),
+            ];
+        }
+
+        $propertyValue = brakes_1c_images_build_replacement_property_value($targetRows, $fileValues);
+        \CIBlockElement::SetPropertyValueCode($elementId, 'LINK_PHOTO_FILE', $propertyValue);
+
+        return [
+            'status' => 'updated',
+            'elementId' => $elementId,
+            'xmlId' => $xmlId,
+            'files' => $resolvedFiles,
+            'errors' => $errors,
+            'count' => count($fileValues),
+        ];
+    }
+}
+
+if (!function_exists('brakes_1c_images_sync_file_pictures_from_import')) {
+    function brakes_1c_images_sync_file_pictures_from_import(string $absFileName, array $options = []): array
+    {
+        $iblockId = (int)($options['iblockId'] ?? 1);
+        $force = !empty($options['force']);
+        $skipXmlIds = array_fill_keys((array)($options['skipXmlIds'] ?? []), true);
+
+        $picturesByXml = brakes_1c_images_extract_file_pictures($absFileName);
+        if (!$picturesByXml) {
+            return [
+                'found' => 0,
+                'updated' => 0,
+                'skip_same' => 0,
+                'skipped_by_links' => 0,
+                'not_found' => 0,
+                'error' => 0,
+            ];
+        }
+
+        if (!\Bitrix\Main\Loader::includeModule('iblock')) {
+            throw new \RuntimeException('iblock module is not available');
+        }
+
+        $xmlIds = array_keys($picturesByXml);
+        $elementMap = [];
+        foreach (array_chunk($xmlIds, 500) as $chunk) {
+            $res = \CIBlockElement::GetList(
+                [],
+                ['IBLOCK_ID' => $iblockId, '=XML_ID' => $chunk],
+                false,
+                false,
+                ['ID', 'XML_ID']
+            );
+            while ($row = $res->Fetch()) {
+                $elementMap[(string)$row['XML_ID']] = (int)$row['ID'];
+            }
+        }
+
+        $stats = [
+            'found' => count($picturesByXml),
+            'updated' => 0,
+            'skip_same' => 0,
+            'skipped_by_links' => 0,
+            'not_found' => 0,
+            'error' => 0,
+        ];
+
+        $baseDir = dirname($absFileName);
+        foreach ($picturesByXml as $xmlId => $picturePaths) {
+            if (isset($skipXmlIds[$xmlId])) {
+                $stats['skipped_by_links']++;
+                continue;
+            }
+
+            $elementId = (int)($elementMap[$xmlId] ?? 0);
+            if ($elementId <= 0) {
+                $stats['not_found']++;
+                continue;
+            }
+
+            $result = brakes_1c_images_apply_file_pictures($elementId, $xmlId, $picturePaths, [
+                'iblockId' => $iblockId,
+                'baseDir' => $baseDir,
+                'force' => $force,
+            ]);
+
+            $status = (string)($result['status'] ?? '');
+            if (isset($stats[$status])) {
+                $stats[$status]++;
+            } elseif ($status === 'dry_run') {
+                continue;
+            } else {
+                $stats['error']++;
+            }
+        }
+
+        return $stats;
+    }
+}
+
 if (!function_exists('brakes_1c_images_schedule')) {
     function brakes_1c_images_schedule(string $absFileName, array $meta = []): void
     {
         $runner = static function () use ($absFileName): void {
             try {
-                $result = brakes_1c_images_sync_from_import($absFileName, [
+                $linksByXml = brakes_1c_images_extract_links($absFileName);
+                $linksResult = brakes_1c_images_sync_from_import($absFileName, [
                     'iblockId' => 1,
+                    'linksByXml' => $linksByXml,
+                ]);
+                $filesResult = brakes_1c_images_sync_file_pictures_from_import($absFileName, [
+                    'iblockId' => 1,
+                    'skipXmlIds' => array_keys($linksByXml),
                 ]);
                 brakes_1c_image_log_event('INFO', '1c image migrator finished', [
                     'file' => $absFileName,
-                    'result' => $result,
+                    'linksResult' => $linksResult,
+                    'filesResult' => $filesResult,
                 ]);
             } catch (\Throwable $exception) {
                 brakes_1c_image_log_event('ERROR', '1c image migrator failed', [

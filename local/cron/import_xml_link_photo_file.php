@@ -144,8 +144,8 @@ $normalizeSourcePath = static function (string $baseDir, string $path): ?string 
 };
 
 $baseDir = dirname($xmlPath);
-$loadCurrentFileIds = static function (int $currentIblockId, int $currentElementId): array {
-    $currentFileIds = [];
+$loadCurrentTargetRows = static function (int $currentIblockId, int $currentElementId): array {
+    $currentRows = [];
     $propRes = \CIBlockElement::GetProperty(
         $currentIblockId,
         $currentElementId,
@@ -153,16 +153,16 @@ $loadCurrentFileIds = static function (int $currentIblockId, int $currentElement
         ['CODE' => 'LINK_PHOTO_FILE']
     );
     while ($prop = $propRes->Fetch()) {
-        $currentId = (int)($prop['VALUE'] ?? 0);
-        if ($currentId > 0) {
-            $currentFileIds[] = $currentId;
-        }
+        $currentRows[] = [
+            'fileId' => (int)($prop['VALUE'] ?? 0),
+            'valueId' => (int)($prop['PROPERTY_VALUE_ID'] ?? 0),
+        ];
     }
 
-    return $currentFileIds;
+    return $currentRows;
 };
 
-$applyPictures = static function (int $currentElementId, string $currentXmlId, array $picturePaths) use ($iblockId, $force, $dryRun, $baseDir, $normalizeSourcePath, $loadCurrentFileIds): array {
+$applyPictures = static function (int $currentElementId, string $currentXmlId, array $picturePaths) use ($iblockId, $force, $dryRun, $baseDir, $normalizeSourcePath, $loadCurrentTargetRows): array {
     if ($picturePaths === []) {
         return [
             'status' => 'no_pictures',
@@ -171,7 +171,11 @@ $applyPictures = static function (int $currentElementId, string $currentXmlId, a
         ];
     }
 
-    $currentFileIds = $loadCurrentFileIds($iblockId, $currentElementId);
+    $currentTargetRows = $loadCurrentTargetRows($iblockId, $currentElementId);
+    $currentFileIds = array_filter(array_map(
+        static fn(array $row): int => (int)($row['fileId'] ?? 0),
+        $currentTargetRows
+    ));
     if (!$force && $currentFileIds !== []) {
         return [
             'status' => 'skip_filled',
@@ -225,7 +229,24 @@ $applyPictures = static function (int $currentElementId, string $currentXmlId, a
         ];
     }
 
-    \CIBlockElement::SetPropertyValueCode($currentElementId, 'LINK_PHOTO_FILE', $fileValues);
+    $propertyValue = [];
+    foreach ($currentTargetRows as $row) {
+        $valueId = (int)($row['valueId'] ?? 0);
+        if ($valueId <= 0) {
+            continue;
+        }
+
+        $propertyValue[$valueId] = [
+            'VALUE' => [
+                'del' => 'Y',
+            ],
+        ];
+    }
+    foreach ($fileValues as $key => $value) {
+        $propertyValue[$key] = $value;
+    }
+
+    \CIBlockElement::SetPropertyValueCode($currentElementId, 'LINK_PHOTO_FILE', $propertyValue);
 
     return [
         'status' => 'updated',
