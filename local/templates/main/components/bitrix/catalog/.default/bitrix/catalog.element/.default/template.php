@@ -1,11 +1,14 @@
 <?php
 
 use App\Brakes\Helper\FavoritesManager;
+use App\Brakes\Pricing\Configurator;
 use Bitrix\Main\Loader;
 
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
+
+$productOptionsEnabled = Configurator::isProductOptionsEnabled();
 
 $defaultSelectedOptions = [
     'two_piece_disc_construction' => 'no',
@@ -767,7 +770,7 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
                 <?php endif; ?>
                 <span class="main-details__price-new"><?= $detailPriceNew ?></span>
             </div>
-            <?php if (!$isPadsCategory && !$isDiscsCategory): ?>
+            <?php if ($productOptionsEnabled && !$isPadsCategory && !$isDiscsCategory): ?>
                 <div class="main-details__feature">
                     <div class="main-cataloge__info">
                         <div data-fls-spollers="" data-fls-spollers-one="" class="main-cataloge__feature spollers">

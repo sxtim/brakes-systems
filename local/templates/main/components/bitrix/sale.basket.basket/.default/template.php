@@ -4,9 +4,11 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 }
 
 use App\Brakes\Helper\FavoritesManager;
+use App\Brakes\Pricing\Configurator;
 use Bitrix\Main\Loader;
 
 $items = $arResult['ITEMS']['AnDelCanBuy'] ?? [];
+$productOptionsEnabled = Configurator::isProductOptionsEnabled();
 if ($items === []) {
     echo '<div class="basket__message">Корзина пуста.</div>';
     return;
@@ -315,14 +317,17 @@ if (class_exists(FavoritesManager::class) && $favoriteKeys !== []) {
                             $basketQuantity = (float)($item['QUANTITY'] ?? 1);
                             $priceValue = null;
                             $priceCurrency = null;
-                            if (isset($item['PRICE']) && is_numeric($item['PRICE'])) {
+                            if ($productOptionsEnabled && isset($item['PRICE']) && is_numeric($item['PRICE'])) {
                                 $priceValue = (float)$item['PRICE'];
                                 $priceCurrency = is_string($item['CURRENCY'] ?? null) ? (string)$item['CURRENCY'] : 'RUB';
                             } else {
                                 $priceData = null;
                                 if (class_exists(FavoritesManager::class)) {
                                     try {
-                                        $priceData = FavoritesManager::getProductPrice($productId, $meta['options'] ?? []);
+                                        $priceData = FavoritesManager::getProductPrice(
+                                            $productId,
+                                            $productOptionsEnabled ? ($meta['options'] ?? []) : []
+                                        );
                                     } catch (\Throwable $exception) {
                                         $priceData = null;
                                     }

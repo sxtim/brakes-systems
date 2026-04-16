@@ -29,6 +29,7 @@ $buy = isset($card['BUY']) && is_array($card['BUY']) ? $card['BUY'] : [];
 $selectedOptions = isset($card['SELECTED']) && is_array($card['SELECTED']) ? $card['SELECTED'] : [];
 $favoritesView = !empty($card['FAVORITES_VIEW']);
 $basketView = !empty($card['BASKET_VIEW']);
+$productOptionsEnabled = \App\Brakes\Pricing\Configurator::isProductOptionsEnabled();
 $basketItemId = isset($card['BASKET_ID']) ? (int)$card['BASKET_ID'] : 0;
 $basketQuantity = isset($card['BASKET_QUANTITY']) ? (float)$card['BASKET_QUANTITY'] : 0.0;
 $expandFeatures = !empty($card['EXPAND_FEATURES']);
@@ -55,6 +56,11 @@ if ($favoriteKey === '' && class_exists(\App\Brakes\Helper\FavoritesManager::cla
         'section_id' => $contextSectionId,
         'section_path' => $contextSectionPath,
     ]);
+}
+
+if (!$productOptionsEnabled) {
+    $optionsAttr = '{}';
+    $selectedOptions = [];
 }
 
 $buyName = (string)($buy['NAME'] ?? $name);
@@ -169,7 +175,7 @@ $hasContext = $contextSectionId > 0 || $contextDepth >= 4;
 $actionsAllowed = !$isFromSearch || $hasContext;
 $canShowLike = $actionsAllowed;
 $optionsAttrForActions = $optionsAttr;
-if (!$isSystemsCard) {
+if (!$isSystemsCard || !$productOptionsEnabled) {
     $optionsAttrForActions = '{}';
 }
 
@@ -299,7 +305,7 @@ $cardStatusTooltip = $cardQuantityLabel !== '' ? 'Остаток: ' . $cardQuant
         <?php } ?>
     </div>
 	    <div class="main-cataloge__info">
-	            <?php if (!$hideFeatures && $favoritesView && $isSystemsCard) { ?>
+		            <?php if (!$hideFeatures && $favoritesView && $isSystemsCard && $productOptionsEnabled) { ?>
 	                <div class="main-cataloge__feature main-cataloge__feature--favorite">
 	                    <?php foreach ($optionLabelMap as $optionKey => $label) {
 	                        $rawValue = $selectedOptions[$optionKey] ?? null;
@@ -312,7 +318,7 @@ $cardStatusTooltip = $cardQuantityLabel !== '' ? 'Остаток: ' . $cardQuant
                         </div>
 	                    <?php } ?>
 	                </div>
-	            <?php } elseif (!$hideFeatures && $isSystemsCard) { ?>
+		            <?php } elseif (!$hideFeatures && $isSystemsCard && $productOptionsEnabled) { ?>
 	                <div data-fls-spollers="" data-fls-spollers-one="" class="main-cataloge__feature spollers">
 	                    <details class="spollers__item main-cataloge__feature-item--big"<?=$detailsOpenAttr?>>
 	                        <summary class="main-cataloge__feature-item спollers__title">Плавающая конструкция диска</summary>

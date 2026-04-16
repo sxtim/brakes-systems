@@ -11,6 +11,8 @@ use CCurrencyLang;
 
 class Configurator
 {
+    private const PRODUCT_OPTIONS_ENABLED = false;
+
     private const OPTION_KEY_MAP = [
         'two_piece_disc_construction' => 'two_piece_disc_construction',
         'rotor_pattern' => 'rotor_pattern',
@@ -32,6 +34,14 @@ class Configurator
      * @var array<string, array<string, float>>|null
      */
     private static ?array $cachedMarkupRules = null;
+
+    /**
+     * @throws SystemException
+     */
+    public static function isProductOptionsEnabled(): bool
+    {
+        return self::PRODUCT_OPTIONS_ENABLED;
+    }
 
     /**
      * @throws SystemException
@@ -141,6 +151,10 @@ class Configurator
 
     private static function calculateMarkup(array $options): float
     {
+        if (!self::isProductOptionsEnabled()) {
+            return 0.0;
+        }
+
         $normalized = self::normalizeOptions($options);
         $rules = self::getMarkupRules();
         $sum = 0.0;

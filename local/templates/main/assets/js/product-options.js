@@ -1,6 +1,7 @@
 ﻿const PRICE_UPDATE_DELAY = 150;
 const PRICE_DECODE_HELPER = document.createElement("span");
 const pendingPriceTimers = new Map();
+const PRODUCT_OPTIONS_ENABLED = window.__BRAKES_PRODUCT_OPTIONS_ENABLED__ !== false;
 const OPTION_DEFAULTS = Object.freeze({
   two_piece_disc_construction: "no",
   rotor_pattern: "perforation",
@@ -333,6 +334,10 @@ function extractPriceFromMeta(productId, context = null) {
 }
 
 document.addEventListener("click", (event) => {
+  if (!PRODUCT_OPTIONS_ENABLED) {
+    return;
+  }
+
   const spoller = event.target.closest(".spollers__item");
   const optionNode = event.target.closest(".main-cataloge__sublist-item");
   if (!spoller || !optionNode) {
@@ -362,6 +367,11 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+  if (!PRODUCT_OPTIONS_ENABLED) {
+    handleOneClickBuyButtons();
+    return;
+  }
+
   if (isBasketPage()) {
     handleOneClickBuyButtons();
     return;
@@ -493,6 +503,17 @@ document.addEventListener("favorites:popupHtmlUpdated", (event) => {
 });
 
 function updateProductOptions(productContainer, reason = "manual") {
+  if (!PRODUCT_OPTIONS_ENABLED) {
+    return {
+      productId: 0,
+      favoriteKey: "",
+      context: null,
+      options: {},
+      reason,
+      timestamp: Date.now(),
+    };
+  }
+
   if (isBasketPage()) {
     return {
       productId: 0,
@@ -705,6 +726,10 @@ function extractOptionsFromMeta(productId, context = null) {
 }
 
 function schedulePriceUpdate(productContainer, optionsData, reason = "manual") {
+  if (!PRODUCT_OPTIONS_ENABLED) {
+    return;
+  }
+
   let targetContainer = productContainer instanceof Element ? productContainer : null;
   const lookupId = optionsData && typeof optionsData.productId !== "undefined"
     ? optionsData.productId

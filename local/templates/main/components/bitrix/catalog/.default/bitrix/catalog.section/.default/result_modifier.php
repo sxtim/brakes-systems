@@ -2,11 +2,14 @@
 
 use App\Brakes\Helper\FavoritesManager;
 use App\Brakes\Helper\Image;
+use App\Brakes\Pricing\Configurator;
 use App\Brakes\Helper\StockProvider;
 
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
+
+$productOptionsEnabled = Configurator::isProductOptionsEnabled();
 
 $basketProductMap = [];
 if (\Bitrix\Main\Loader::includeModule('sale') && !empty($arResult['ITEMS'])) {
@@ -146,7 +149,7 @@ foreach ($arResult['ITEMS'] as $i => $item) {
             $sectionPath = (string)($item['CONTEXT_SECTION_PATH'] ?? '');
             $contextKey = $buildContextKey($sectionId, $sectionPath);
             $arResult['ITEMS'][$i]['IN_BASKET'] = isset($basketProductMap[$itemId]['empty'][$contextKey]);
-        } elseif ($itemId > 0 && $isSystemsItem) {
+        } elseif ($itemId > 0 && $isSystemsItem && $productOptionsEnabled) {
             // Systems cards have selectable options; product-level IN_BASKET would block adding other configurations.
             $arResult['ITEMS'][$i]['IN_BASKET'] = false;
         }

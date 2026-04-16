@@ -1425,6 +1425,10 @@ class FavoritesManager
 
     private static function normalizeOptionsMap(array $options): array
     {
+        if (!Configurator::isProductOptionsEnabled()) {
+            return [];
+        }
+
         if (isset($options['options']) && is_array($options['options'])) {
             $options = $options['options'];
         }

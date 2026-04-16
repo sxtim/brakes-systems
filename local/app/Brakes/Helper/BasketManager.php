@@ -38,6 +38,10 @@ class BasketManager
 
         self::ensureModules();
 
+        if (!Configurator::isProductOptionsEnabled()) {
+            $options = [];
+        }
+
         $normalizedOptions = self::normalizeOptionsMap($options);
         $optionsHash = self::hashOptionsMap($normalizedOptions);
         $contextData = self::normalizeContext($context, $options, $optionsHash);
@@ -357,6 +361,10 @@ class BasketManager
 
     private static function getItemOptionsHash(BasketItemBase $item): string
     {
+        if (!Configurator::isProductOptionsEnabled()) {
+            return 'empty';
+        }
+
         $collection = $item->getPropertyCollection();
         if ($collection) {
             $raw = trim(self::extractPropertyRawValue($collection, self::OPTION_HASH_PROP_CODE));
@@ -602,6 +610,10 @@ class BasketManager
             ];
         }
 
+        if (!Configurator::isProductOptionsEnabled()) {
+            return $properties;
+        }
+
         $optionsMap = self::normalizeOptionsMap($options);
         if ($optionsMap !== []) {
             $twoPiece = isset($optionsMap['two_piece_disc_construction'])
@@ -711,9 +723,28 @@ class BasketManager
             return;
         }
 
+        if (!Configurator::isProductOptionsEnabled()) {
+            $legacyOptions = self::normalizeOptionsMap(self::extractOptionsFromItem($item));
+            if ($legacyOptions !== []) {
+                // Existing option-configured basket rows may still have a custom price with markup.
+                self::applyCalculatedCustomPrice($item, []);
+            }
+            return;
+        }
+
         $optionsMap = $options ?? self::extractOptionsFromItem($item);
         $normalized = self::normalizeOptionsMap($optionsMap);
         if ($normalized === []) {
+            return;
+        }
+
+        self::applyCalculatedCustomPrice($item, $normalized);
+    }
+
+    private static function applyCalculatedCustomPrice(BasketItemBase $item, array $normalized): void
+    {
+        $productId = (int)$item->getProductId();
+        if ($productId <= 0) {
             return;
         }
 
@@ -859,6 +890,10 @@ class BasketManager
 
     private static function hashOptionsMap(array $options): string
     {
+        if (!Configurator::isProductOptionsEnabled()) {
+            return 'empty';
+        }
+
         if ($options === []) {
             return 'empty';
         }

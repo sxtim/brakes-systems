@@ -4,6 +4,7 @@ use \Bitrix\Main\Page\Asset;
 use \Bitrix\Main\Web\Json;
 use App\Brakes\Helper\FavoritesManager;
 use App\Brakes\Helper\BasketManager;
+use App\Brakes\Pricing\Configurator;
 
 if ( ! defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
@@ -16,11 +17,14 @@ if (\Bitrix\Main\Loader::includeModule('pull')) {
 \Bitrix\Main\UI\Extension::load("ui.notification");
 \Bitrix\Main\UI\Extension::load("ajax");
 
+$productOptionsEnabled = Configurator::isProductOptionsEnabled();
+
 // Asset::getInstance()->addJs(SITE_TEMPLATE_PATH.'/assets/js/slider.min.js');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/app.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/slider.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/popup.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/cataloge.min.js"></script>');
+Asset::getInstance()->addString('<script>window.__BRAKES_PRODUCT_OPTIONS_ENABLED__ = ' . ($productOptionsEnabled ? 'true' : 'false') . ';</script>', true);
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/product-options.js"></script>');
 if (in_array($APPLICATION->GetCurPage(false), ['/basket/', '/personal/cart/'], true)) { // Подключаем скрипт только на странице корзины
    Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/basket-page.min.js"></script>');
