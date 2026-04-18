@@ -881,7 +881,10 @@ require_once __DIR__ . '/include/events.php';
     'App\Brakes\Helper\BasketManager' => '/local/app/Brakes/Helper/BasketManager.php',
     'App\Brakes\Auth\Sms' => '/local/app/Brakes/Auth/Sms.php',
     'App\Brakes\Pricing\Configurator' => '/local/app/Brakes/Pricing/Configurator.php',
+    'App\Brakes\Order\PaymentFlow' => '/local/app/Brakes/Order/PaymentFlow.php',
 ]);
+
+\App\Brakes\Order\PaymentFlow::bootstrap();
 
 AddEventHandler('main', 'OnBeforeProlog', static function (): void {
     \App\Brakes\Helper\FavoritesManager::handleProlog();
@@ -907,6 +910,19 @@ AddEventHandler('sale', 'OnSaleBasketItemBeforeSaved', static function ($event):
         \App\Brakes\Helper\BasketManager::syncCustomPrice($item);
     } catch (\Throwable $exception) {
         // ignore pricing errors to avoid blocking basket save
+    }
+});
+
+AddEventHandler('sale', 'OnSaleOrderBeforeSaved', static function ($event): void {
+    $order = $event instanceof \Bitrix\Main\Event ? $event->getParameter('ENTITY') : $event;
+    if (!$order instanceof \Bitrix\Sale\Order) {
+        return;
+    }
+
+    try {
+        \App\Brakes\Order\PaymentFlow::prepareOrderBeforeSave($order);
+    } catch (\Throwable $exception) {
+        // Do not block saving an order because of optional payment-flow synchronization.
     }
 });
 

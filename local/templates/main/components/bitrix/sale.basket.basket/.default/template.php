@@ -10,13 +10,35 @@ use Bitrix\Main\Loader;
 $items = $arResult['ITEMS']['AnDelCanBuy'] ?? [];
 $productOptionsEnabled = Configurator::isProductOptionsEnabled();
 if ($items === []) {
-    echo '<div class="basket__message">Корзина пуста.</div>';
+    ?>
+    <main class="page">
+        <div class="page__container page__container--single">
+            <div class="page__main">
+                <div class="main__inner">
+                    <h1 class="main__title"><?php $APPLICATION->ShowTitle(false); ?></h1>
+                    <div class="basket__message">Корзина пуста.</div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <?php
     return;
 }
 
 $partialPath = $_SERVER['DOCUMENT_ROOT'] . '/local/templates/main/components/bitrix/catalog/.default/bitrix/catalog.section/.default/partials/product-card.php';
 if (!is_file($partialPath)) {
-    echo '<div class="basket__message">Не найден шаблон карточки товара.</div>';
+    ?>
+    <main class="page">
+        <div class="page__container page__container--single">
+            <div class="page__main">
+                <div class="main__inner">
+                    <h1 class="main__title"><?php $APPLICATION->ShowTitle(false); ?></h1>
+                    <div class="basket__message">Не найден шаблон карточки товара.</div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <?php
     return;
 }
 

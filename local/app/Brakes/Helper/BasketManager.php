@@ -233,6 +233,14 @@ class BasketManager
         $positions = 0;
 
         foreach ($basket as $item) {
+            if ((string)$item->getField('DELAY') === 'Y') {
+                continue;
+            }
+
+            if ((string)$item->getField('CAN_BUY') !== 'Y') {
+                continue;
+            }
+
             $count += (float)$item->getQuantity();
             $positions++;
         }
