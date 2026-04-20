@@ -927,6 +927,43 @@ AddEventHandler('sale', 'OnSaleOrderBeforeSaved', static function ($event): void
 });
 
 AddEventHandler('sale', 'OnSaleComponentOrderJsData', static function (array &$arResult, array &$arParams): void {
+    if (!empty($arResult['JS_DATA']['ORDER_PROP']['properties']) && is_array($arResult['JS_DATA']['ORDER_PROP']['properties'])) {
+        foreach ($arResult['JS_DATA']['ORDER_PROP']['properties'] as $key => &$property) {
+            if (!is_array($property)) {
+                continue;
+            }
+
+            $code = (string)($property['CODE'] ?? '');
+            if ($code === 'PAYMENT_LINK' || $code === 'CITY') {
+                unset($arResult['JS_DATA']['ORDER_PROP']['properties'][$key]);
+                continue;
+            }
+
+            if ($code === 'FIO') {
+                $normalizeValue = static function ($value): string {
+                    if (is_array($value)) {
+                        return '';
+                    }
+
+                    return trim(html_entity_decode((string)$value, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                };
+
+                foreach (['VALUE', 'DEFAULT_VALUE', 'VALUE_FORMATED'] as $field) {
+                    if (!array_key_exists($field, $property)) {
+                        continue;
+                    }
+
+                    $normalized = $normalizeValue($property[$field]);
+                    if ($normalized === '<Без имени>' || $normalized === 'Без имени') {
+                        $property[$field] = '';
+                    }
+                }
+            }
+
+        }
+        unset($property);
+    }
+
     if (empty($arResult['JS_DATA']['GRID']['ROWS']) || !\Bitrix\Main\Loader::includeModule('iblock')) {
         return;
     }

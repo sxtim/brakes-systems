@@ -117,6 +117,15 @@
   max-width: 240px;
 }
 
+.bx-soa-order-page #bx-soa-order #bx-soa-delivery .bx-soa-pp-delivery-cost,
+.bx-soa-order-page #bx-soa-order #bx-soa-delivery .bx-soa-pp-price {
+  display: none !important;
+}
+
+.bx-soa-order-page #bx-soa-order #bx-soa-delivery .bx-soa-pp-desc-container {
+  display: none !important;
+}
+
 @media (max-width: 580px) {
   .bx-soa-order-page #bx-soa-order .bx-soa-item-block {
     flex-direction: column;
@@ -198,6 +207,30 @@
   background: #f1f6fb !important;
   border-color: #1f6fb2 !important;
   color: #1f6fb2 !important;
+}
+
+.bx-soa-order-page #bx-soa-order .bx-soa-cart-total-button-container .btn-order-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 220px;
+  min-height: 44px;
+  border: 1px solid #1f6fb2 !important;
+  background: #1f6fb2 !important;
+  color: #fff !important;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.2;
+  padding: 10px 18px !important;
+  border-radius: 8px;
+  text-decoration: none !important;
+}
+
+.bx-soa-order-page #bx-soa-order .bx-soa-cart-total-button-container .btn-order-save:hover {
+  background: #1a5f98 !important;
+  border-color: #1a5f98 !important;
+  color: #fff !important;
 }
 
 .bx-soa-order-page #bx-soa-order .bx-soa-customer-field .form-control,

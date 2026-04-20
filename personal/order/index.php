@@ -25,6 +25,8 @@ $APPLICATION->IncludeComponent(
         "TEMPLATE_LOCATION" => "popup",
         "USE_PRELOAD" => "Y",
         "SET_TITLE" => "Y",
+        "USE_CUSTOM_ADDITIONAL_MESSAGES" => "Y",
+        "MESS_PRICE_FREE" => "по согласованию",
     ],
     false
 );

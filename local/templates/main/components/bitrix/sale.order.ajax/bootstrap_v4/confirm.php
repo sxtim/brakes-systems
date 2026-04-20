@@ -31,18 +31,9 @@ $dateText = is_object($dateInsert) && method_exists($dateInsert, 'toUserTime')
                                     Ваш заказ принят.
                                 <?php endif; ?>
                             </p>
-                            <p>Менеджер свяжется с вами, проверит наличие, доставку и итоговую сумму.</p>
-                            <p>Оплата будет доступна после согласования. Ссылку на оплату менеджер отправит в мессенджер.</p>
+                            <p>Спасибо за заказ! Наш менеджер свяжется с вами, после проверки наличия товаров, и пришлет ссылку на оплату</p>
                         </div>
                     </div>
-
-                    <?php if (($arParams['NO_PERSONAL'] ?? 'N') !== 'Y'): ?>
-                        <div class="row mb-5">
-                            <div class="col">
-                                Статус заказа можно посмотреть в <a href="<?=htmlspecialcharsbx($arParams['PATH_TO_PERSONAL'] ?? '/personal/')?>">личном кабинете</a>.
-                            </div>
-                        </div>
-                    <?php endif; ?>
                 <?php else: ?>
                     <div class="row mb-2">
                         <div class="col">
