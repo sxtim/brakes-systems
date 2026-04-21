@@ -919,6 +919,62 @@ AddEventHandler('sale', 'OnSaleOrderBeforeSaved', static function ($event): void
         return;
     }
 
+    $technicalBasketPropCodes = [
+        'CONTEXT_SECTION_ID' => true,
+        'CONTEXT_PATH' => true,
+        'CONTEXT_LABEL' => true,
+        'OPTIONS_JSON' => true,
+        'OPTIONS_HASH' => true,
+        'OPTIONS' => true,
+    ];
+
+    $basket = $order->getBasket();
+    if ($basket instanceof \Bitrix\Sale\BasketBase) {
+        /** @var \Bitrix\Sale\BasketItem $basketItem */
+        foreach ($basket as $basketItem) {
+            if (!$basketItem instanceof \Bitrix\Sale\BasketItem) {
+                continue;
+            }
+
+            $propertyCollection = $basketItem->getPropertyCollection();
+            if (!$propertyCollection) {
+                continue;
+            }
+
+            $propertyValues = [];
+            if (method_exists($propertyCollection, 'getPropertyValues')) {
+                $propertyValues = $propertyCollection->getPropertyValues();
+            } elseif (method_exists($propertyCollection, 'getArray')) {
+                $propertyData = $propertyCollection->getArray();
+                $propertyValues = is_array($propertyData['PROPS'] ?? null) ? $propertyData['PROPS'] : [];
+            }
+
+            if (!is_array($propertyValues) || $propertyValues === []) {
+                continue;
+            }
+
+            $filteredProps = [];
+            foreach ($propertyValues as $code => $property) {
+                if (is_array($property)) {
+                    $propCode = (string)($property['CODE'] ?? $code);
+                    if ($propCode !== '' && isset($technicalBasketPropCodes[$propCode])) {
+                        continue;
+                    }
+                    $filteredProps[] = $property;
+                    continue;
+                }
+
+                if (is_string($code) && $code !== '' && isset($technicalBasketPropCodes[$code])) {
+                    continue;
+                }
+            }
+
+            if (count($filteredProps) !== count($propertyValues)) {
+                $propertyCollection->setProperty($filteredProps);
+            }
+        }
+    }
+
     try {
         \App\Brakes\Order\PaymentFlow::prepareOrderBeforeSave($order);
     } catch (\Throwable $exception) {
