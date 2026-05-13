@@ -161,29 +161,33 @@ if (!Loader::includeModule('sale')) {
 $currentRequestUri = (string)($_SERVER['REQUEST_URI'] ?? '/personal/order/payment/');
 $safeRequestUri = htmlspecialcharsbx($currentRequestUri);
 
-$paymentContent = preg_replace(
+$paymentContentWithFallback = preg_replace(
     '/<form\s+action=(["\'])\1\s+method=(["\'])get\2>/i',
     '<form action="' . $safeRequestUri . '" method="get">',
     $paymentContent
 );
 
-$hiddenPaymentFields = '';
-foreach ([
-    'ORDER_ID' => $orderId ?? '',
-    'PAYMENT_ID' => $paymentId ?? '',
-    'HASH' => $hash ?? '',
-    'RETURN_URL' => $returnUrl ?? '',
-] as $fieldName => $fieldValue) {
-    $fieldValue = (string)$fieldValue;
-    if ($fieldValue === '') {
-        continue;
+if ($paymentContentWithFallback !== null && $paymentContentWithFallback !== $paymentContent) {
+    $paymentContent = $paymentContentWithFallback;
+
+    $hiddenPaymentFields = '';
+    foreach ([
+        'ORDER_ID' => $orderId ?? '',
+        'PAYMENT_ID' => $paymentId ?? '',
+        'HASH' => $hash ?? '',
+        'RETURN_URL' => $returnUrl ?? '',
+    ] as $fieldName => $fieldValue) {
+        $fieldValue = (string)$fieldValue;
+        if ($fieldValue === '') {
+            continue;
+        }
+
+        $hiddenPaymentFields .= '<input type="hidden" name="' . htmlspecialcharsbx($fieldName) . '" value="' . htmlspecialcharsbx($fieldValue) . '">';
     }
 
-    $hiddenPaymentFields .= '<input type="hidden" name="' . htmlspecialcharsbx($fieldName) . '" value="' . htmlspecialcharsbx($fieldValue) . '">';
-}
-
-if ($hiddenPaymentFields !== '') {
-    $paymentContent = preg_replace('/(<form\b[^>]*>)/i', '$1' . $hiddenPaymentFields, $paymentContent, 1);
+    if ($hiddenPaymentFields !== '') {
+        $paymentContent = preg_replace('/(<form\b[^>]*>)/i', '$1' . $hiddenPaymentFields, $paymentContent, 1);
+    }
 }
 ?>
 <style>

@@ -41,8 +41,9 @@ class PaymentFlow
 
         if ($order->getField('STATUS_ID') === self::STATUS_AWAITING_PAYMENT) {
             self::syncPaymentLinkProperty($order);
-            self::syncPaymentLinkComment($order);
         }
+
+        self::removeLegacyPaymentLinkComment($order);
     }
 
     public static function buildPaymentPath(Order $order, ?Payment $payment = null): string
@@ -290,25 +291,19 @@ class PaymentFlow
         }
     }
 
-    private static function syncPaymentLinkComment(Order $order): void
+    private static function removeLegacyPaymentLinkComment(Order $order): void
     {
-        $payment = self::getSingleExternalPayment($order);
-        if (!$payment instanceof Payment || $payment->isPaid()) {
+        $comments = trim((string)$order->getField('COMMENTS'));
+
+        if ($comments === '' || strpos($comments, self::PAYMENT_LINK_COMMENT_MARKER) === false) {
             return;
         }
 
-        $linkLine = self::PAYMENT_LINK_COMMENT_MARKER . ' Ссылка на оплату: ' . self::buildPaymentPath($order, $payment);
-        $comments = trim((string)$order->getField('COMMENTS'));
-
-        if (strpos($comments, self::PAYMENT_LINK_COMMENT_MARKER) !== false) {
-            $comments = (string)preg_replace(
-                '/^' . preg_quote(self::PAYMENT_LINK_COMMENT_MARKER, '/') . '.*$/m',
-                $linkLine,
-                $comments
-            );
-        } else {
-            $comments = trim($comments . "\n" . $linkLine);
-        }
+        $comments = trim((string)preg_replace(
+            '/^' . preg_quote(self::PAYMENT_LINK_COMMENT_MARKER, '/') . '.*(?:\R|$)/m',
+            '',
+            $comments
+        ));
 
         if ((string)$order->getField('COMMENTS') !== $comments) {
             $order->setField('COMMENTS', $comments);

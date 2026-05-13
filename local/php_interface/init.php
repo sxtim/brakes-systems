@@ -1225,6 +1225,21 @@ AddEventHandler('catalog', 'OnCompleteCatalogImport1C', static function ($params
     ]);
 });
 
+AddEventHandler('main', 'OnProlog', static function (): void {
+    if (!defined('ADMIN_SECTION') || ADMIN_SECTION !== true) {
+        return;
+    }
+
+    $scriptName = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
+    if (!in_array($scriptName, ['sale_order_view.php', 'sale_order_edit.php'], true)) {
+        return;
+    }
+
+    if (class_exists(\Bitrix\Main\Page\Asset::class)) {
+        \Bitrix\Main\Page\Asset::getInstance()->addJs('/local/js/brakes/admin-payment-link-reload.js');
+    }
+});
+
 AddEventHandler('main', 'OnAfterEpilog', static function (): void {
     brakes_1c_parse_try_fallback();
 });
