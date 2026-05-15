@@ -650,6 +650,11 @@
     display: none;
   }
 
+  .home-main-dist .about_us .about_block .group_texts {
+    display: block;
+    width: 100%;
+  }
+
   .home-main-dist .about_us .car_bg {
     display: block;
     position: absolute;
@@ -672,7 +677,19 @@
   }
 
   .home-main-dist .about_us .about_block .group_texts .left_text {
+    width: 100%;
     max-width: 100%;
+  }
+
+  .home-main-dist .about_us .about_block .group_texts .left_text .mini_texts {
+    gap: 16px;
+  }
+
+  .home-main-dist .about_us .about_block .group_texts .left_text .mini_texts p,
+  .home-main-dist .about_us .about_block .group_texts .left_text > p {
+    text-align: left;
+    word-break: normal;
+    overflow-wrap: anywhere;
   }
 
   .home-main-dist .about_us .about_block .group_texts .left_text h3 {

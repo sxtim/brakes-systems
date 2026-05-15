@@ -5,6 +5,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 
 if (($arParams['SET_TITLE'] ?? 'Y') === 'Y') {
     $APPLICATION->SetTitle('Заказ принят');
+    $APPLICATION->SetPageProperty('title', 'Заказ принят');
 }
 
 $order = $arResult['ORDER'] ?? [];

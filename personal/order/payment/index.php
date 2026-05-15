@@ -7,6 +7,7 @@ use Bitrix\Sale;
 require($_SERVER['DOCUMENT_ROOT'] . '/bitrix/header.php');
 
 $APPLICATION->SetTitle('Оплата заказа');
+$APPLICATION->SetPageProperty('title', 'Оплата заказа');
 
 $message = '';
 $paymentContent = '';

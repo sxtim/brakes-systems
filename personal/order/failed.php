@@ -1,6 +1,7 @@
 <?php
 require($_SERVER["DOCUMENT_ROOT"]."/bitrix/header.php");
 $APPLICATION->SetTitle("Оплата не прошла");
+$APPLICATION->SetPageProperty('title', 'Оплата не прошла');
 ?>
 
 <?php
