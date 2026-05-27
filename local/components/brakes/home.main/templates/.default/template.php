@@ -107,6 +107,22 @@ $resolveFilePaths = static function ($value) use (&$resolveFilePaths, $resolveFi
     return array_values(array_unique($paths));
 };
 
+$resizeImage = static function ($fileId, int $width, int $height): string {
+    $fileId = (int)$fileId;
+    if ($fileId <= 0 || !class_exists('CFile')) {
+        return '';
+    }
+
+    $image = CFile::ResizeImageGet(
+        $fileId,
+        ['width' => $width, 'height' => $height],
+        BX_RESIZE_IMAGE_PROPORTIONAL,
+        true
+    );
+
+    return is_array($image) ? (string)($image['src'] ?? '') : '';
+};
+
 $logos = $resolveFilePaths($settings['LOGOS'] ?? []);
 $projects = $resolveFilePaths($settings['PROJECTS'] ?? []);
 $certificates = $resolveFilePaths($settings['CERTIFICATES'] ?? []);
@@ -115,29 +131,41 @@ $partnersTrack = !empty($logos) ? array_merge($logos, $logos) : [];
 $product1 = is_array($products[0] ?? null) ? $products[0] : [];
 $product2 = is_array($products[1] ?? null) ? $products[1] : [];
 
+$product1PhotoId = (int)($product1['PHOTO_ID'] ?? 0);
+$product2PhotoId = (int)($product2['PHOTO_ID'] ?? 0);
+$aboutPhotoId = (int)($settings['ABOUT_PHOTO_ID'] ?? 0);
+$posterDesktopId = (int)($settings['POSTER_DESKTOP_ID'] ?? 0);
+$posterMobileId = (int)($settings['POSTER_MOBILE_ID'] ?? 0);
+
 $product1Photo = $resolveFilePath($product1['PHOTO'] ?? '');
 $product2Photo = $resolveFilePath($product2['PHOTO'] ?? '');
 $aboutPhoto = $resolveFilePath($settings['ABOUT_PHOTO'] ?? '');
+$product1PhotoLarge = $resizeImage($product1PhotoId, 1400, 1100) ?: $product1Photo;
+$product1PhotoPreview = $resizeImage($product1PhotoId, 900, 760) ?: $product1Photo;
+$product2PhotoLarge = $resizeImage($product2PhotoId, 1400, 1100) ?: $product2Photo;
+$product2PhotoPreview = $resizeImage($product2PhotoId, 900, 760) ?: $product2Photo;
+$aboutPhoto = $resizeImage($aboutPhotoId, 900, 700) ?: $aboutPhoto;
+$heroDesktopPoster = $resizeImage($posterDesktopId, 1920, 900) ?: $resolveFilePath($settings['POSTER_DESKTOP'] ?? '');
+$heroMobilePoster = $resizeImage($posterMobileId, 900, 1200) ?: $resolveFilePath($settings['POSTER_MOBILE'] ?? '');
 
 if ($product1Photo === '') {
     $product1Photo = $assetsBase . '/product.png';
+    $product1PhotoLarge = $product1Photo;
+    $product1PhotoPreview = $product1Photo;
 }
 
 if ($product2Photo === '') {
     $product2Photo = $assetsBase . '/product1.png';
+    $product2PhotoLarge = $product2Photo;
+    $product2PhotoPreview = $product2Photo;
 }
 
 $heroTitle1 = trim((string)($settings['HERO_TITLE_1'] ?? ''));
 $heroTitle2 = trim((string)($settings['HERO_TITLE_2'] ?? ''));
+$heroSubtitle = trim((string)($settings['HERO_SUBTITLE'] ?? ''));
 $aboutHtml = $decodeHtml((string)($settings['ABOUT_TEXT'] ?? ''));
-$heroVideoBase = SITE_TEMPLATE_PATH . '/assets/home-main-dist/video';
-$heroAdminVideo = $resolveFilePath($settings['VIDEO_SRC'] ?? '');
-$heroDesktopVideo = $heroAdminVideo !== '' ? $heroAdminVideo : $heroVideoBase . '/hero-desktop.mp4';
-$heroMobileVideo = $heroAdminVideo !== '' ? $heroAdminVideo : $heroVideoBase . '/hero-mobile.mp4';
-$heroDesktopPoster = $heroVideoBase . '/hero-poster-desktop.jpg';
-$heroDesktopPosterWebp = $heroVideoBase . '/hero-poster-desktop.webp';
-$heroMobilePoster = $heroVideoBase . '/hero-poster-mobile.jpg';
-$heroMobilePosterWebp = $heroVideoBase . '/hero-poster-mobile.webp';
+$heroDesktopVideo = $resolveFilePath($settings['VIDEO_DESKTOP'] ?? '');
+$heroMobileVideo = $resolveFilePath($settings['VIDEO_MOBILE'] ?? '');
 ?>
 <main class="page home-main-dist">
     <section class="home_block">
@@ -151,32 +179,33 @@ $heroMobilePosterWebp = $heroVideoBase . '/hero-poster-mobile.webp';
                     </h1>
                     <img src="<?= htmlspecialcharsbx($assetsBase . '/title_img1.png') ?>" alt="" class="img_title_second">
                 </div>
-                <p>Профессиональные решения для увеличения производительности вашей тормозной системы</p>
+                <?php if ($heroSubtitle !== ''): ?>
+                    <p><?= nl2br(htmlspecialcharsbx($heroSubtitle), false) ?></p>
+                <?php endif; ?>
                 <a href="/catalog/">КАТАЛОГ</a>
             </div>
         </div>
-        <picture class="home_block_poster" aria-hidden="true">
-            <source media="(max-width: 767.98px)"
-                    srcset="<?= htmlspecialcharsbx($heroMobilePosterWebp) ?>"
-                    type="image/webp">
-            <source media="(max-width: 767.98px)"
-                    srcset="<?= htmlspecialcharsbx($heroMobilePoster) ?>">
-            <source srcset="<?= htmlspecialcharsbx($heroDesktopPosterWebp) ?>"
-                    type="image/webp">
-            <img src="<?= htmlspecialcharsbx($heroDesktopPoster) ?>"
-                 alt=""
-                 decoding="async"
-                 fetchpriority="high">
-        </picture>
-        <video autoplay
-               loop
-               muted
-               playsinline
-               preload="none"
-               class="car_video"
-               data-home-hero-video
-               data-src-desktop="<?= htmlspecialcharsbx($heroDesktopVideo) ?>"
-               data-src-mobile="<?= htmlspecialcharsbx($heroMobileVideo) ?>"></video>
+        <?php if ($heroDesktopPoster !== '' || $heroMobilePoster !== ''): ?>
+            <picture class="home_block_poster">
+                <?php if ($heroMobilePoster !== ''): ?>
+                    <source media="(max-width: 767.98px)" srcset="<?= htmlspecialcharsbx($heroMobilePoster) ?>">
+                <?php endif; ?>
+                <img src="<?= htmlspecialcharsbx($heroDesktopPoster !== '' ? $heroDesktopPoster : $heroMobilePoster) ?>"
+                     alt=""
+                     fetchpriority="high">
+            </picture>
+        <?php endif; ?>
+        <?php if ($heroDesktopVideo !== '' || $heroMobileVideo !== ''): ?>
+            <video autoplay
+                   loop
+                   muted
+                   playsinline
+                   preload="none"
+                   class="car_video"
+                   data-home-hero-video
+                   data-src-desktop="<?= htmlspecialcharsbx($heroDesktopVideo) ?>"
+                   data-src-mobile="<?= htmlspecialcharsbx($heroMobileVideo) ?>"></video>
+        <?php endif; ?>
     </section>
 
     <section class="advantages_brakes_systems">
@@ -234,7 +263,7 @@ $heroMobilePosterWebp = $heroVideoBase . '/hero-poster-mobile.webp';
                         <div class="text_product">
                             <h3><?= htmlspecialcharsbx((string)($product1['TITLE'] ?? '')) ?></h3>
                             <div class="img_group">
-                                <img src="<?= htmlspecialcharsbx($product1Photo) ?>" alt="" class="img_product" loading="lazy" decoding="async">
+                                <img src="<?= htmlspecialcharsbx($product1PhotoPreview) ?>" alt="" class="img_product" loading="lazy" decoding="async">
                                 <img src="<?= htmlspecialcharsbx($assetsBase . '/bg_img1.png') ?>" alt="" class="bg_img_color" loading="lazy" decoding="async">
                             </div>
                             <h4><?= htmlspecialcharsbx((string)($product1['SUBTITLE'] ?? '')) ?></h4>
@@ -244,7 +273,7 @@ $heroMobilePosterWebp = $heroVideoBase . '/hero-poster-mobile.webp';
                             </div>
                             <a href="/catalog/">ПОДОБРАТЬ</a>
                         </div>
-                        <img src="<?= htmlspecialcharsbx($product1Photo) ?>"
+                        <img src="<?= htmlspecialcharsbx($product1PhotoLarge) ?>"
                              alt="<?= htmlspecialcharsbx((string)($product1['TITLE'] ?? 'Товар')) ?>"
                              class="product_img"
                              loading="lazy"
@@ -256,7 +285,7 @@ $heroMobilePosterWebp = $heroVideoBase . '/hero-poster-mobile.webp';
 
                 <?php if (!empty($product2)): ?>
                     <div class="product second_product">
-                        <img src="<?= htmlspecialcharsbx($product2Photo) ?>"
+                        <img src="<?= htmlspecialcharsbx($product2PhotoLarge) ?>"
                              alt="<?= htmlspecialcharsbx((string)($product2['TITLE'] ?? 'Товар')) ?>"
                              class="product_img"
                              loading="lazy"
@@ -264,7 +293,7 @@ $heroMobilePosterWebp = $heroVideoBase . '/hero-poster-mobile.webp';
                         <div class="text_product text_second_group">
                             <h3><?= htmlspecialcharsbx((string)($product2['TITLE'] ?? '')) ?></h3>
                             <div class="img_group">
-                                <img src="<?= htmlspecialcharsbx($product2Photo) ?>" alt="" class="img_product" loading="lazy" decoding="async">
+                                <img src="<?= htmlspecialcharsbx($product2PhotoPreview) ?>" alt="" class="img_product" loading="lazy" decoding="async">
                                 <img src="<?= htmlspecialcharsbx($assetsBase . '/bg_img1.png') ?>" alt="" class="bg_img_color" loading="lazy" decoding="async">
                             </div>
                             <h4><?= htmlspecialcharsbx((string)($product2['SUBTITLE'] ?? '')) ?></h4>

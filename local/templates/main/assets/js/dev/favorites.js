@@ -453,6 +453,31 @@ function captureCurrentPrice(container) {
     };
 }
 
+function notifyFavoriteError() {
+    const content = BX?.message?.ERROR_FAVORITES_TOGGLE || "Error updating favorites.";
+
+    const show = () => {
+        if (!BX?.UI?.Notification?.Center) {
+            return;
+        }
+
+        BX.UI.Notification.Center.notify({
+            content,
+            autoHideDelay: 5000,
+            position: "top-right",
+        });
+    };
+
+    if (BX?.UI?.Notification?.Center) {
+        show();
+        return;
+    }
+
+    if (BX?.Runtime?.loadExtension) {
+        BX.Runtime.loadExtension("ui.notification").then(show).catch(() => {});
+    }
+}
+
 function toggleFavorite(productId, button, priceSnapshot, optionsOverride = null) {
     if (typeof BX === "undefined" || !BX.ajax || typeof BX.ajax.runComponentAction !== "function") {
         return;
@@ -475,13 +500,7 @@ function toggleFavorite(productId, button, priceSnapshot, optionsOverride = null
 
         button?.classList.remove("is-processing");
     }).catch((error) => {
-        if (BX?.UI?.Notification?.Center) {
-            BX.UI.Notification.Center.notify({
-                content: BX.message?.ERROR_FAVORITES_TOGGLE || "Error updating favorites.",
-                autoHideDelay: 5000,
-                position: "top-right",
-            });
-        }
+        notifyFavoriteError();
         button?.classList.remove("is-processing");
     });
 }

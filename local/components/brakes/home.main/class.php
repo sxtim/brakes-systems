@@ -72,10 +72,13 @@ class HomeMainComponent extends CBitrixComponent
 
         $fields = $item->GetFields();
         $props = $item->GetProperties();
-        $videoFileProp = $this->getPropertyByCodeInsensitive($props, 'VIDEO_FILE');
-        $videoUrlProp = $this->getPropertyByCodeInsensitive($props, 'VIDEO_URL');
+        $videoDesktopProp = $this->getPropertyByCodeInsensitive($props, 'VIDEO_DESKTOP');
+        $videoMobileProp = $this->getPropertyByCodeInsensitive($props, 'VIDEO_MOBILE');
+        $posterDesktopProp = $this->getPropertyByCodeInsensitive($props, 'POSTER_DESKTOP');
+        $posterMobileProp = $this->getPropertyByCodeInsensitive($props, 'POSTER_MOBILE');
         $title1Prop = $this->getPropertyByCodeInsensitive($props, 'TITLE_1');
         $title2Prop = $this->getPropertyByCodeInsensitive($props, 'TITLE_2');
+        $subtitleProp = $this->getPropertyByCodeInsensitive($props, 'HERO_SUBTITLE');
         $logosProp = $this->getPropertyByCodeInsensitive($props, 'LOGO_SLIDER');
         $projectsProp = $this->getPropertyByCodeInsensitive($props, 'PROJECTS');
         $aboutTitleProp = $this->getPropertyByCodeInsensitive($props, 'ABOUT_TITLE');
@@ -83,20 +86,29 @@ class HomeMainComponent extends CBitrixComponent
         $aboutPhotoProp = $this->getPropertyByCodeInsensitive($props, 'ABOUT_PHOTO');
         $certificatesProp = $this->getPropertyByCodeInsensitive($props, 'CERTIFICATES');
 
-        $videoFilePath = $this->resolveSingleFilePath($videoFileProp['VALUE'] ?? null);
-        $videoUrl = trim((string)($videoUrlProp['VALUE'] ?? ''));
-        $videoSrc = $videoFilePath !== '' ? $videoFilePath : $videoUrl;
+        $videoDesktopSrc = $this->resolveSingleFilePath($videoDesktopProp['VALUE'] ?? null);
+        $videoMobileSrc = $this->resolveSingleFilePath($videoMobileProp['VALUE'] ?? null);
+        $posterDesktopId = $this->resolveSingleFileId($posterDesktopProp['VALUE'] ?? null);
+        $posterMobileId = $this->resolveSingleFileId($posterMobileProp['VALUE'] ?? null);
 
         return [
             'ID' => (int)($fields['ID'] ?? 0),
             'HERO_TITLE_1' => trim((string)($title1Prop['VALUE'] ?? '')),
             'HERO_TITLE_2' => trim((string)($title2Prop['VALUE'] ?? '')),
-            'VIDEO_SRC' => $videoSrc,
-            'VIDEO_MIME' => $this->resolveVideoMime($videoSrc),
+            'HERO_SUBTITLE' => trim((string)($subtitleProp['VALUE'] ?? '')),
+            'VIDEO_DESKTOP' => $videoDesktopSrc,
+            'VIDEO_MOBILE' => $videoMobileSrc,
+            'VIDEO_DESKTOP_MIME' => $this->resolveVideoMime($videoDesktopSrc),
+            'VIDEO_MOBILE_MIME' => $this->resolveVideoMime($videoMobileSrc),
+            'POSTER_DESKTOP_ID' => $posterDesktopId,
+            'POSTER_DESKTOP' => $this->resolveSingleFilePath($posterDesktopId),
+            'POSTER_MOBILE_ID' => $posterMobileId,
+            'POSTER_MOBILE' => $this->resolveSingleFilePath($posterMobileId),
             'LOGOS' => $this->resolveMultipleFilePaths($logosProp['VALUE'] ?? []),
             'PROJECTS' => $this->resolveMultipleFilePaths($projectsProp['VALUE'] ?? []),
             'ABOUT_TITLE' => trim((string)($aboutTitleProp['VALUE'] ?? '')),
             'ABOUT_TEXT' => $this->extractHtmlProperty($aboutTextProp),
+            'ABOUT_PHOTO_ID' => $this->resolveSingleFileId($aboutPhotoProp['VALUE'] ?? null),
             'ABOUT_PHOTO' => $this->resolveSingleFilePath($aboutPhotoProp['VALUE'] ?? null),
             'CERTIFICATES' => $this->resolveMultipleFilePaths($certificatesProp['VALUE'] ?? []),
         ];
@@ -136,6 +148,7 @@ class HomeMainComponent extends CBitrixComponent
             $textHtmlProp = $this->getPropertyByCodeInsensitive($props, 'TEXT_HTML');
             $featuresHtmlProp = $this->getPropertyByCodeInsensitive($props, 'FEATURES_HTML');
             $photoProp = $this->getPropertyByCodeInsensitive($props, 'PHOTO');
+            $photoId = $this->resolveSingleFileId($photoProp['VALUE'] ?? null);
 
             $items[] = [
                 'ID' => (int)($fields['ID'] ?? 0),
@@ -143,7 +156,8 @@ class HomeMainComponent extends CBitrixComponent
                 'SUBTITLE' => trim((string)($subtitleProp['VALUE'] ?? '')),
                 'TEXT_HTML' => $this->extractHtmlProperty($textHtmlProp),
                 'FEATURES_HTML' => $this->extractHtmlProperty($featuresHtmlProp),
-                'PHOTO' => $this->resolveSingleFilePath($photoProp['VALUE'] ?? null),
+                'PHOTO_ID' => $photoId,
+                'PHOTO' => $this->resolveSingleFilePath($photoId),
             ];
             $usedCodes[$uniqueKey] = true;
 
@@ -220,12 +234,19 @@ class HomeMainComponent extends CBitrixComponent
 
     private function resolveSingleFilePath($value): string
     {
-        $id = (int)$value;
+        $id = $this->resolveSingleFileId($value);
         if ($id <= 0) {
             return '';
         }
 
         return (string)CFile::GetPath($id);
+    }
+
+    private function resolveSingleFileId($value): int
+    {
+        $id = (int)$value;
+
+        return $id > 0 ? $id : 0;
     }
 
     private function resolveMultipleFilePaths($value): array

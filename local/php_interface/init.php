@@ -118,7 +118,7 @@ if (
     exit;
 }
 
-if (!\Bitrix\Main\Loader::includeModule('pull'))
+if (!\Bitrix\Main\ModuleManager::isModuleInstalled('pull'))
 {
     \Bitrix\Main\Config\Option::set('main', 'use_pull', 'N');
 }

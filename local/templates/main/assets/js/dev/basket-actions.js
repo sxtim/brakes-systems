@@ -228,12 +228,25 @@ function notifyError(message) {
     text = "Не удалось добавить товар в корзину.";
   }
 
-  if (BX?.UI?.Notification?.Center) {
+  const show = () => {
+    if (!BX?.UI?.Notification?.Center) {
+      return;
+    }
+
     BX.UI.Notification.Center.notify({
       content: text,
       autoHideDelay: 5000,
       position: "top-right",
     });
+  };
+
+  if (BX?.UI?.Notification?.Center) {
+    show();
+    return;
+  }
+
+  if (BX?.Runtime?.loadExtension) {
+    BX.Runtime.loadExtension("ui.notification").then(show).catch(() => {});
   }
 }
 

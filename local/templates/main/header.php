@@ -10,19 +10,20 @@ if ( ! defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
 
-if (\Bitrix\Main\Loader::includeModule('pull')) {
-    \Bitrix\Main\UI\Extension::load("pull.client");
-}
 \Bitrix\Main\UI\Extension::load("ui.core");
-\Bitrix\Main\UI\Extension::load("ui.notification");
 \Bitrix\Main\UI\Extension::load("ajax");
 
 $productOptionsEnabled = Configurator::isProductOptionsEnabled();
 
 // Asset::getInstance()->addJs(SITE_TEMPLATE_PATH.'/assets/js/slider.min.js');
+$assetVersion = static function (string $templatePath): int {
+    $absolutePath = $_SERVER['DOCUMENT_ROOT'] . SITE_TEMPLATE_PATH . $templatePath;
+
+    return file_exists($absolutePath) ? filemtime($absolutePath) : time();
+};
+
 $appJsPath = SITE_TEMPLATE_PATH . '/assets/js/app.min.js';
-$appJsAbsolutePath = $_SERVER['DOCUMENT_ROOT'] . $appJsPath;
-$appJsVersion = file_exists($appJsAbsolutePath) ? filemtime($appJsAbsolutePath) : time();
+$appJsVersion = $assetVersion('/assets/js/app.min.js');
 Asset::getInstance()->addString('<script type="module" src="'.$appJsPath.'?v='.$appJsVersion.'"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/slider.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/popup.min.js"></script>');
@@ -35,9 +36,9 @@ if (in_array($APPLICATION->GetCurPage(false), ['/basket/', '/personal/cart/'], t
 if ($APPLICATION->GetCurPage(false) === '/personal/order/') {
     Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/order-page.min.css');
 }
-Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/auth.js?v='.time().'"></script>');
-Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/favorites.js?v='.time().'"></script>');
-Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/basket-actions.js?v='.time().'"></script>');
+Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/auth.js?v='.$assetVersion('/assets/js/dev/auth.js').'"></script>');
+Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/favorites.js?v='.$assetVersion('/assets/js/dev/favorites.js').'"></script>');
+Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/dev/basket-actions.js?v='.$assetVersion('/assets/js/dev/basket-actions.js').'"></script>');
 
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/app.min.css');
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/slider.min.css');
@@ -50,13 +51,6 @@ Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/login-page.min.css'
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/basket-page.min.css');
 $unifiedCssAbsolutePath = $_SERVER['DOCUMENT_ROOT'] . SITE_TEMPLATE_PATH . '/assets/css/dev/header-footer-unified.css';
 $unifiedCssVersion = file_exists($unifiedCssAbsolutePath) ? filemtime($unifiedCssAbsolutePath) : time();
-if (in_array($APPLICATION->GetCurPage(false), ['/', '/index.php'], true)) {
-    Asset::getInstance()->addString(
-        '<link rel="preload" as="image" href="' . SITE_TEMPLATE_PATH . '/assets/home-main-dist/video/hero-poster-mobile.webp" media="(max-width: 767.98px)" fetchpriority="high">',
-        false,
-        \Bitrix\Main\Page\AssetLocation::AFTER_CSS
-    );
-}
 Asset::getInstance()->addString(
     '<link rel="stylesheet" href="' . SITE_TEMPLATE_PATH . '/assets/css/dev/header-footer-unified.css?v=' . $unifiedCssVersion . '">',
     false,
@@ -88,6 +82,84 @@ $siteWorktimeText = function_exists('brakes_contact_include_text')
     ? brakes_contact_include_text($siteWorktimePath, 'Работаем пн-вс, с 9 до 21')
     : 'Работаем пн-вс, с 9 до 21';
 
+$homePosterPreloads = [];
+if (in_array($APPLICATION->GetCurPage(false), ['/', '/index.php'], true) && \Bitrix\Main\Loader::includeModule('iblock')) {
+    $settingsIblock = CIBlock::GetList(
+        [],
+        [
+            'CODE' => 'home_main_settings',
+            'CHECK_PERMISSIONS' => 'N',
+        ]
+    )->Fetch();
+    $settingsIblockId = (int)($settingsIblock['ID'] ?? 0);
+
+    if ($settingsIblockId > 0) {
+        $settingsElement = CIBlockElement::GetList(
+            ['SORT' => 'ASC', 'ID' => 'ASC'],
+            [
+                'IBLOCK_ID' => $settingsIblockId,
+                '=CODE' => 'main',
+                'ACTIVE' => 'Y',
+            ],
+            false,
+            ['nTopCount' => 1],
+            ['ID']
+        )->Fetch();
+        $settingsElementId = (int)($settingsElement['ID'] ?? 0);
+
+        if ($settingsElementId > 0) {
+            foreach (
+                [
+                    'POSTER_MOBILE' => [
+                        'media' => '(max-width: 767.98px)',
+                        'width' => 900,
+                        'height' => 1200,
+                    ],
+                    'POSTER_DESKTOP' => [
+                        'media' => '(min-width: 768px)',
+                        'width' => 1920,
+                        'height' => 900,
+                    ],
+                ] as $posterCode => $posterParams
+            ) {
+                $property = CIBlockElement::GetProperty(
+                    $settingsIblockId,
+                    $settingsElementId,
+                    [],
+                    ['CODE' => $posterCode]
+                )->Fetch();
+                $fileId = (int)($property['VALUE'] ?? 0);
+
+                if ($fileId <= 0) {
+                    continue;
+                }
+
+                $image = CFile::ResizeImageGet(
+                    $fileId,
+                    [
+                        'width' => $posterParams['width'],
+                        'height' => $posterParams['height'],
+                    ],
+                    BX_RESIZE_IMAGE_PROPORTIONAL,
+                    true
+                );
+                $src = is_array($image) ? (string)($image['src'] ?? '') : '';
+
+                if ($src === '') {
+                    $src = (string)CFile::GetPath($fileId);
+                }
+
+                if ($src !== '') {
+                    $homePosterPreloads[] = [
+                        'src' => $src,
+                        'media' => $posterParams['media'],
+                    ];
+                }
+            }
+        }
+    }
+}
+
 Asset::getInstance()->addString('<meta charset="'.LANG_CHARSET.'">');
 Asset::getInstance()->addString(
     '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
@@ -118,6 +190,13 @@ Asset::getInstance()->addString(
 <!doctype html>
 <html lang="ru">
 <head>
+    <?php foreach ($homePosterPreloads as $posterPreload): ?>
+        <link rel="preload"
+              href="<?= htmlspecialcharsbx($posterPreload['src']) ?>"
+              as="image"
+              media="<?= htmlspecialcharsbx($posterPreload['media']) ?>"
+              fetchpriority="high">
+    <?php endforeach; ?>
     <?php $APPLICATION->ShowHead(); ?>
     <title><?php $APPLICATION->ShowTitle(); ?></title>
 </head>
