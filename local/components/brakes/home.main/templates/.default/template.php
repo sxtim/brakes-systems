@@ -4,21 +4,12 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
 }
 
 $this->addExternalCss($templateFolder . '/style.css');
-$this->addExternalCss('https://cdn.jsdelivr.net/npm/swiper@12/swiper-bundle.min.css');
-$this->addExternalJs('https://cdn.jsdelivr.net/npm/swiper@12/swiper-bundle.min.js');
-$this->addExternalCss('https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox.css');
-$this->addExternalJs('https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox.umd.js');
 $this->addExternalJs($templateFolder . '/script.js');
 
 $settings = is_array($arResult['SETTINGS'] ?? null) ? $arResult['SETTINGS'] : [];
 $products = is_array($arResult['PRODUCTS'] ?? null) ? $arResult['PRODUCTS'] : [];
 
-$logos = is_array($settings['LOGOS'] ?? null) ? $settings['LOGOS'] : [];
-$projects = is_array($settings['PROJECTS'] ?? null) ? $settings['PROJECTS'] : [];
-$certificates = is_array($settings['CERTIFICATES'] ?? null) ? $settings['CERTIFICATES'] : [];
-
 $assetsBase = SITE_TEMPLATE_PATH . '/assets/home-main-dist/img';
-$partnersTrack = !empty($logos) ? array_merge($logos, $logos) : [];
 
 $decodeHtml = static function ($value): string {
     $decoded = (string)$value;
@@ -46,11 +37,87 @@ $decodeHtml = static function ($value): string {
     return $decoded;
 };
 
+$resolveFilePath = static function ($value) use (&$resolveFilePath): string {
+    if (is_numeric($value)) {
+        $fileId = (int)$value;
+        if ($fileId > 0 && class_exists('CFile')) {
+            return (string)CFile::GetPath($fileId);
+        }
+    }
+
+    if (is_string($value)) {
+        $value = trim($value);
+        return $value !== 'Array' ? $value : '';
+    }
+
+    if (!is_array($value)) {
+        return '';
+    }
+
+    foreach (['SRC', 'src', 'PATH', 'path', 'URL', 'url', 'FILE_SRC', 'file_src'] as $key) {
+        if (!empty($value[$key])) {
+            $path = $resolveFilePath($value[$key]);
+            if ($path !== '') {
+                return $path;
+            }
+        }
+    }
+
+    foreach (['ID', 'id', 'VALUE', '~VALUE'] as $key) {
+        if (isset($value[$key])) {
+            $path = $resolveFilePath($value[$key]);
+            if ($path !== '') {
+                return $path;
+            }
+        }
+    }
+
+    foreach ($value as $item) {
+        $path = $resolveFilePath($item);
+        if ($path !== '') {
+            return $path;
+        }
+    }
+
+    return '';
+};
+
+$resolveFilePaths = static function ($value) use (&$resolveFilePaths, $resolveFilePath): array {
+    if (!is_array($value)) {
+        $path = $resolveFilePath($value);
+        return $path !== '' ? [$path] : [];
+    }
+
+    foreach (['SRC', 'src', 'PATH', 'path', 'URL', 'url', 'FILE_SRC', 'file_src', 'ID', 'id'] as $key) {
+        if (!empty($value[$key])) {
+            $path = $resolveFilePath($value);
+            return $path !== '' ? [$path] : [];
+        }
+    }
+
+    if (isset($value['VALUE']) || isset($value['~VALUE'])) {
+        return $resolveFilePaths($value['VALUE'] ?? $value['~VALUE']);
+    }
+
+    $paths = [];
+    foreach ($value as $item) {
+        $paths = array_merge($paths, $resolveFilePaths($item));
+    }
+
+    return array_values(array_unique($paths));
+};
+
+$logos = $resolveFilePaths($settings['LOGOS'] ?? []);
+$projects = $resolveFilePaths($settings['PROJECTS'] ?? []);
+$certificates = $resolveFilePaths($settings['CERTIFICATES'] ?? []);
+$partnersTrack = !empty($logos) ? array_merge($logos, $logos) : [];
+
 $product1 = is_array($products[0] ?? null) ? $products[0] : [];
 $product2 = is_array($products[1] ?? null) ? $products[1] : [];
 
-$product1Photo = trim((string)($product1['PHOTO'] ?? ''));
-$product2Photo = trim((string)($product2['PHOTO'] ?? ''));
+$product1Photo = $resolveFilePath($product1['PHOTO'] ?? '');
+$product2Photo = $resolveFilePath($product2['PHOTO'] ?? '');
+$aboutPhoto = $resolveFilePath($settings['ABOUT_PHOTO'] ?? '');
 
 if ($product1Photo === '') {
     $product1Photo = $assetsBase . '/product.png';
@@ -63,6 +130,14 @@ if ($product2Photo === '') {
 $heroTitle1 = trim((string)($settings['HERO_TITLE_1'] ?? ''));
 $heroTitle2 = trim((string)($settings['HERO_TITLE_2'] ?? ''));
 $aboutHtml = $decodeHtml((string)($settings['ABOUT_TEXT'] ?? ''));
+$heroVideoBase = SITE_TEMPLATE_PATH . '/assets/home-main-dist/video';
+$heroAdminVideo = $resolveFilePath($settings['VIDEO_SRC'] ?? '');
+$heroDesktopVideo = $heroAdminVideo !== '' ? $heroAdminVideo : $heroVideoBase . '/hero-desktop.mp4';
+$heroMobileVideo = $heroAdminVideo !== '' ? $heroAdminVideo : $heroVideoBase . '/hero-mobile.mp4';
+$heroDesktopPoster = $heroVideoBase . '/hero-poster-desktop.jpg';
+$heroDesktopPosterWebp = $heroVideoBase . '/hero-poster-desktop.webp';
+$heroMobilePoster = $heroVideoBase . '/hero-poster-mobile.jpg';
+$heroMobilePosterWebp = $heroVideoBase . '/hero-poster-mobile.webp';
 ?>
 <main class="page home-main-dist">
     <section class="home_block">
@@ -80,12 +155,28 @@ $aboutHtml = $decodeHtml((string)($settings['ABOUT_TEXT'] ?? ''));
                 <a href="/catalog/">КАТАЛОГ</a>
             </div>
         </div>
-        <?php if (!empty($settings['VIDEO_SRC'])): ?>
-            <video autoplay loop muted playsinline class="car_video">
-                <source src="<?= htmlspecialcharsbx((string)$settings['VIDEO_SRC']) ?>"
-                        type="<?= htmlspecialcharsbx((string)($settings['VIDEO_MIME'] ?? 'video/mp4')) ?>">
-            </video>
-        <?php endif; ?>
+        <picture class="home_block_poster" aria-hidden="true">
+            <source media="(max-width: 767.98px)"
+                    srcset="<?= htmlspecialcharsbx($heroMobilePosterWebp) ?>"
+                    type="image/webp">
+            <source media="(max-width: 767.98px)"
+                    srcset="<?= htmlspecialcharsbx($heroMobilePoster) ?>">
+            <source srcset="<?= htmlspecialcharsbx($heroDesktopPosterWebp) ?>"
+                    type="image/webp">
+            <img src="<?= htmlspecialcharsbx($heroDesktopPoster) ?>"
+                 alt=""
+                 decoding="async"
+                 fetchpriority="high">
+        </picture>
+        <video autoplay
+               loop
+               muted
+               playsinline
+               preload="none"
+               class="car_video"
+               data-home-hero-video
+               data-src-desktop="<?= htmlspecialcharsbx($heroDesktopVideo) ?>"
+               data-src-mobile="<?= htmlspecialcharsbx($heroMobileVideo) ?>"></video>
     </section>
 
     <section class="advantages_brakes_systems">
@@ -128,7 +219,7 @@ $aboutHtml = $decodeHtml((string)($settings['ABOUT_TEXT'] ?? ''));
             <div class="partners_group">
                 <?php foreach ($partnersTrack as $logoPath): ?>
                     <a href="#">
-                        <img src="<?= htmlspecialcharsbx((string)$logoPath) ?>" alt="">
+                        <img src="<?= htmlspecialcharsbx($logoPath) ?>" alt="" loading="lazy" decoding="async">
                     </a>
                 <?php endforeach; ?>
             </div>
@@ -143,8 +234,8 @@ $aboutHtml = $decodeHtml((string)($settings['ABOUT_TEXT'] ?? ''));
                         <div class="text_product">
                             <h3><?= htmlspecialcharsbx((string)($product1['TITLE'] ?? '')) ?></h3>
                             <div class="img_group">
-                                <img src="<?= htmlspecialcharsbx($product1Photo) ?>" alt="" class="img_product">
-                                <img src="<?= htmlspecialcharsbx($assetsBase . '/bg_img1.png') ?>" alt="" class="bg_img_color">
+                                <img src="<?= htmlspecialcharsbx($product1Photo) ?>" alt="" class="img_product" loading="lazy" decoding="async">
+                                <img src="<?= htmlspecialcharsbx($assetsBase . '/bg_img1.png') ?>" alt="" class="bg_img_color" loading="lazy" decoding="async">
                             </div>
                             <h4><?= htmlspecialcharsbx((string)($product1['SUBTITLE'] ?? '')) ?></h4>
                             <div class="product_text_html"><?= $decodeHtml((string)($product1['TEXT_HTML'] ?? '')) ?></div>
@@ -155,22 +246,26 @@ $aboutHtml = $decodeHtml((string)($settings['ABOUT_TEXT'] ?? ''));
                         </div>
                         <img src="<?= htmlspecialcharsbx($product1Photo) ?>"
                              alt="<?= htmlspecialcharsbx((string)($product1['TITLE'] ?? 'Товар')) ?>"
-                             class="product_img">
+                             class="product_img"
+                             loading="lazy"
+                             decoding="async">
                     </div>
                 <?php endif; ?>
 
-                <img src="<?= htmlspecialcharsbx($assetsBase . '/bg_img.png') ?>" alt="" class="bg_img">
+                <img src="<?= htmlspecialcharsbx($assetsBase . '/bg_img.png') ?>" alt="" class="bg_img" loading="lazy" decoding="async">
 
                 <?php if (!empty($product2)): ?>
                     <div class="product second_product">
                         <img src="<?= htmlspecialcharsbx($product2Photo) ?>"
                              alt="<?= htmlspecialcharsbx((string)($product2['TITLE'] ?? 'Товар')) ?>"
-                             class="product_img">
+                             class="product_img"
+                             loading="lazy"
+                             decoding="async">
                         <div class="text_product text_second_group">
                             <h3><?= htmlspecialcharsbx((string)($product2['TITLE'] ?? '')) ?></h3>
                             <div class="img_group">
-                                <img src="<?= htmlspecialcharsbx($product2Photo) ?>" alt="" class="img_product">
-                                <img src="<?= htmlspecialcharsbx($assetsBase . '/bg_img1.png') ?>" alt="" class="bg_img_color">
+                                <img src="<?= htmlspecialcharsbx($product2Photo) ?>" alt="" class="img_product" loading="lazy" decoding="async">
+                                <img src="<?= htmlspecialcharsbx($assetsBase . '/bg_img1.png') ?>" alt="" class="bg_img_color" loading="lazy" decoding="async">
                             </div>
                             <h4><?= htmlspecialcharsbx((string)($product2['SUBTITLE'] ?? '')) ?></h4>
                             <div class="product_text_html"><?= $decodeHtml((string)($product2['TEXT_HTML'] ?? '')) ?></div>
@@ -195,9 +290,9 @@ $aboutHtml = $decodeHtml((string)($settings['ABOUT_TEXT'] ?? ''));
                             <?php foreach ($projects as $projectPath): ?>
                                 <div class="swiper-slide">
                                     <a class="img_project"
-                                       href="<?= htmlspecialcharsbx((string)$projectPath) ?>"
+                                       href="<?= htmlspecialcharsbx($projectPath) ?>"
                                        data-fancybox="gallery-2">
-                                        <img src="<?= htmlspecialcharsbx((string)$projectPath) ?>" alt="">
+                                        <img src="<?= htmlspecialcharsbx($projectPath) ?>" alt="" loading="lazy" decoding="async">
                                     </a>
                                 </div>
                             <?php endforeach; ?>
@@ -211,7 +306,7 @@ $aboutHtml = $decodeHtml((string)($settings['ABOUT_TEXT'] ?? ''));
     </section>
 
     <section class="about_us">
-        <img src="<?= htmlspecialcharsbx($assetsBase . '/car_bg.png') ?>" alt="" class="car_bg">
+        <img src="<?= htmlspecialcharsbx($assetsBase . '/car_bg.png') ?>" alt="" class="car_bg" loading="lazy" decoding="async">
         <div class="container">
             <div class="about_block">
                 <h2><?= htmlspecialcharsbx((string)($settings['ABOUT_TITLE'] ?? 'О НАС')) ?></h2>
@@ -219,13 +314,13 @@ $aboutHtml = $decodeHtml((string)($settings['ABOUT_TEXT'] ?? ''));
                     <div class="left_text">
                         <?= $aboutHtml ?>
                     </div>
-                    <?php if (!empty($settings['ABOUT_PHOTO'])): ?>
-                        <img src="<?= htmlspecialcharsbx((string)$settings['ABOUT_PHOTO']) ?>" alt="" class="img_cars">
+                    <?php if ($aboutPhoto !== ''): ?>
+                        <img src="<?= htmlspecialcharsbx($aboutPhoto) ?>" alt="" class="img_cars" loading="lazy" decoding="async">
                     <?php endif; ?>
                 </div>
             </div>
         </div>
-        <img src="<?= htmlspecialcharsbx($assetsBase . '/car_bg1.png') ?>" alt="" class="car_bg_second">
+        <img src="<?= htmlspecialcharsbx($assetsBase . '/car_bg1.png') ?>" alt="" class="car_bg_second" loading="lazy" decoding="async">
     </section>
 
     <?php if (!empty($partnersTrack)): ?>
@@ -233,7 +328,7 @@ $aboutHtml = $decodeHtml((string)($settings['ABOUT_TEXT'] ?? ''));
             <div class="partners_group">
                 <?php foreach ($partnersTrack as $logoPath): ?>
                     <a href="#">
-                        <img src="<?= htmlspecialcharsbx((string)$logoPath) ?>" alt="">
+                        <img src="<?= htmlspecialcharsbx($logoPath) ?>" alt="" loading="lazy" decoding="async">
                     </a>
                 <?php endforeach; ?>
             </div>
@@ -247,9 +342,9 @@ $aboutHtml = $decodeHtml((string)($settings['ABOUT_TEXT'] ?? ''));
                 <div class="sertificates_group">
                     <?php foreach ($certificates as $certificatePath): ?>
                         <a class="sertificate"
-                           href="<?= htmlspecialcharsbx((string)$certificatePath) ?>"
+                           href="<?= htmlspecialcharsbx($certificatePath) ?>"
                            data-fancybox="gallery-1">
-                            <img src="<?= htmlspecialcharsbx((string)$certificatePath) ?>" alt="">
+                            <img src="<?= htmlspecialcharsbx($certificatePath) ?>" alt="" loading="lazy" decoding="async">
                         </a>
                     <?php endforeach; ?>
                 </div>

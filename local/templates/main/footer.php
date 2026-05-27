@@ -3,6 +3,28 @@
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
+
+$siteAddressPath = function_exists('brakes_contact_include_path')
+    ? brakes_contact_include_path('address')
+    : SITE_DIR . 'include/contacts/address.php';
+$sitePhonePath = function_exists('brakes_contact_include_path')
+    ? brakes_contact_include_path('phone')
+    : SITE_DIR . 'include/contacts/phone.php';
+$siteEmailPath = function_exists('brakes_contact_include_path')
+    ? brakes_contact_include_path('email')
+    : SITE_DIR . 'include/contacts/email.php';
+$sitePhoneText = function_exists('brakes_contact_include_text')
+    ? brakes_contact_include_text($sitePhonePath, '+7 903 765-76-38')
+    : '+7 903 765-76-38';
+$siteEmailText = function_exists('brakes_contact_include_text')
+    ? brakes_contact_include_text($siteEmailPath, 'sales@shinylight.ru')
+    : 'sales@shinylight.ru';
+$sitePhoneHref = function_exists('brakes_contact_phone_href')
+    ? brakes_contact_phone_href($sitePhoneText)
+    : 'tel:+79037657638';
+$siteEmailHref = function_exists('brakes_contact_email_href')
+    ? brakes_contact_email_href($siteEmailText)
+    : 'mailto:sales@shinylight.ru';
 ?>
 <footer data-fls-footer="" class="footer footer--unified">
     <div class="footer__container">
@@ -12,13 +34,31 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                     <h4 class="footer__content-title">Контакты</h4>
                     <ul class="footer__content-list">
                         <li class="footer__content-li">
-                            <a class="footer__content-link footer__content-link--address" href="#">г. Москва, улица, дом</a>
+                            <a class="footer__content-link footer__content-link--address" href="#"><?php
+                                if (function_exists('brakes_contact_include_area')) {
+                                    brakes_contact_include_area($siteAddressPath, 'г. Химки, микрорайон Подрезково, квартал Кирилловка, 7');
+                                } else {
+                                    echo 'г. Химки, микрорайон Подрезково, квартал Кирилловка, 7';
+                                }
+                            ?></a>
                         </li>
                         <li class="footer__content-li">
-                            <a class="footer__content-link footer__content-link--tel" href="tel:74955555555">+7 (495) 555-55-55</a>
+                            <a class="footer__content-link footer__content-link--tel" href="<?= htmlspecialcharsbx($sitePhoneHref) ?>"><?php
+                                if (function_exists('brakes_contact_include_area')) {
+                                    brakes_contact_include_area($sitePhonePath, $sitePhoneText);
+                                } else {
+                                    echo htmlspecialcharsbx($sitePhoneText);
+                                }
+                            ?></a>
                         </li>
                         <li class="footer__content-li">
-                            <a class="footer__content-link footer__content-link--mail" href="mailto:adress@adress.ru">adress@adress.ru</a>
+                            <a class="footer__content-link footer__content-link--mail" href="<?= htmlspecialcharsbx($siteEmailHref) ?>"><?php
+                                if (function_exists('brakes_contact_include_area')) {
+                                    brakes_contact_include_area($siteEmailPath, $siteEmailText);
+                                } else {
+                                    echo htmlspecialcharsbx($siteEmailText);
+                                }
+                            ?></a>
                         </li>
                     </ul>
                 </div>
@@ -53,27 +93,27 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
                     <ul class="header__contacts-list">
                         <li class="header__contacts-li">
                             <a class="header__contacts-link" href="#">
-                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/header-contacts/1.svg" alt="Image">
+                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/header-contacts/1.svg" alt="Image" loading="lazy" decoding="async">
                             </a>
                         </li>
                         <li class="header__contacts-li">
                             <a class="header__contacts-link" href="#">
-                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/header-contacts/2.svg" alt="Image">
+                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/header-contacts/2.svg" alt="Image" loading="lazy" decoding="async">
                             </a>
                         </li>
                         <li class="header__contacts-li">
                             <a class="header__contacts-link" href="#">
-                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/header-contacts/3.svg" alt="Image">
+                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/header-contacts/3.svg" alt="Image" loading="lazy" decoding="async">
                             </a>
                         </li>
                         <li class="header__contacts-li">
                             <a class="header__contacts-link" href="#">
-                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/header-contacts/4.svg" alt="Image">
+                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/header-contacts/4.svg" alt="Image" loading="lazy" decoding="async">
                             </a>
                         </li>
                         <li class="header__contacts-li">
                             <a class="header__contacts-link" href="#">
-                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/header-contacts/5.svg" alt="Image">
+                                <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/header-contacts/5.svg" alt="Image" loading="lazy" decoding="async">
                             </a>
                         </li>
                     </ul>
@@ -83,11 +123,17 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
         <img class="footer__bg-image footer__bg-image--desktop"
              src="<?= SITE_TEMPLATE_PATH ?>/assets/img/bg_footer.png"
              alt=""
-             aria-hidden="true">
+             aria-hidden="true"
+             loading="lazy"
+             decoding="async"
+             fetchpriority="low">
         <img class="footer__bg-image footer__bg-image--mobile"
              src="<?= SITE_TEMPLATE_PATH ?>/assets/img/bg_footer1.png"
              alt=""
-             aria-hidden="true">
+             aria-hidden="true"
+             loading="lazy"
+             decoding="async"
+             fetchpriority="low">
     </div>
 </footer>
 </div>

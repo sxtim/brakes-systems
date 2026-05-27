@@ -1,4 +1,6 @@
-import { b as bodyLock, a as bodyUnlock, c as bodyLockStatus } from "./app.min.js";
+const bodyLock = (...args) => window.BrakesApp?.bodyLock?.(...args);
+const bodyUnlock = (...args) => window.BrakesApp?.bodyUnlock?.(...args);
+const isBodyLockReady = () => window.BrakesApp?.bodyLockStatus !== false;
 class Popup {
   constructor(options) {
     let config = {
@@ -160,7 +162,7 @@ class Popup {
     }
   }
   open(selectorValue) {
-    if (bodyLockStatus) {
+    if (isBodyLockReady()) {
       this.bodyLock = document.documentElement.hasAttribute("data-fls-scrolllock") && !this.isOpen ? true : false;
       if (selectorValue && typeof selectorValue === "string" && selectorValue.trim() !== "") {
         this.targetOpen.selector = selectorValue;
@@ -223,7 +225,7 @@ class Popup {
     if (selectorValue && typeof selectorValue === "string" && selectorValue.trim() !== "") {
       this.previousOpen.selector = selectorValue;
     }
-    if (!this.isOpen || !bodyLockStatus) {
+    if (!this.isOpen || !isBodyLockReady()) {
       return;
     }
     this.options.on.beforeClose(this);

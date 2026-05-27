@@ -3,6 +3,16 @@
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
     exit;
 }
+
+$sitePhonePath = function_exists('brakes_contact_include_path')
+    ? brakes_contact_include_path('phone')
+    : SITE_DIR . 'include/contacts/phone.php';
+$sitePhoneText = function_exists('brakes_contact_include_text')
+    ? brakes_contact_include_text($sitePhonePath, '+7 903 765-76-38')
+    : '+7 903 765-76-38';
+$sitePhoneHref = function_exists('brakes_contact_phone_href')
+    ? brakes_contact_phone_href($sitePhoneText)
+    : 'tel:+79037657638';
 ?>
 <nav class="header__top-nav header__top-nav--unified" id="header__top-nav">
     <ul class="header__top-list header__top-list--unified">
@@ -31,7 +41,13 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) {
         <?php endforeach; ?>
     </ul>
     <div class="header__top-phone header__top-phone--unified">
-        <a href="tel:84955555555">8 495 555-55-55</a>
+        <a href="<?= htmlspecialcharsbx($sitePhoneHref) ?>"><?php
+            if (function_exists('brakes_contact_include_area')) {
+                brakes_contact_include_area($sitePhonePath, $sitePhoneText);
+            } else {
+                echo htmlspecialcharsbx($sitePhoneText);
+            }
+        ?></a>
     </div>
     <div class="header__contacts header__contacts--unified">
         <p class="header__contacts-text">Присоединяйтесь к

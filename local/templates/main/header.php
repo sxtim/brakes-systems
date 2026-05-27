@@ -20,7 +20,10 @@ if (\Bitrix\Main\Loader::includeModule('pull')) {
 $productOptionsEnabled = Configurator::isProductOptionsEnabled();
 
 // Asset::getInstance()->addJs(SITE_TEMPLATE_PATH.'/assets/js/slider.min.js');
-Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/app.min.js"></script>');
+$appJsPath = SITE_TEMPLATE_PATH . '/assets/js/app.min.js';
+$appJsAbsolutePath = $_SERVER['DOCUMENT_ROOT'] . $appJsPath;
+$appJsVersion = file_exists($appJsAbsolutePath) ? filemtime($appJsAbsolutePath) : time();
+Asset::getInstance()->addString('<script type="module" src="'.$appJsPath.'?v='.$appJsVersion.'"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/slider.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/popup.min.js"></script>');
 Asset::getInstance()->addString('<script type="module" src="'.SITE_TEMPLATE_PATH.'/assets/js/cataloge.min.js"></script>');
@@ -47,6 +50,13 @@ Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/login-page.min.css'
 Asset::getInstance()->addCss(SITE_TEMPLATE_PATH.'/assets/css/basket-page.min.css');
 $unifiedCssAbsolutePath = $_SERVER['DOCUMENT_ROOT'] . SITE_TEMPLATE_PATH . '/assets/css/dev/header-footer-unified.css';
 $unifiedCssVersion = file_exists($unifiedCssAbsolutePath) ? filemtime($unifiedCssAbsolutePath) : time();
+if (in_array($APPLICATION->GetCurPage(false), ['/', '/index.php'], true)) {
+    Asset::getInstance()->addString(
+        '<link rel="preload" as="image" href="' . SITE_TEMPLATE_PATH . '/assets/home-main-dist/video/hero-poster-mobile.webp" media="(max-width: 767.98px)" fetchpriority="high">',
+        false,
+        \Bitrix\Main\Page\AssetLocation::AFTER_CSS
+    );
+}
 Asset::getInstance()->addString(
     '<link rel="stylesheet" href="' . SITE_TEMPLATE_PATH . '/assets/css/dev/header-footer-unified.css?v=' . $unifiedCssVersion . '">',
     false,
@@ -62,6 +72,21 @@ Asset::getInstance()->addString("<script>BX.message({'ERROR_FAVORITES_TOGGLE': '
 $favoritesIds = $favoritesClientState['items'] ?? [];
 $favoriteProductData = FavoritesManager::getFavoritesProductsData($favoritesIds);
 $favoritesPopupHtml = FavoritesManager::buildFavoritesPopupHtml($favoriteProductData);
+$sitePhonePath = function_exists('brakes_contact_include_path')
+    ? brakes_contact_include_path('phone')
+    : SITE_DIR . 'include/contacts/phone.php';
+$sitePhoneText = function_exists('brakes_contact_include_text')
+    ? brakes_contact_include_text($sitePhonePath, '+7 903 765-76-38')
+    : '+7 903 765-76-38';
+$sitePhoneHref = function_exists('brakes_contact_phone_href')
+    ? brakes_contact_phone_href($sitePhoneText)
+    : 'tel:+79037657638';
+$siteWorktimePath = function_exists('brakes_contact_include_path')
+    ? brakes_contact_include_path('worktime')
+    : SITE_DIR . 'include/contacts/worktime.php';
+$siteWorktimeText = function_exists('brakes_contact_include_text')
+    ? brakes_contact_include_text($siteWorktimePath, 'Работаем пн-вс, с 9 до 21')
+    : 'Работаем пн-вс, с 9 до 21';
 
 Asset::getInstance()->addString('<meta charset="'.LANG_CHARSET.'">');
 Asset::getInstance()->addString(
@@ -69,19 +94,19 @@ Asset::getInstance()->addString(
 );
 Asset::getInstance()->addString(
     '<link rel="preload" href="'.SITE_TEMPLATE_PATH
-    .'/assets/fonts/Montserrat-SemiBold.woff2" as="font" type="font/woff2" crossorigin="anonymous">'
+    .'/assets/fonts/Montserrat-SemiBold.woff2" as="font" type="font/woff2" crossorigin="anonymous" media="(min-width: 768px)">'
 );
 Asset::getInstance()->addString(
     '<link rel="preload" href="'.SITE_TEMPLATE_PATH
-    .'/assets/fonts/Montserrat-Regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">'
+    .'/assets/fonts/Montserrat-Regular.woff2" as="font" type="font/woff2" crossorigin="anonymous" media="(min-width: 768px)">'
 );
 Asset::getInstance()->addString(
     '<link rel="preload" href="'.SITE_TEMPLATE_PATH
-    .'/assets/fonts/Montserrat-Medium.woff2" as="font" type="font/woff2" crossorigin="anonymous">'
+    .'/assets/fonts/Montserrat-Medium.woff2" as="font" type="font/woff2" crossorigin="anonymous" media="(min-width: 768px)">'
 );
 Asset::getInstance()->addString(
     '<link rel="preload" href="'.SITE_TEMPLATE_PATH
-    .'/assets/fonts/Montserrat-Bold.woff2" as="font" type="font/woff2" crossorigin="anonymous">'
+    .'/assets/fonts/Montserrat-Bold.woff2" as="font" type="font/woff2" crossorigin="anonymous" media="(min-width: 768px)">'
 );
 Asset::getInstance()->addString(
     '<link rel="shortcut icon" href="'.SITE_TEMPLATE_PATH
@@ -180,34 +205,16 @@ $bodyClass = $APPLICATION->GetCurPage(false) === '/personal/order/' ? 'bx-soa-or
                         <p class="menu__name">Каталог</p>
                         <span></span>
                     </button>
-                    <?$APPLICATION->IncludeComponent(
-                        "bitrix:catalog.section.list",
-                        "",
-	                        Array(
-                            "ADDITIONAL_COUNT_ELEMENTS_FILTER" => "additionalCountFilter",
-                            "VIEW_MODE" => "TEXT",
-                            "SHOW_PARENT_NAME" => "Y",
-                            "IBLOCK_TYPE" => 'catalog',
-                            "IBLOCK_ID" => 1,
-                            "SECTION_ID" => "",
-                            "SECTION_CODE" => "",
-                            "SECTION_URL" => "",
-                            "COUNT_ELEMENTS" => "Y",
-                            "COUNT_ELEMENTS_FILTER" => "CNT_ACTIVE",
-                            "HIDE_SECTIONS_WITH_ZERO_COUNT_ELEMENTS" => "N",
-	                            "TOP_DEPTH" => "4",
-	                            "SECTION_FIELDS" => "",
-	                            "SECTION_USER_FIELDS" => "",
-	                            "ADD_SECTIONS_CHAIN" => "Y",
-                            "CACHE_TYPE" => "A",
-                            "CACHE_TIME" => "36000000",
-                            "CACHE_NOTES" => "",
-                            "CACHE_GROUPS" => "Y",
-                            "SECTION_USER_FIELDS" => [
-                                "UF_SVG",
-                            ]
-                        )
-                    );?>
+                    <nav class="menu__body"
+                         data-header-catalog-menu
+                         data-load-url="/local/ajax/header-catalog-menu.php"
+                         aria-busy="false">
+                        <div class="menu__container">
+                            <div class="menu__list">
+                                <a class="menu__item" href="/catalog/">Перейти в каталог</a>
+                            </div>
+                        </div>
+                    </nav>
                 </div>
                 <form id="header-search-form" class="header__search" action="/search/" method="get">
                     <button class="header__search-mobile search-mobile"
@@ -249,12 +256,23 @@ $bodyClass = $APPLICATION->GetCurPage(false) === '/personal/order/' ? 'bx-soa-or
                     </a>
                 </div>
                 <div class="header__info">
-                    <a class="header__tel" href="tel:84955555555">8 495
-                        555-55-55</a>
-                    <p class="header__time">Работаем пн-вс, с 9 до 21</p>
+                    <a class="header__tel" href="<?= htmlspecialcharsbx($sitePhoneHref) ?>"><?php
+                        if (function_exists('brakes_contact_include_area')) {
+                            brakes_contact_include_area($sitePhonePath, $sitePhoneText);
+                        } else {
+                            echo htmlspecialcharsbx($sitePhoneText);
+                        }
+                    ?></a>
+                    <p class="header__time"><?php
+                        if (function_exists('brakes_contact_include_area')) {
+                            brakes_contact_include_area($siteWorktimePath, $siteWorktimeText);
+                        } else {
+                            echo htmlspecialcharsbx($siteWorktimeText);
+                        }
+                    ?></p>
                     <a class="header__tel--mobile"
                        data-fls-dynamic=".header__top-container, 576, 1, .header__top"
-                       href="tel:84955555555">
+                       href="<?= htmlspecialcharsbx($sitePhoneHref) ?>">
                         <img src="<?= SITE_TEMPLATE_PATH ?>/assets/img/mobile-tel.svg"
                              alt="Image">
                     </a>

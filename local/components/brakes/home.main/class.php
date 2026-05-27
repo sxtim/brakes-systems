@@ -116,13 +116,21 @@ class HomeMainComponent extends CBitrixComponent
                 'ACTIVE' => 'Y',
             ],
             false,
-            ['nTopCount' => self::PRODUCTS_LIMIT],
+            false,
             ['ID', 'IBLOCK_ID', 'NAME', 'CODE', 'SORT']
         );
 
         $items = [];
+        $usedCodes = [];
         while ($element = $res->GetNextElement()) {
             $fields = $element->GetFields();
+            $code = trim((string)($fields['CODE'] ?? ''));
+            $uniqueKey = $code !== '' ? $code : 'ID_' . (int)($fields['ID'] ?? 0);
+
+            if (isset($usedCodes[$uniqueKey])) {
+                continue;
+            }
+
             $props = $element->GetProperties();
             $subtitleProp = $this->getPropertyByCodeInsensitive($props, 'SUBTITLE');
             $textHtmlProp = $this->getPropertyByCodeInsensitive($props, 'TEXT_HTML');
@@ -137,6 +145,11 @@ class HomeMainComponent extends CBitrixComponent
                 'FEATURES_HTML' => $this->extractHtmlProperty($featuresHtmlProp),
                 'PHOTO' => $this->resolveSingleFilePath($photoProp['VALUE'] ?? null),
             ];
+            $usedCodes[$uniqueKey] = true;
+
+            if (count($items) >= self::PRODUCTS_LIMIT) {
+                break;
+            }
         }
 
         return $items;
