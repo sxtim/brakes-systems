@@ -7,9 +7,7 @@
 /dist
 .section.php
 sync_config.jsonc
-Readme.txt
 /logs
 /log
 *.log
 *.lock
-PRICE_LOGIC_PLAN.md

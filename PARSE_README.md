@@ -1,121 +1,114 @@
-# 1C Exchange: Parser + Image Migrator (Brakes Systems)
+# 1C Exchange Runtime Notes
 
-Этот проект использует стандартный обмен 1С→Битрикс (каталог/цены/остатки) и два пост-обменных шага:
+Актуальная рабочая схема обмена 1С -> Битрикс для Brakes Systems.
 
-- Каталожный парсер `local/cron/1c_catalog_parse.php`: строит/поддерживает дерево разделов и привязки товаров (категория → марка → модель → кузов) на основе свойств товара в БД.
-- Мигратор фото `App\\Brakes\\Helper\\ImageMigrator`: переносит фотографии из ссылок (строковое свойство) в файловое свойство для корректного отображения в UI.
+## Источник Правды
 
-## Что является "источником правды"
+- Стандартный импорт Битрикса создает и обновляет товары, цены и остатки.
+- Кастомный парсер `local/cron/1c_catalog_parse.php` не импортирует XML напрямую. Он читает уже загруженные товары из БД и поддерживает дерево разделов `категория -> марка -> модель -> кузов`.
+- Фото из XML дообрабатываются отдельно: ссылки и файлы из `import___*.xml` синхронизируются в свойства товара и файловое хранилище Битрикса.
+- Файлы обмена в `upload/1c_catalog*` нужны для диагностики, но не являются вечным архивом.
 
-- Стандартный импорт 1С создаёт/обновляет элементы в инфоблоке (в нашем кейсе `IBLOCK_ID=1`).
-- Парсер НЕ читает XML. Он читает только БД и работает с тем, что уже импортировано стандартным модулем 1С.
-- Мигратор фото берёт ссылки из выгрузки 1С и приводит их к виду, удобному для сайта.
-- В текущей выгрузке `rests___*.xml` остатки приходят одной цифрой на товар/предложение (без разбиения по складам).
+## Точки Входа
 
-## Цепочка запуска
+- `local/php_interface/include/events.php`
+  - `catalog:OnSuccessCatalogImport1C` по отдельным XML-файлам.
+- `local/php_interface/init.php`
+  - обработка `mode=deactivate`;
+  - планировщик парсера;
+  - обработчик `catalog:OnCompleteCatalogImport1C`;
+  - fallback на `main:OnAfterEpilog`.
+- `local/cron/1c_catalog_parse.php`
+  - CLI/внутренняя функция пересборки разделов и служебных свойств.
+- `local/cron/1c_exchange_cleanup.php`
+  - безопасная чистка старых папок обмена.
 
-Код точки входа:
+## Как Запускается Обработка
 
-- `local/php_interface/include/events.php`: подписка на `catalog:OnSuccessCatalogImport1C` (по файлам импорта).
-- `local/php_interface/init.php`: подпись на `catalog:OnCompleteCatalogImport1C` (окончание обмена), планировщик, логирование.
+1. `import___*.xml`
+   - парсер помечается как ожидающий запуск (`pending=Y`), но сразу не выполняется;
+   - запускается обработка фото, если в XML есть ссылки или файлы картинок.
 
-Поведение:
+2. `rests___*.xml`
+   - фиксируется время и путь последнего файла остатков в опциях `brakes`;
+   - парсер здесь не запускается, чтобы не обновлять `TIMESTAMP_X` до штатного `mode=deactivate`.
 
-1. На `import___*.xml`:
-- Парсер ставится в ожидание (`pending=Y`), но НЕ запускается сразу (`runNow=N`), чтобы не гонять парсер на каждом куске импорта.
-- Запускается мигратор фото (если доступны данные "Ссылки на фото").
+3. `mode=complete`
+   - основной штатный момент запуска парсера;
+   - парсер реактивирует используемые разделы, но не включает обратно деактивированные товары.
 
-2. На `rests___*.xml`:
-- Парсер запускается сразу (`runNow=Y`) как "безопасная точка" в конце каталожного обмена, если `mode=complete` отсутствует/нестабилен.
+4. Fallback
+   - если после `import___*.xml` парсер остался в `pending`, `OnAfterEpilog` может запустить его позже с источником `OnSuccessTimeoutFallback`.
 
-3. На `mode=complete`:
-- Парсер запускается, если ещё не запускался на этом файле недавно.
-- Если парсер уже был запущен на `rests`, запуск на `complete` пропускается как дубль.
+## Защита `mode=deactivate`
 
-## Логи и где смотреть
+Стандартный `mode=deactivate` может деактивировать разделы, которых нет в полной выгрузке 1С. У нас дерево разделов строится на сайте, поэтому разделы нельзя гасить штатным механизмом.
 
-1. Основной лог (рекомендован): Журнал событий в админке Битрикса.
+Текущая логика:
 
-- `/bitrix/admin/event_log.php`
-- `AUDIT_TYPE_ID`:
-  - `BRKS_1C_PARSE` (парсер)
-  - `BRKS_1C_IMAGE` (миграция фото)
-- В описании (`DESCRIPTION`) есть метаданные: `source`, `file`, `runNow`, итоговая статистика `result`.
+- разделы не деактивируются;
+- товары `IBLOCK_ID=1` могут быть деактивированы только если запрос похож на полный обмен;
+- проверяется недавний `rests` или `complete`;
+- дополнительно проверяется покрытие: если обновлено слишком мало активных товаров, деактивация пропускается;
+- результат пишется в `parse.log` и `CEventLog`.
 
-2. Файловый лог (best-effort):
+## Чистка Файлов Обмена
 
-- `local/cron/parse.log`
-- Пишется для диагностики, не должен ломать обмен при проблемах с FS.
+Файлы обмена сохраняются для диагностики, но хранятся ограниченно:
 
-## Интерпретация статистики парсера
+- папки `upload/1c_catalog<N>` хранятся 30 дней;
+- рабочая папка `upload/1c_catalog` не трогается;
+- последние папки из опций `brakes` не трогаются;
+- запуск без `--apply` ничего не удаляет.
 
-Ключевые поля:
-
-- `elementsProcessed`: сколько товаров обработано.
-- `orphans`: сколько товаров ушли в fallback `other`.
-- `skippedLengthMismatch`: сколько товаров пропущено из-за несовпадения количества значений в `MARK/MODEL/BODY`.
-
-Причины fallback в `parse.log`:
-
-- `fallback=other reason=empty_values`: пустые значения `MARK/MODEL/BODY`.
-- `fallback=other reason=length_mismatch`: длины массивов `MARK/MODEL/BODY` не совпали (после разбиения по `;`).
-
-## Интерпретация логики мигратора фото
-
-- Стандартный обмен может не передавать бинарные картинки (в отчёте 1С может быть "Выгружено 0 картинок").
-- В этом случае фото приходят как реквизит "Ссылки на фото" внутри `import___*.xml` в `<ЗначенияРеквизитов>`.
-- Мы синхронизируем эти ссылки в строковое свойство `LINK_PHOTO`, затем `ImageMigrator` переносит их в `LINK_PHOTO_FILE` (файловое свойство).
-
-## Важный нюанс: mode=deactivate
-
-В `local/php_interface/init.php` есть обработка `mode=deactivate` в `1c_exchange.php`.
-
-Причина:
-
-- Стандартный `deactivate` может деактивировать "лишние" разделы, а у нас есть кастомное дерево разделов, которого нет в 1С.
-
-Следствие:
-
-- Мы НЕ трогаем разделы (чтобы не "погасить" кастомное дерево).
-- Мы деактивируем только элементы (товары) `IBLOCK_ID=1` по `timestamp` из `mode=deactivate` (если запрос пришёл в контексте полной выгрузки, после `rests`/`complete`).
-- Парсер в обмене настроен так, чтобы реактивировать секции, но НЕ включать обратно элементы (`reactivateElements=false`).
-
-## Производительность (когда станет 1500+ товаров)
-
-Текущая модель запуска (через `shutdown` в web-запросе 1С) может начать упираться в:
-
-- занятость php-fpm воркеров,
-- таймауты/память,
-- конкуренцию при нескольких файлах обмена подряд.
-
-Рекомендованная эволюция без изменения бизнес-логики:
-
-- Оставить события как "маркер" (`pending=Y` + метаданные).
-- Выполнение вынести в CLI-воркер: cron каждые 1–2 минуты запускает `php local/cron/1c_catalog_parse.php` и/или отдельный runner, который проверяет `pending` и выполняет работу.
-
-## Чек-лист прод-проверки после выгрузки (10 пунктов)
-
-1. 1С отчёт по обмену (`upload/1c_catalog/Reports/...utf8.txt`) без `failure/ошибка`.
-2. В `upload/1c_catalog/` появились новые `import___*.xml`, `prices___*.xml`, `rests___*.xml`.
-3. В `event_log.php` есть `BRKS_1C_IMAGE finished` по `import___*.xml` (где ожидаются ссылки на фото).
-4. В `event_log.php` есть `BRKS_1C_PARSE finished` по источнику `OnCompleteCatalogImport1C` или `OnSuccessCatalogImport1C:rests`.
-5. Парсер не сработал через fallback (`source=OnSuccessTimeoutFallback`) как основной путь.
-6. В `BRKS_1C_PARSE finished` разумные значения `orphans` и `skippedLengthMismatch`.
-7. В `BRKS_1C_PARSE finished` `category_updated` и `oem_updated` не "внезапно 0" (если ожидаются обновления).
-8. Кол-во товаров в БД (`IBLOCK_ID=1`) соответствует ожиданиям (например, 81 после тестовой выгрузки).
-9. `parse.log` содержит строку `src=OnComplete...` или `src=...:rests` с итоговой статистикой.
-10. Витрина: 2–3 контрольных товара имеют раздел, цену, остаток/доступность, и отображаемое фото.
-
-## Полезные SSH-команды для быстрой диагностики
-
-Количество элементов в `IBLOCK_ID=1` (без учёта прав):
+Команды:
 
 ```bash
-php -r '$_SERVER["DOCUMENT_ROOT"]="/var/www/www-root/data/www/brakes-systems.ru";require $_SERVER["DOCUMENT_ROOT"]."/bitrix/modules/main/include/prolog_before.php";\\Bitrix\\Main\\Loader::includeModule("iblock");echo "iblock1_count_no_perm=".\\CIBlockElement::GetList([],["IBLOCK_ID"=>1,"CHECK_PERMISSIONS"=>"N"],[]).PHP_EOL;'
+cd /var/www/www-root/data/www/brakes-systems.ru
+php local/cron/1c_exchange_cleanup.php --dry-run --days=30
+php local/cron/1c_exchange_cleanup.php --apply --days=30
 ```
 
-Последние события по парсеру/мигратору:
+Для cron используем явный срок:
 
 ```bash
-php -r '$_SERVER["DOCUMENT_ROOT"]="/var/www/www-root/data/www/brakes-systems.ru";require $_SERVER["DOCUMENT_ROOT"]."/bitrix/modules/main/include/prolog_before.php";$rs=CEventLog::GetList(["ID"=>"DESC"],["AUDIT_TYPE_ID"=>["BRKS_1C_PARSE","BRKS_1C_IMAGE"]],false,["nTopCount"=>20],["ID","TIMESTAMP_X","AUDIT_TYPE_ID","REQUEST_URI","DESCRIPTION"]);while($e=$rs->Fetch()){echo $e["ID"]." ".$e["TIMESTAMP_X"]." ".$e["AUDIT_TYPE_ID"]." ".$e["REQUEST_URI"].\"\\n\".$e[\"DESCRIPTION\"].\"\\n---\\n\";}' 
+30 3 * * * php /var/www/www-root/data/www/brakes-systems.ru/local/cron/1c_exchange_cleanup.php --apply --days=30
+```
+
+## Логи
+
+Основной лог для диагностики:
+
+- админка Битрикса: `/bitrix/admin/event_log.php`
+- `AUDIT_TYPE_ID=BRKS_1C_PARSE`
+- `AUDIT_TYPE_ID=BRKS_1C_IMAGE`
+- `AUDIT_TYPE_ID=BRKS_1C_DEACT`
+- `AUDIT_TYPE_ID=BRKS_1C_EXCHANGE_CLEANUP`
+
+Файловый лог:
+
+- `local/cron/parse.log`
+
+Файловый лог нужен как быстрый технический след. Он не должен быть единственным источником диагностики.
+
+## Быстрая Проверка После Обмена
+
+1. В отчете 1С нет ошибок.
+2. В `CEventLog` есть события `BRKS_1C_IMAGE` по `import___*.xml`, если ожидались фото.
+3. В `CEventLog` есть `BRKS_1C_PARSE finished` по `OnCompleteCatalogImport1C` или fallback.
+4. В `parse.log` есть итоговая строка парсера.
+5. На витрине 2-3 контрольных товара имеют цену, остаток, раздел и фото.
+
+## Полезные Команды
+
+Посмотреть кандидатов на чистку без удаления:
+
+```bash
+php local/cron/1c_exchange_cleanup.php --dry-run --days=30
+```
+
+Проверить последние события парсера/фото:
+
+```bash
+php -r '$_SERVER["DOCUMENT_ROOT"]="/var/www/www-root/data/www/brakes-systems.ru";require $_SERVER["DOCUMENT_ROOT"]."/bitrix/modules/main/include/prolog_before.php";$rs=CEventLog::GetList(["ID"=>"DESC"],["AUDIT_TYPE_ID"=>["BRKS_1C_PARSE","BRKS_1C_IMAGE","BRKS_1C_DEACT","BRKS_1C_EXCHANGE_CLEANUP"]],false,["nTopCount"=>20],["ID","TIMESTAMP_X","AUDIT_TYPE_ID","DESCRIPTION"]);while($e=$rs->Fetch()){echo $e["ID"]." ".$e["TIMESTAMP_X"]." ".$e["AUDIT_TYPE_ID"]."\n".$e["DESCRIPTION"]."\n---\n";}'
 ```
