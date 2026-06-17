@@ -26,7 +26,10 @@ Asset::getInstance()->addCss($originalTemplateFolder . '/style.css');
 
 $templateFolder = $originalTemplateFolder;
 include Application::getDocumentRoot() . $originalTemplateFolder . '/template.php';
+
+$deliveryDescriptionScript = SITE_TEMPLATE_PATH . '/components/bitrix/sale.order.ajax/bootstrap_v4/delivery-descriptions.js';
 ?>
+<script src="<?=htmlspecialcharsbx($deliveryDescriptionScript)?>?v=<?=filemtime(__DIR__ . '/delivery-descriptions.js')?>"></script>
 <script>
 BX.ready(function () {
     var source = 'Ошибка регистрации нового пользователя: Указан некорректный номер телефона.';
