@@ -17,9 +17,11 @@
   - обработка `mode=deactivate`;
   - планировщик парсера;
   - обработчик `catalog:OnCompleteCatalogImport1C`;
-  - fallback на `main:OnAfterEpilog`.
+  - постановка задачи парсера в опции модуля `brakes`.
 - `local/cron/1c_catalog_parse.php`
-  - CLI/внутренняя функция пересборки разделов и служебных свойств.
+  - внутренняя функция пересборки разделов и служебных свойств.
+- `local/cron/1c_catalog_parse_runner.php`
+  - безопасный CLI-runner, который запускает парсер после завершения обмена.
 - `local/cron/1c_exchange_cleanup.php`
   - безопасная чистка старых папок обмена.
 
@@ -34,11 +36,18 @@
    - парсер здесь не запускается, чтобы не обновлять `TIMESTAMP_X` до штатного `mode=deactivate`.
 
 3. `mode=complete`
-   - основной штатный момент запуска парсера;
-   - парсер реактивирует используемые разделы, но не включает обратно деактивированные товары.
+   - основной штатный момент постановки задачи парсера;
+   - тяжелая обработка не выполняется внутри web-запроса обмена.
 
 4. Fallback
-   - если после `import___*.xml` парсер остался в `pending`, `OnAfterEpilog` может запустить его позже с источником `OnSuccessTimeoutFallback`.
+   - если `mode=complete` не пришел, runner может запустить парсер позже по таймауту;
+   - по умолчанию fallback ждет дольше обычного обмена, чтобы не стартовать между XML-файлами.
+
+5. Cron runner
+   - проверяет `pending=Y`;
+   - запускается только после `OnCompleteCatalogImport1C` или fallback-таймаута;
+   - сбрасывает протухший `running=Y`, если запуск старше порога и DB-lock свободен;
+   - парсер реактивирует используемые разделы, но не включает обратно деактивированные товары.
 
 ## Защита `mode=deactivate`
 
@@ -72,7 +81,27 @@ php local/cron/1c_exchange_cleanup.php --apply --days=30
 Для cron используем явный срок:
 
 ```bash
-30 3 * * * php /var/www/www-root/data/www/brakes-systems.ru/local/cron/1c_exchange_cleanup.php --apply --days=30
+30 3 */5 * * cd /var/www/www-root/data/www/brakes-systems.ru && php local/cron/1c_exchange_cleanup.php --apply --days=30 >/dev/null 2>&1
+```
+
+## Cron Парсера
+
+Парсер запускается не из web-запроса обмена, а через CLI-runner:
+
+```bash
+*/5 * * * * cd /var/www/www-root/data/www/brakes-systems.ru && php local/cron/1c_catalog_parse_runner.php >/dev/null 2>&1
+```
+
+Ручная проверка без изменений:
+
+```bash
+php local/cron/1c_catalog_parse_runner.php --dry-run
+```
+
+Принудительный безопасный запуск:
+
+```bash
+php local/cron/1c_catalog_parse_runner.php --force
 ```
 
 ## Логи
@@ -95,7 +124,7 @@ php local/cron/1c_exchange_cleanup.php --apply --days=30
 
 1. В отчете 1С нет ошибок.
 2. В `CEventLog` есть события `BRKS_1C_IMAGE` по `import___*.xml`, если ожидались фото.
-3. В `CEventLog` есть `BRKS_1C_PARSE finished` по `OnCompleteCatalogImport1C` или fallback.
+3. В `CEventLog` есть `BRKS_1C_PARSE runner started/finished`.
 4. В `parse.log` есть итоговая строка парсера.
 5. На витрине 2-3 контрольных товара имеют цену, остаток, раздел и фото.
 

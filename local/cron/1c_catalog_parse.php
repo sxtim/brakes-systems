@@ -16,6 +16,13 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         $_SERVER['DOCUMENT_ROOT'] = (string)$root;
     }
 
+    if (PHP_SAPI === 'cli' && date_default_timezone_get() === 'Etc/UTC') {
+        $systemTimezone = trim((string)@file_get_contents('/etc/timezone'));
+        if ($systemTimezone !== '') {
+            @date_default_timezone_set($systemTimezone);
+        }
+    }
+
     $iblockId = (int)($options['iblockId'] ?? 1);
     // Backward-compatible switch:
     // - reactivate=true previously meant: activate used sections + activate inactive elements.
@@ -106,6 +113,7 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         ];
     }
 
+    try {
     $normalizeCategory = static function (?string $raw): array {
         $value = trim((string)$raw);
         if ($value === '') {
@@ -917,13 +925,15 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         }
     }
 
-    if ($connection && in_array($dbType, ['mysql', 'mysqli'], true)) {
-        try {
-            $helper = $connection->getSqlHelper();
-            $safeLock = $helper->forSql($lockName);
-            $connection->queryExecute("SELECT RELEASE_LOCK('{$safeLock}')");
-        } catch (\Throwable $exception) {
-            // ignore lock release errors
+    } finally {
+        if ($connection && in_array($dbType, ['mysql', 'mysqli'], true)) {
+            try {
+                $helper = $connection->getSqlHelper();
+                $safeLock = $helper->forSql($lockName);
+                $connection->queryExecute("SELECT RELEASE_LOCK('{$safeLock}')");
+            } catch (\Throwable $exception) {
+                // ignore lock release errors
+            }
         }
     }
 
@@ -956,10 +966,11 @@ function brakes_1c_catalog_parse_run(array $options = []): array
     ];
 }
 
-if (PHP_SAPI === 'cli' || realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
     $result = brakes_1c_catalog_parse_run([
         'iblockId' => 1,
-        'reactivate' => true,
+        'reactivateSections' => true,
+        'reactivateElements' => false,
         'logPrefix' => 'manual',
     ]);
     echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . PHP_EOL;

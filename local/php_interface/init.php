@@ -743,7 +743,7 @@ if (!function_exists('brakes_1c_parse_run_safe')) {
 }
 
 if (!function_exists('brakes_1c_parse_schedule')) {
-    function brakes_1c_parse_schedule(array $options = [], array $meta = [], bool $runNow = true): void
+    function brakes_1c_parse_schedule(array $options = [], array $meta = [], bool $runNow = false): void
     {
         if (!class_exists(\Bitrix\Main\Config\Option::class)) {
             if ($runNow) {
@@ -789,6 +789,14 @@ if (!function_exists('brakes_1c_parse_schedule')) {
             return;
         }
 
+        if (PHP_SAPI !== 'cli') {
+            brakes_1c_parse_log_event('INFO', '1c catalog parse queued for cron runner', [
+                'source' => $meta['source'] ?? null,
+                'file' => $meta['file'] ?? null,
+            ]);
+            return;
+        }
+
         $jobToken = (string)(microtime(true) . ':' . mt_rand(1000, 9999));
         \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_job_token', $jobToken);
 
@@ -817,7 +825,7 @@ if (!function_exists('brakes_1c_parse_schedule')) {
             }
         };
 
-        brakes_dispatch_background_job($runner);
+        $runner();
     }
 }
 
@@ -852,18 +860,9 @@ if (!function_exists('brakes_1c_parse_try_fallback')) {
             return;
         }
         \Bitrix\Main\Config\Option::set($moduleId, '1c_parse_fallback_last_ts', (string)time());
-
-        $lastFile = (string)\Bitrix\Main\Config\Option::get($moduleId, '1c_parse_last_file', '');
-        brakes_1c_parse_schedule([
-            'iblockId' => 1,
-            'reactivateSections' => true,
-            'reactivateElements' => false,
-            'logPath' => $_SERVER['DOCUMENT_ROOT'] . '/local/cron/parse.log',
-            'logPrefix' => 'OnSuccessTimeoutFallback',
-        ], [
-            'source' => 'OnSuccessTimeoutFallback',
-            'file' => $lastFile,
-        ], true);
+        brakes_1c_parse_log_event('INFO', '1c catalog parse fallback left for cron runner', [
+            'lastTs' => $lastTs,
+        ]);
     }
 }
 
@@ -1222,7 +1221,7 @@ AddEventHandler('catalog', 'OnCompleteCatalogImport1C', static function ($params
     ], [
         'source' => 'OnCompleteCatalogImport1C',
         'file' => $absFileName,
-    ]);
+    ], false);
 });
 
 AddEventHandler('main', 'OnProlog', static function (): void {
@@ -1240,6 +1239,4 @@ AddEventHandler('main', 'OnProlog', static function (): void {
     }
 });
 
-AddEventHandler('main', 'OnAfterEpilog', static function (): void {
-    brakes_1c_parse_try_fallback();
-});
+// 1C catalog post-processing is executed by local/cron/1c_catalog_parse_runner.php.
