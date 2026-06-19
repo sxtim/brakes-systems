@@ -251,6 +251,14 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         return array_keys($result);
     };
 
+    $splitAlignedValues = static function (?string $raw): array {
+        $values = array_map('trim', explode(';', (string)$raw));
+        while ($values && end($values) === '') {
+            array_pop($values);
+        }
+        return $values;
+    };
+
     if ($syncOemNumbers) {
         $ensureOemProperty($iblockId, $oemPropertyCode, $oemPropertyName);
     }
@@ -572,9 +580,9 @@ function brakes_1c_catalog_parse_run(array $options = []): array
             $elementsToActivate[$elementId] = true;
         }
 
-        $marks = array_values(array_filter(array_map('trim', explode(';', (string)$data['PROPERTY_MARK_VALUE'])), 'strlen'));
-        $models = array_values(array_filter(array_map('trim', explode(';', (string)$data['PROPERTY_MODEL_VALUE'])), 'strlen'));
-        $bodies = array_values(array_filter(array_map('trim', explode(';', (string)$data['PROPERTY_BODY_VALUE'])), 'strlen'));
+        $marks = $splitAlignedValues((string)$data['PROPERTY_MARK_VALUE']);
+        $models = $splitAlignedValues((string)$data['PROPERTY_MODEL_VALUE']);
+        $bodies = $splitAlignedValues((string)$data['PROPERTY_BODY_VALUE']);
 
         $categoryTrait = null;
         $crossRaw = null;
@@ -688,18 +696,15 @@ function brakes_1c_catalog_parse_run(array $options = []): array
             }
         }
 
-        if (count($marks) !== count($models) || count($marks) !== count($bodies)) {
-            $skippedLengthMismatch++;
-            $orphanElements[$elementId] = 'length_mismatch';
-            continue;
-        }
-
         $elementsProcessed++;
         $hasValidCombo = false;
+        $hasLengthMismatch = count($marks) !== count($models) || count($marks) !== count($bodies);
+        $rowCount = max(count($marks), count($models), count($bodies));
 
-        foreach ($marks as $i => $mark) {
-            $model = $models[$i];
-            $body = $bodies[$i];
+        for ($i = 0; $i < $rowCount; $i++) {
+            $mark = trim((string)($marks[$i] ?? ''));
+            $model = trim((string)($models[$i] ?? ''));
+            $body = trim((string)($bodies[$i] ?? ''));
 
             if ($mark === '' || $model === '' || $body === '') {
                 continue;
@@ -728,7 +733,12 @@ function brakes_1c_catalog_parse_run(array $options = []): array
         }
 
         if (!$hasValidCombo) {
-            $orphanElements[$elementId] = 'empty_values';
+            if ($hasLengthMismatch) {
+                $skippedLengthMismatch++;
+                $orphanElements[$elementId] = 'length_mismatch';
+            } else {
+                $orphanElements[$elementId] = 'empty_values';
+            }
         }
     }
 
