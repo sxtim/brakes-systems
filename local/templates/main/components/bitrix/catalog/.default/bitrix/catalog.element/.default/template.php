@@ -930,6 +930,7 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
                 case 'VIDEO_LINK':
                 case 'LINK_PHOTO':
                 case 'LINK_PHOTO_FILE':
+                case 'MORE_PHOTO':
                 case 'CML2_TRAITS':
                 case 'COLOR':
                 case 'RECOMMENDED':
@@ -944,6 +945,10 @@ echo "<!-- applicability_debug: " . htmlspecialcharsbx($debugLine) . " -->";
             }
 
             if (!$prop['VALUE']) {
+                continue;
+            }
+
+            if (is_array($prop['VALUE'])) {
                 continue;
             }
             ?>
