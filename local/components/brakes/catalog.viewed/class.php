@@ -1,6 +1,7 @@
 <?php
 
 use App\Brakes\Helper\Image;
+use App\Brakes\Helper\StockProvider;
 use App\Brakes\Helper\Storage;
 use Bitrix\Main\Application;
 use Bitrix\Main\Loader;
@@ -263,6 +264,7 @@ class CatalogViewedComponent extends \CBitrixComponent
         if ($ids === []) {
             return;
         }
+        $stockMap = StockProvider::getMap($ids);
 
         $select = [
             'ID',
@@ -318,6 +320,7 @@ class CatalogViewedComponent extends \CBitrixComponent
             }
 
             $name = (string)($fields['~NAME'] ?? $fields['NAME'] ?? '');
+            $baseDetailUrl = (string)($fields['DETAIL_PAGE_URL'] ?? '#');
             $elementCode = (string)($fields['CODE'] ?? '');
             $categoryValue = '';
             if (!empty($properties['CML2_TRAITS']['VALUE']) && is_array($properties['CML2_TRAITS']['VALUE'])) {
@@ -440,10 +443,12 @@ class CatalogViewedComponent extends \CBitrixComponent
             $card = [
                 'ID' => $id,
                 'NAME' => $name,
-                'DETAIL_PAGE_URL' => (string)($fields['DETAIL_PAGE_URL'] ?? '#'),
+                'DETAIL_PAGE_URL' => $baseDetailUrl,
                 'CONTEXT_LABEL' => '',
                 'CONTEXT_SECTION_ID' => 0,
                 'CONTEXT_SECTION_PATH' => '',
+                'CATALOG_QUANTITY' => $stockMap[$id]['CATALOG_QUANTITY'] ?? null,
+                'CATALOG_AVAILABLE' => $stockMap[$id]['CATALOG_AVAILABLE'] ?? null,
                 'IMAGE' => $pictureData,
                 'IMG' => is_array($pictureData) ? (string)($pictureData['src'] ?? '') : '',
                 'DETAILS' => $details,
@@ -456,7 +461,7 @@ class CatalogViewedComponent extends \CBitrixComponent
                 'HIDE_FEATURES' => true,
                 'BUY' => [
                     'NAME' => $name,
-                    'URL' => $detailUrl,
+                    'URL' => $baseDetailUrl,
                 ],
             ];
 

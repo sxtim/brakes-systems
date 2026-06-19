@@ -2,12 +2,13 @@
 
 namespace App\Brakes\Helper;
 
+use Bitrix\Catalog\ProductTable;
 use Bitrix\Main\Loader;
 
 /**
  * Single source of truth for product stock/availability used across UI blocks.
  *
- * For now we rely on CCatalogProduct (single stock/global quantity).
+ * For now we rely on catalog product data (single stock/global quantity).
  * If we later switch to multi-warehouse/reserves, this class is the only place to change.
  */
 class StockProvider
@@ -34,11 +35,39 @@ class StockProvider
             return [];
         }
 
+        $map = [];
+
+        try {
+            if (class_exists(ProductTable::class)) {
+                $res = ProductTable::getList([
+                    'select' => ['ID', 'QUANTITY', 'AVAILABLE'],
+                    'filter' => ['@ID' => $ids],
+                ]);
+
+                while ($row = $res->fetch()) {
+                    $id = (int)($row['ID'] ?? 0);
+                    if ($id <= 0) {
+                        continue;
+                    }
+
+                    $map[$id] = [
+                        'CATALOG_QUANTITY' => isset($row['QUANTITY']) ? (float)$row['QUANTITY'] : null,
+                        'CATALOG_AVAILABLE' => $row['AVAILABLE'] ?? null,
+                    ];
+                }
+            }
+        } catch (\Throwable $exception) {
+            $map = [];
+        }
+
+        if ($map !== []) {
+            return $map;
+        }
+
         if (!class_exists('CCatalogProduct')) {
             return [];
         }
 
-        $map = [];
         $res = \CCatalogProduct::GetList(
             [],
             ['@ID' => $ids],
@@ -62,4 +91,3 @@ class StockProvider
         return $map;
     }
 }
-
